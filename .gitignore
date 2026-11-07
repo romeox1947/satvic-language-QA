@@ -11,3 +11,5 @@ dontseethisfileai.md
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+/.swc
+tsconfig.tsbuildinfo

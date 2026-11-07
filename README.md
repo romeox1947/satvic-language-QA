@@ -52,6 +52,21 @@ Open [http://localhost:3000](http://localhost:3000). If the Whisper worker is un
 5. Gemini checks the actual compressed audio tracks and also runs a separate text cross-check using both transcripts and Sarvam back-translation. Findings show whether a matching phrase was flagged by both passes or only one. Times are anchored to ASR segment boundaries when available.
 6. While processing, the analysis dialog shows elapsed time, provider stage and progress. The report lists suspected findings with categories and source/dub time ranges. It avoids model-reported confidence percentages; matching audio and text evidence is shown as corroboration, not proof. Click a time button to jump to that moment. Generated Sarvam dubs can also be downloaded from the report. The transcript evidence can be expanded, and the JSON export includes findings and timestamps.
 
+## Server-side jobs on Vercel
+
+In **Generate with Sarvam** mode, the browser uploads the source directly to private Vercel Blob storage and starts a Vercel Workflow. Sarvam dubbing and QA continue on Vercel if the browser closes; the dashboard saves the workflow ID in that browser and checks the saved job when you return. The QA report and private media remain in the workflow result and Blob storage.
+
+Before using this flow on Vercel:
+
+1. In the Vercel project, create a Blob store and connect it to this project. Vercel supplies `BLOB_READ_WRITE_TOKEN` automatically.
+2. Set `SARVAM_API_KEY` and `GEMINI_API_KEY` in the Vercel project environment variables.
+3. Set `APP_BASE_URL` to the deployed HTTPS URL if the Vercel deployment URL is not available to the workflow runtime. If you enable Vercel Deployment Protection, also set `VERCEL_AUTOMATION_BYPASS_SECRET` to that project's protection bypass secret so the workflow can call the QA API.
+4. Redeploy after connecting storage and setting variables.
+
+Local background testing also requires a Blob store token in `.env.local`; local workflows do not keep running if the computer is turned off. Protect the deployed app with Vercel Deployment Protection or add app authentication before sharing it: the upload and job APIs are intended for the app owner and should not be left open to public traffic.
+
+Vercel Hobby functions are limited to 300 seconds per function invocation. Sarvam dubbing waits are durable and do not hold a function open, but the QA transcription/audio-review stage still runs within that function limit. Very long media can therefore fail QA or exceed the audio-review provider's inline audio limit; inspect the job status and Vercel Workflow run details for the actual outcome.
+
 AI audio review can miss errors or mishear speech. Findings are model estimates, not a guarantee that a dub is correct. Inline audio comparison is limited to requests under 18 MB; for longer videos, split them into shorter clips and analyze each part.
 
 ## Local data and keys

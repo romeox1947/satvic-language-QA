@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
+import { get as getBlob } from '@vercel/blob';
 import { updateAnalysisProgress } from './progress-store';
 
 export const runtime = 'nodejs';
@@ -359,12 +360,25 @@ export async function POST(request: Request) {
   let stage = 'Reading uploaded files';
   let progressId = '';
   try {
-    const form = await request.formData();
-    progressId = String(form.get('progressId') || '');
+    const isJson = request.headers.get('content-type')?.includes('application/json');
+    const form = isJson ? null : await request.formData();
+    const json: Json = isJson ? await request.json() : {};
+    progressId = String(form?.get('progressId') || '');
     updateAnalysisProgress(progressId, 'Checking uploaded videos', 12);
-    const original = form.get('original'); const dubbed = form.get('dubbed');
-    const sourceLanguage = String(form.get('sourceLanguage') || 'Hindi');
-    const targetLanguage = String(form.get('targetLanguage') || 'Tamil');
+    let original: FormDataEntryValue | File | null = form?.get('original') || null;
+    let dubbed: FormDataEntryValue | File | null = form?.get('dubbed') || null;
+    if (isJson) {
+      const originalBlobUrl = String(json.originalBlobUrl || '');
+      const dubbedBlobUrl = String(json.dubbedBlobUrl || '');
+      if (!originalBlobUrl.startsWith('https://') || !dubbedBlobUrl.startsWith('https://')) return NextResponse.json({ error: 'Both uploaded Blob URLs are required.' }, { status: 400 });
+      const [originalBlob, dubbedBlob] = await Promise.all([getBlob(originalBlobUrl, { access: 'private' }), getBlob(dubbedBlobUrl, { access: 'private' })]);
+      if (!originalBlob || !dubbedBlob) return NextResponse.json({ error: 'One of the uploaded private videos is missing.' }, { status: 404 });
+      const [originalBytes, dubbedBytes] = await Promise.all([new Response(originalBlob.stream).arrayBuffer(), new Response(dubbedBlob.stream).arrayBuffer()]);
+      original = new File([originalBytes], String(json.originalName || 'source.mp4'), { type: originalBlob.blob.contentType || 'video/mp4' });
+      dubbed = new File([dubbedBytes], 'dub.mp4', { type: dubbedBlob.blob.contentType || 'video/mp4' });
+    }
+    const sourceLanguage = String(form?.get('sourceLanguage') || json.sourceLanguage || 'Hindi');
+    const targetLanguage = String(form?.get('targetLanguage') || json.targetLanguage || 'Tamil');
     if (!(original instanceof File) || !(dubbed instanceof File)) return NextResponse.json({ error: 'Choose both the original and dubbed media.' }, { status: 400 });
     if (!original.size || !dubbed.size) return NextResponse.json({ error: 'One of the selected files is empty.' }, { status: 400 });
     if (original.size > 450 * 1024 * 1024 || dubbed.size > 450 * 1024 * 1024) return NextResponse.json({ error: 'Each media file must be smaller than 450 MB for this local server.' }, { status: 413 });
@@ -420,7 +434,7 @@ export async function POST(request: Request) {
     updateAnalysisProgress(progressId, 'Finishing the timestamped report', 97);
     updateAnalysisProgress(progressId, 'Analysis complete', 100, 'complete');
     return NextResponse.json({
-      project: String(form.get('projectName') || original.name.replace(/\.[^.]+$/, '')),
+      project: String(form?.get('projectName') || json.projectName || original.name.replace(/\.[^.]+$/, '')),
       sourceLanguage, targetLanguage, createdAt: new Date().toISOString(),
       originalTranscript: originalResult.transcript, dubbedTranscript: dubbedResult.transcript,
       backTranslation, findings: combinedFindings,

@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { upload } from '@vercel/blob/client';
 import {
   Activity, ArrowDown, ArrowDownToLine, ArrowRight, AudioLines, BadgeCheck, Bell, BookOpen,
   Check, CheckCheck, ChevronDown, CircleHelp, Clock3, FileAudio, FileText, Filter, FlaskConical,
@@ -9,11 +10,12 @@ import {
 } from 'lucide-react';
 
 type Issue = { title: string; detail: string; time?: string; source?: string; severity: 'critical' | 'review' | 'info'; category?: string; sourceStart?: number; sourceEnd?: number; dubStart?: number; dubEnd?: number; evidenceStatus?: 'cross-checked' | 'audio-only' | 'transcript-only'; sourceQuote?: string; dubQuote?: string };
-type Project = { title: string; source: string; target: string; status: 'Needs review' | 'In progress' | 'Ready'; issues: number; date: string; color: string; initials: string };
+type Project = { title: string; source: string; target: string; status: 'Needs review' | 'In progress' | 'Ready'; issues: number; date: string; color: string; initials: string; jobId?: string };
 type TranscriptSegment = { start: number; end: number; text: string; words?: { start: number; end: number; text: string }[] };
 type AnalysisReport = { project: string; sourceLanguage: string; targetLanguage: string; createdAt: string; originalTranscript: string; dubbedTranscript: string; backTranslation: string; findings: Issue[]; disclaimer: string; originalSegments: TranscriptSegment[]; dubbedSegments: TranscriptSegment[]; timestampsAvailable: boolean; transcriptionEngine: string; semanticReviewEngine: string | null; transcriptCrossCheckAvailable: boolean; transcriptCrossCheckError?: string | null; reviewCoverageWarnings?: string[]; reviewComplete?: boolean; generatedBySarvam?: boolean; originalVideoUrl?: string; dubbedVideoUrl?: string };
 
 const initialProjects: Project[] = [];
+const JOBS_KEY = 'satvic-background-jobs-v1';
 const issues: Issue[] = [];
 
 const languages = ['Tamil', 'Telugu', 'Gujarati', 'Kannada', 'Bengali', 'Marathi', 'Punjabi', 'Malayalam', 'Hindi', 'English', 'Assamese', 'Odia'];
@@ -82,6 +84,51 @@ export default function Home() {
   const [estimatedRange, setEstimatedRange] = useState<{ min: number; max: number } | null>(null);
   const [navOpen, setNavOpen] = useState(false);
 
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]') as Array<{ runId: string; title: string; source: string; target: string; createdAt: string; status: string; issues?: number }>;
+      setProjects(saved.map((job) => ({ title: job.title, source: job.source, target: job.target, status: job.status === 'completed' ? (job.issues ? 'Needs review' : 'Ready') : job.status === 'failed' ? 'Needs review' : 'In progress', issues: job.issues || 0, date: new Date(job.createdAt).toLocaleDateString(), color: 'lilac', initials: job.title.slice(0, 2).toUpperCase(), jobId: job.runId })));
+    } catch { localStorage.removeItem(JOBS_KEY); }
+    let active = true;
+    const refreshJobs = async () => {
+      try {
+        const jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]') as Array<{ runId: string; status: string; issues?: number }>;
+        const updates = await Promise.all(jobs.filter(job => job.status === 'running').map(async job => {
+          const response = await fetch(`/api/jobs/${encodeURIComponent(job.runId)}`, { cache: 'no-store' });
+          const body = await response.json().catch(() => ({}));
+          if (!response.ok) return { ...job, status: 'failed', error: body.error || 'Could not recover job status.' };
+          if (body.status === 'completed' && body.report) return { ...job, status: 'completed', issues: body.report.findings?.length || 0 };
+          if (body.status === 'failed') return { ...job, status: 'failed', error: body.error || 'Background workflow failed. Check Vercel Workflows for its error.' };
+          return job;
+        }));
+        if (!active || !updates.length) return;
+        const latest = new Map(updates.map(job => [job.runId, job]));
+        const merged = jobs.map(job => latest.get(job.runId) || job);
+        localStorage.setItem(JOBS_KEY, JSON.stringify(merged));
+        setProjects(merged.map((job: any) => ({ title: job.title, source: job.source, target: job.target, status: job.status === 'completed' ? (job.issues ? 'Needs review' : 'Ready') : job.status === 'failed' ? 'Needs review' : 'In progress', issues: job.issues || 0, date: new Date(job.createdAt).toLocaleDateString(), color: 'lilac', initials: job.title.slice(0, 2).toUpperCase(), jobId: job.runId })));
+      } catch { /* Job cards remain available from their last saved state. */ }
+    };
+    void refreshJobs();
+    const timer = window.setInterval(refreshJobs, 20_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+
+  useEffect(() => {
+    if (!details?.jobId) return;
+    let active = true;
+    setReport(null);
+    fetch(`/api/jobs/${encodeURIComponent(details.jobId)}`, { cache: 'no-store' })
+      .then(async response => ({ response, body: await response.json().catch(() => ({})) }))
+      .then(({ response, body }) => {
+        if (!active) return;
+        if (response.ok && body.report) setReport(body.report as AnalysisReport);
+        else if (body.status === 'running') setNotice('This job is still running on the server. Check back here after it completes.');
+        else if (body.status === 'failed' || !response.ok) setNotice(body.error || 'This job failed. Open Vercel Workflows to see the failure details.');
+      })
+      .catch(() => { if (active) setNotice('Could not load this job report. Check your connection and try again.'); });
+    return () => { active = false; };
+  }, [details?.jobId]);
+
   const visibleProjects = useMemo(() => projects.filter((p) => {
     const matchQuery = `${p.title} ${p.target} ${p.source}`.toLowerCase().includes(query.toLowerCase());
     const matchTab = activeTab === 'All projects' || (activeTab === 'Needs review' && p.status === 'Needs review') || (activeTab === 'In progress' && p.status === 'In progress') || (activeTab === 'Ready' && p.status === 'Ready');
@@ -130,30 +177,25 @@ export default function Home() {
     let finalDub = dubbedFile;
     try {
       if (generationMode === 'sarvam') {
-        setAnalysisProgress({ stage: 'Uploading original to Sarvam Dubbing', percent: 5, status: 'processing', startedAt });
-        const dubbingForm = new FormData();
-        dubbingForm.set('original', originalFile); dubbingForm.set('sourceLanguage', source); dubbingForm.set('targetLanguage', target); dubbingForm.set('projectName', projectName || originalFile.name);
-        const startResponse = await fetch('/api/dubbing', { method: 'POST', body: dubbingForm });
+        setAnalysisProgress({ stage: 'Uploading video directly to secure server storage', percent: 4, status: 'processing', startedAt });
+        const stored = await upload(`satvic-jobs/${crypto.randomUUID()}-${originalFile.name.replace(/[^\w.-]+/g, '-')}`, originalFile, {
+          access: 'private', handleUploadUrl: '/api/blob/upload', multipart: true,
+          onUploadProgress: ({ percentage }) => setAnalysisProgress({ stage: `Uploading video to secure storage · ${Math.round(percentage)}%`, percent: Math.max(4, Math.round(percentage * 0.35)), status: 'processing', startedAt }),
+        });
+        setAnalysisProgress({ stage: 'Handing job to the server workflow', percent: 38, status: 'processing', startedAt });
+        const startResponse = await fetch('/api/jobs/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ originalBlobUrl: stored.url, originalName: originalFile.name, sourceLanguage: source, targetLanguage: target, projectName: projectName || originalFile.name.replace(/\.[^.]+$/, '') }) });
         const startBody = await readApiJson(startResponse);
-        if (!startResponse.ok) throw new Error(startBody.error || 'Could not start Sarvam dubbing.');
-        const deadline = Date.now() + 60 * 60 * 1000;
-        let ready = false;
-        while (Date.now() < deadline) {
-          await new Promise(resolve => window.setTimeout(resolve, 8000));
-          const statusResponse = await fetch(`/api/dubbing/status?jobId=${encodeURIComponent(startBody.jobId)}&t=${Date.now()}`, { cache: 'no-store' });
-          const status = await readApiJson(statusResponse);
-          if (!statusResponse.ok) throw new Error(status.error || 'Could not check Sarvam dubbing status.');
-          const stagePercent = Math.min(70, Math.max(8, Math.round((status.progress || 0) * 0.65) + 8));
-          setAnalysisProgress({ stage: status.step || 'Sarvam is creating the dub', percent: stagePercent, status: 'processing', startedAt });
-          if (status.error) throw new Error(status.error);
-          if (status.ready) { ready = true; break; }
-        }
-        if (!ready) throw new Error('Sarvam dubbing is still processing after an hour. Your job remains in Sarvam; try again later using the existing-dub option after downloading it from your Sarvam workspace.');
-        setAnalysisProgress({ stage: 'Downloading Sarvam dubbed video', percent: 72, status: 'processing', startedAt });
-        const downloadResponse = await fetch(`/api/dubbing/download?jobId=${encodeURIComponent(startBody.jobId)}`);
-        if (!downloadResponse.ok) { const body = await downloadResponse.json().catch(() => ({})); throw new Error(body.error || 'Could not download the Sarvam dubbed video.'); }
-        const dubbedBlob = await downloadResponse.blob();
-        finalDub = new File([dubbedBlob], `${(projectName || originalFile.name.replace(/\.[^.]+$/, '')).replace(/[^\w.-]+/g, '-')}-${target.toLowerCase()}-dub.mp4`, { type: dubbedBlob.type || 'video/mp4' });
+        if (!startResponse.ok) throw new Error(startBody.error || 'Could not start the server-side dubbing job.');
+        const title = projectName || originalFile.name.replace(/\.[^.]+$/, '');
+        const jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]') as Array<Record<string, any>>;
+        jobs.unshift({ runId: startBody.runId, title, source, target, createdAt: new Date().toISOString(), status: 'running', issues: 0 });
+        localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
+        const project: Project = { title, source, target, status: 'In progress', issues: 0, date: 'Just now', color: 'lilac', initials: title.slice(0, 2).toUpperCase(), jobId: startBody.runId };
+        setProjects(previous => [project, ...previous]);
+        setModal(false); setOriginalFile(null); setDubbedFile(null); setProjectName('');
+        setNotice('Upload complete. Dubbing and QA are now running on Vercel; this browser can be closed. Reopen this dashboard later to see the result.');
+        window.setTimeout(() => setNotice(''), 9000);
+        return;
       }
       if (!finalDub) throw new Error('No dubbed media is available for QA.');
       setAnalysisProgress({ stage: 'Starting speech transcription and audio comparison', percent: 74, status: 'processing', startedAt });
@@ -167,20 +209,14 @@ export default function Home() {
       const result = body as AnalysisReport;
       result.originalVideoUrl = URL.createObjectURL(originalFile);
       result.dubbedVideoUrl = URL.createObjectURL(finalDub);
-      result.generatedBySarvam = generationMode === 'sarvam';
+      result.generatedBySarvam = false;
       const title = result.project || projectName || originalFile.name.replace(/\.[^.]+$/, '');
       const project: Project = { title, source, target, status: 'Needs review', issues: result.findings.length, date: 'Just now', color: 'lilac', initials: title.slice(0, 2).toUpperCase() };
       setReport(result); setProjects((prev) => [project, ...prev]); setDetails(project);
-      setModal(false); setOriginalFile(null); setDubbedFile(null); setProjectName(''); setNotice(generationMode === 'sarvam' ? 'Sarvam generated the dub. Gemini listened to both tracks and created the QA report.' : 'AI listened to both audio tracks. Open the report for timestamped findings.');
+      setModal(false); setOriginalFile(null); setDubbedFile(null); setProjectName(''); setNotice('AI listened to both audio tracks. Open the report for timestamped findings.');
       window.setTimeout(() => setNotice(''), 4500);
     } catch (error) {
-      if (generationMode === 'sarvam' && finalDub && originalFile) {
-        setDubbedFile(finalDub);
-        setGenerationMode('existing');
-        setNotice(`Sarvam created the dub, but QA did not finish. The generated file is kept here; click “Run AI dub review” to retry without generating another dub. ${error instanceof Error ? error.message : ''}`);
-      } else {
       setNotice(error instanceof Error ? error.message : 'Analysis failed. Check your API setup and try again.');
-      }
     } finally {
       polling = false;
       window.clearInterval(pollTimer);
