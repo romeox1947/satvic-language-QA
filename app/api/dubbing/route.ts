@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-export const maxDuration = 1800;
+export const maxDuration = 300;
 
 const SARVAM = 'https://api.sarvam.ai/dubbing';
 const LANGUAGES: Record<string, string> = {

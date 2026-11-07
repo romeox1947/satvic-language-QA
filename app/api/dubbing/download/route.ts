@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-export const maxDuration = 1800;
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
   const key = process.env.SARVAM_API_KEY?.trim();

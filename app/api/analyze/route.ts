@@ -7,7 +7,7 @@ import ffmpegPath from 'ffmpeg-static';
 import { updateAnalysisProgress } from './progress-store';
 
 export const runtime = 'nodejs';
-export const maxDuration = 1800;
+export const maxDuration = 300;
 
 const SARVAM = 'https://api.sarvam.ai';
 const LANGUAGES: Record<string, { whisper: string; sarvam: string }> = {
