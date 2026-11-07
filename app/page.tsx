@@ -28,6 +28,18 @@ const remainingEstimate = (range: { min: number; max: number } | null, elapsed: 
   return `${formatDuration(min)}â€“${formatDuration(max)} estimated left`;
 };
 
+async function readApiJson(response: Response): Promise<Record<string, any>> {
+  const raw = await response.text();
+  try {
+    return JSON.parse(raw) as Record<string, any>;
+  } catch {
+    if (response.status === 413 || /request entity too large|function_payload_too_large|payload too large/i.test(raw)) {
+      throw new Error('Vercel rejected this video because the current upload path sends it through an API function, which has a 4.5 MB request limit. This deployment needs direct Vercel Blob uploads before it can accept normal video files.');
+    }
+    throw new Error(`The server returned a non-JSON response (HTTP ${response.status}): ${raw.slice(0, 180).replace(/\s+/g, ' ') || 'empty response'}`);
+  }
+}
+
 function readMediaDuration(file: File): Promise<number> {
   return new Promise(resolve => {
     const media = document.createElement(file.type.startsWith('audio/') ? 'audio' : 'video');
@@ -122,14 +134,14 @@ export default function Home() {
         const dubbingForm = new FormData();
         dubbingForm.set('original', originalFile); dubbingForm.set('sourceLanguage', source); dubbingForm.set('targetLanguage', target); dubbingForm.set('projectName', projectName || originalFile.name);
         const startResponse = await fetch('/api/dubbing', { method: 'POST', body: dubbingForm });
-        const startBody = await startResponse.json();
+        const startBody = await readApiJson(startResponse);
         if (!startResponse.ok) throw new Error(startBody.error || 'Could not start Sarvam dubbing.');
         const deadline = Date.now() + 60 * 60 * 1000;
         let ready = false;
         while (Date.now() < deadline) {
           await new Promise(resolve => window.setTimeout(resolve, 8000));
           const statusResponse = await fetch(`/api/dubbing/status?jobId=${encodeURIComponent(startBody.jobId)}&t=${Date.now()}`, { cache: 'no-store' });
-          const status = await statusResponse.json();
+          const status = await readApiJson(statusResponse);
           if (!statusResponse.ok) throw new Error(status.error || 'Could not check Sarvam dubbing status.');
           const stagePercent = Math.min(70, Math.max(8, Math.round((status.progress || 0) * 0.65) + 8));
           setAnalysisProgress({ stage: status.step || 'Sarvam is creating the dub', percent: stagePercent, status: 'processing', startedAt });
@@ -150,7 +162,7 @@ export default function Home() {
       form.set('sourceLanguage', source); form.set('targetLanguage', target); form.set('projectName', projectName);
       form.set('progressId', progressId);
       const response = await fetch('/api/analyze', { method: 'POST', body: form });
-      const body = await response.json();
+      const body = await readApiJson(response);
       if (!response.ok) throw new Error(body.error || 'Analysis failed.');
       const result = body as AnalysisReport;
       result.originalVideoUrl = URL.createObjectURL(originalFile);
