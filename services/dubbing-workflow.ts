@@ -12,6 +12,13 @@ type JobInput = {
 type Json = Record<string, any>;
 const SARVAM = 'https://api.sarvam.ai/dubbing';
 
+function appBaseUrl(): string {
+  const configured = process.env.APP_BASE_URL?.trim();
+  const domain = configured || process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || '';
+  if (!domain) return '';
+  return (domain.startsWith('http://') || domain.startsWith('https://') ? domain : `https://${domain}`).replace(/\/+$/, '');
+}
+
 function errorText(value: unknown): string {
   if (typeof value === 'string') return value;
   if (value instanceof Error) return value.message;
@@ -47,7 +54,7 @@ async function sendJobEmail(input: JobInput, outcome: 'started' | 'completed' | 
   const htmlEntities: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
   const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => htmlEntities[char]);
   const title = outcome === 'started' ? 'Dubbing job started' : outcome === 'completed' ? 'Dubbing and QA completed' : 'Dubbing or QA failed';
-  const appUrl = process.env.APP_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+  const appUrl = appBaseUrl();
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -66,6 +73,8 @@ async function sendJobEmail(input: JobInput, outcome: 'started' | 'completed' | 
       console.warn(`[dubbing-workflow] Email notification failed (${response.status}): ${body.slice(0, 500)}`);
       return { sent: false };
     }
+    const result = await response.json().catch(() => ({}));
+    console.info(`[dubbing-workflow] Email notification accepted by Resend: ${result.id || 'message ID unavailable'}`);
     return { sent: true };
   } catch (error) {
     console.warn(`[dubbing-workflow] Email notification could not be sent: ${errorText(error)}`);
@@ -134,7 +143,7 @@ async function saveDub(downloadUrl: string) {
 
 async function runQa(input: JobInput, dubbedBlobUrl: string) {
   'use step';
-  const appUrl = process.env.APP_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+  const appUrl = appBaseUrl();
   if (!appUrl) throw new Error('APP_BASE_URL is missing. Set it to your deployed Vercel URL so the workflow can start QA.');
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
