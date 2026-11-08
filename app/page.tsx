@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { upload } from '@vercel/blob/client';
+import { uploadPresigned } from '@vercel/blob/client';
 import {
   Activity, ArrowDown, ArrowDownToLine, ArrowRight, AudioLines, BadgeCheck, Bell, BookOpen,
   Check, CheckCheck, ChevronDown, CircleHelp, Clock3, FileAudio, FileText, Filter, FlaskConical,
@@ -178,7 +178,7 @@ export default function Home() {
     try {
       if (generationMode === 'sarvam') {
         setAnalysisProgress({ stage: 'Uploading video directly to secure server storage', percent: 4, status: 'processing', startedAt });
-        const stored = await upload(`satvic-jobs/${crypto.randomUUID()}-${originalFile.name.replace(/[^\w.-]+/g, '-')}`, originalFile, {
+        const stored = await uploadPresigned(`satvic-jobs/${crypto.randomUUID()}-${originalFile.name.replace(/[^\w.-]+/g, '-')}`, originalFile, {
           access: 'private', handleUploadUrl: '/api/blob/upload', multipart: true,
           onUploadProgress: ({ percentage }) => setAnalysisProgress({ stage: `Uploading video to secure storage · ${Math.round(percentage)}%`, percent: Math.max(4, Math.round(percentage * 0.35)), status: 'processing', startedAt }),
         });

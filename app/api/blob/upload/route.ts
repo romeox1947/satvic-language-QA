@@ -1,30 +1,35 @@
-import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
+import { issueSignedToken } from '@vercel/blob';
+import { handleUploadPresigned, type HandleUploadPresignedBody } from '@vercel/blob/client';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return Response.json({ error: 'Connect a Vercel Blob store to this Vercel project before uploading videos.' }, { status: 503 });
-  }
   try {
-    const body = (await request.json()) as HandleUploadBody;
-    const json = await handleUpload({
+    if (!process.env.BLOB_WEBHOOK_PUBLIC_KEY) {
+      return Response.json({ error: 'The Blob store is missing its server credentials. Check that the store is connected to the Production environment, then redeploy.' }, { status: 503 });
+    }
+    const body = (await request.json()) as HandleUploadPresignedBody;
+    const json = await handleUploadPresigned({
       body,
       request,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-      onBeforeGenerateToken: async (pathname) => ({
-        pathname,
-        access: 'private',
-        addRandomSuffix: true,
-        maximumSizeInBytes: 450 * 1024 * 1024,
-        allowedContentTypes: ['video/*', 'audio/*', 'application/octet-stream'],
-        validUntil: Date.now() + 15 * 60 * 1000,
-      }),
+      webhookPublicKey: process.env.BLOB_WEBHOOK_PUBLIC_KEY,
+      getSignedToken: async (pathname) => {
+        const validUntil = Date.now() + 15 * 60 * 1000;
+        const token = await issueSignedToken({
+          pathname,
+          operations: ['put'],
+          validUntil,
+          maximumSizeInBytes: 450 * 1024 * 1024,
+          allowedContentTypes: ['video/*', 'audio/*', 'application/octet-stream'],
+        });
+        return { token, urlOptions: { validUntil, addRandomSuffix: true, maximumSizeInBytes: 450 * 1024 * 1024, allowedContentTypes: ['video/*', 'audio/*', 'application/octet-stream'] } };
+      },
     });
     return Response.json(json);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not authorize the video upload.';
+    console.error(`[api/blob/upload] ${message}`);
     return Response.json({ error: message }, { status: 400 });
   }
 }
