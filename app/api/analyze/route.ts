@@ -26,11 +26,65 @@ type Segment = { start: number; end: number; text: string; words?: { start: numb
 type Transcript = { transcript: string; segments: Segment[]; detectedLanguage: string; engine: string };
 type AudioFinding = { severity: 'critical' | 'review' | 'info'; title: string; detail: string; category?: string; sourceStart?: number; sourceEnd?: number; dubStart?: number; dubEnd?: number; sourceStartSegment?: number; sourceEndSegment?: number; dubStartSegment?: number; dubEndSegment?: number; evidenceStatus?: 'cross-checked' | 'audio-only' | 'transcript-only'; sourceQuote?: string; dubQuote?: string };
 type Json = Record<string, any>;
+const transcriptFindingsSchema = {
+  type: 'object',
+  properties: { findings: { type: 'array', items: { type: 'object', properties: {
+    severity: { type: 'string', enum: ['critical', 'review', 'info'] }, category: { type: 'string' },
+    title: { type: 'string' }, detail: { type: 'string' }, sourceQuote: { type: 'string' }, dubQuote: { type: 'string' },
+  }, required: ['severity', 'category', 'title', 'detail', 'sourceQuote', 'dubQuote'] } } },
+  required: ['findings'],
+};
+const audioFindingsSchema = {
+  type: 'object',
+  properties: { findings: { type: 'array', items: { type: 'object', properties: {
+    severity: { type: 'string', enum: ['critical', 'review', 'info'] }, category: { type: 'string' },
+    title: { type: 'string' }, detail: { type: 'string' }, sourceQuote: { type: 'string' }, dubQuote: { type: 'string' },
+    sourceStart: { type: ['number', 'null'] }, sourceEnd: { type: ['number', 'null'] },
+    dubStart: { type: ['number', 'null'] }, dubEnd: { type: ['number', 'null'] },
+    sourceStartSegment: { type: ['integer', 'null'] }, sourceEndSegment: { type: ['integer', 'null'] },
+    dubStartSegment: { type: ['integer', 'null'] }, dubEndSegment: { type: ['integer', 'null'] },
+  }, required: ['severity', 'category', 'title', 'detail', 'sourceQuote', 'dubQuote', 'sourceStart', 'sourceEnd', 'dubStart', 'dubEnd', 'sourceStartSegment', 'sourceEndSegment', 'dubStartSegment', 'dubEndSegment'] } } },
+  required: ['findings'],
+};
+
+function sarvamSegments(data: Json): Segment[] {
+  const timestamps = data.timestamps;
+  if (timestamps && typeof timestamps === 'object') {
+    const labels: unknown[] = Array.isArray(timestamps.chunks) ? timestamps.chunks
+      : Array.isArray(timestamps.words) ? timestamps.words
+        : Array.isArray(timestamps.segments) ? timestamps.segments : [];
+    const starts: unknown[] = timestamps.start_time_seconds || timestamps.startTimeSeconds || timestamps.starts || [];
+    const ends: unknown[] = timestamps.end_time_seconds || timestamps.endTimeSeconds || timestamps.ends || [];
+    const parsed = labels.map((entry, index) => {
+      const item = entry && typeof entry === 'object' ? entry as Json : {};
+      const text = typeof entry === 'string' ? entry : String(item.text ?? item.transcript ?? item.word ?? '');
+      const start = Number(item.start ?? item.start_time_seconds ?? starts[index]);
+      const end = Number(item.end ?? item.end_time_seconds ?? ends[index]);
+      return { start, end, text: text.trim() };
+    }).filter(segment => segment.text && Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end >= segment.start);
+    if (parsed.length) return parsed;
+  }
+  const segments = Array.isArray(data.segments) ? data.segments : data.diarized_transcript?.entries;
+  if (!Array.isArray(segments)) return [];
+  return segments.map((item: Json) => ({
+    start: Number(item.start ?? item.start_time_seconds),
+    end: Number(item.end ?? item.end_time_seconds),
+    text: String(item.text ?? item.transcript ?? '').trim(),
+  })).filter((segment: Segment) => segment.text && Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end >= segment.start);
+}
 
 function providerError(value: Json): string {
   const candidate = value?.message ?? value?.detail ?? value?.error?.message ?? value?.error ?? value;
   if (typeof candidate === 'string') return candidate;
   try { return JSON.stringify(candidate); } catch { return 'Unrecognized provider error response.'; }
+}
+
+function interactionOutputText(payload: Json): string {
+  if (typeof payload.output_text === 'string' && payload.output_text.trim()) return payload.output_text;
+  return payload.steps?.flatMap((step: Json) => step.content || [])
+    .filter((item: Json) => item.type === 'text')
+    .map((item: Json) => item.text || '')
+    .join('') || '';
 }
 
 async function extractAudioForSarvam(file: File): Promise<File> {
@@ -115,10 +169,7 @@ async function transcribeWithSarvam(file: File, languageCode: string, key: strin
   const data = await resultResponse.json();
   const transcript = typeof data.transcript === 'string' ? data.transcript : '';
   if (!transcript.trim()) throw new Error('Sarvam returned an empty transcript. Check that the selected media has clear speech.');
-  const chunks: string[] = data.timestamps?.chunks || [];
-  const starts: number[] = data.timestamps?.start_time_seconds || [];
-  const ends: number[] = data.timestamps?.end_time_seconds || [];
-  const segments = chunks.map((text, index) => ({ start: starts[index] || 0, end: ends[index] || starts[index] || 0, text }));
+  const segments = sarvamSegments(data);
   return { transcript, segments, detectedLanguage: data.language_code || languageCode, engine: 'Sarvam Saaras v4' };
 }
 
@@ -228,7 +279,9 @@ function normalizeDigits(token: string) {
 
 function numberValues(text: string) {
   const values = [...text.matchAll(/[\p{Nd}]+(?:[.,][\p{Nd}]+)*/gu)].map(match => Number(normalizeDigits(match[0]).replace(',', '.'))).filter(Number.isFinite);
-  for (const word of text.toLocaleLowerCase().match(/[\p{L}]+/gu) || []) {
+  // Indic vowel signs are Unicode combining marks, so include marks in tokens
+  // or Hindi/Marathi number words get split and missed by the numeric comparison.
+  for (const word of text.toLocaleLowerCase().match(/[\p{L}\p{M}]+/gu) || []) {
     if (Object.hasOwn(NUMBER_WORDS, word)) values.push(NUMBER_WORDS[word]);
   }
   return values.sort((a, b) => a - b);
@@ -306,11 +359,16 @@ async function geminiTranscriptReview(source: Transcript, dub: Transcript, backT
   for (let chunk = 0; chunk < chunkCount; chunk++) {
     const part = (text: string) => text.slice(Math.floor(text.length * chunk / chunkCount), Math.floor(text.length * (chunk + 1) / chunkCount));
     const prompt = `Compare these matching passage portions for dubbing QA (portion ${chunk + 1} of ${chunkCount}, in original order). Source is ${sourceLanguage}; dub transcript is ${targetLanguage}; back-translation is Sarvam's translation of the dub into ${sourceLanguage}. Flag specific meaning changes: incorrect/missing/added claims, quantities or food names, negation/instructions, and omissions. Natural rewording is correct. Use quoted source and dub transcript evidence. Do not infer pronunciation or accent from text, and do not treat back-translation wording differences alone as proof. Return JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Other","title":"short issue","detail":"plain English explanation with evidence","sourceQuote":"short source phrase","dubQuote":"short target-language transcript phrase"}]}. Return an empty findings list if no concrete mismatch appears.\n\nSOURCE (${sourceLanguage}):\n${part(texts[0])}\n\nDUB TRANSCRIPT (${targetLanguage}):\n${part(texts[1])}\n\nDUB BACK-TRANSLATION (${sourceLanguage}):\n${part(texts[2])}`;
-    const response = await geminiRequest({ model, input: prompt }, key, 5 * 60 * 1000);
+    const response = await geminiRequest({ model, input: prompt, response_format: { type: 'text', mime_type: 'application/json', schema: transcriptFindingsSchema }, generation_config: { max_output_tokens: 2048 } }, key, 5 * 60 * 1000);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(`Gemini transcript cross-check returned ${response.status}: ${providerError(payload)}`);
-    const output = typeof payload.output_text === 'string' ? payload.output_text : '';
-    const parsed = JSON.parse(output.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+    const output = interactionOutputText(payload);
+    let parsed: Json;
+    try {
+      parsed = JSON.parse(output.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+    } catch {
+      throw new Error(`Gemini transcript cross-check returned incomplete or invalid JSON for passage ${chunk + 1}.`);
+    }
     if (!Array.isArray(parsed.findings)) throw new Error(`Gemini transcript cross-check returned invalid findings for passage ${chunk + 1}.`);
     for (const item of parsed.findings.filter((entry: Json) => entry?.title && entry?.detail && ['critical', 'review', 'info'].includes(entry.severity))) {
       const sourceQuote = String(item.sourceQuote || '').slice(0, 300);
@@ -337,11 +395,16 @@ async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudi
   };
   const requestBytes = Buffer.byteLength(JSON.stringify(body));
   if (requestBytes > 18 * 1024 * 1024) throw new Error('The two audio tracks are too long for one AI listening review. Use shorter clips (about 20 minutes or less) and analyze the video in parts.');
-  const response = await geminiRequest(body, key, 10 * 60 * 1000);
+  const response = await geminiRequest({ ...body, response_format: { type: 'text', mime_type: 'application/json', schema: audioFindingsSchema }, generation_config: { max_output_tokens: 4096 } }, key, 10 * 60 * 1000);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(`Gemini audio review returned ${response.status}: ${providerError(payload)}`);
-  const output = typeof payload.output_text === 'string' ? payload.output_text : payload.steps?.flatMap((step: Json) => step.content || []).filter((item: Json) => item.type === 'text').map((item: Json) => item.text || '').join('') || '';
-  const parsed = JSON.parse(output.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+  const output = interactionOutputText(payload);
+  let parsed: Json;
+  try {
+    parsed = JSON.parse(output.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+  } catch {
+    throw new Error('Gemini audio review returned incomplete or invalid JSON.');
+  }
   if (!Array.isArray(parsed.findings)) return [];
   return parsed.findings.filter((item: Json) => item?.title && item?.detail && ['critical', 'review', 'info'].includes(item.severity)).map((item: Json): AudioFinding => {
     const sourceRange = segmentRange(source.segments, item.sourceStartSegment, item.sourceEndSegment, item.sourceStart, item.sourceEnd);
@@ -412,6 +475,8 @@ export async function POST(request: Request) {
     }
     const reviewCoverageWarnings: string[] = [];
     if (formatSegments(originalResult.segments).length > 14000 || formatSegments(dubbedResult.segments).length > 14000) reviewCoverageWarnings.push('Timestamped segment context for audio review was truncated.');
+    if (!originalResult.segments.length) reviewCoverageWarnings.push('The source transcript has no timing data, so source-side issue locations may be unavailable.');
+    if (!dubbedResult.segments.length) reviewCoverageWarnings.push('The dub transcript has no timing data, so dub-side issue locations and transcript playback are unavailable.');
     stage = 'Gemini listening to both audio tracks';
     updateAnalysisProgress(progressId, stage, 88);
     const aiFindings = await geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage);
@@ -443,7 +508,7 @@ export async function POST(request: Request) {
       reviewCoverageWarnings,
       reviewComplete: transcriptCrossCheckAvailable && reviewCoverageWarnings.length === 0,
       originalSegments: originalResult.segments, dubbedSegments: dubbedResult.segments,
-      timestampsAvailable: dubbedResult.segments.length > 0,
+      timestampsAvailable: originalResult.segments.length > 0 && dubbedResult.segments.length > 0,
       transcriptionEngine: originalResult.engine === dubbedResult.engine ? originalResult.engine : `${originalResult.engine} · ${dubbedResult.engine}`,
       semanticReviewEngine: process.env.GEMINI_API_KEY ? `${process.env.GEMINI_MODEL || 'gemini-3.8-flash'} audio review` : null,
       disclaimer: 'The AI listens to both audio tracks and reports suspected issues with time ranges. Treat these as review findings, not a guarantee: speech recognition and audio models can miss mistakes or infer words incorrectly.',

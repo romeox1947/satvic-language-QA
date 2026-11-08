@@ -6,7 +6,7 @@ import {
   Activity, ArrowDown, ArrowDownToLine, ArrowRight, AudioLines, BadgeCheck, Bell, BookOpen,
   Check, CheckCheck, ChevronDown, CircleHelp, Clock3, FileAudio, FileText, Filter, FlaskConical,
   Globe2, Headphones, Heart, Languages, LayoutDashboard, ListChecks, Menu, MoreHorizontal,
-  Play, Plus, Search, Settings2, ShieldCheck, Sparkles, Upload, WandSparkles, X, Zap,
+  Pause, Play, Plus, Search, Settings2, ShieldCheck, Sparkles, Upload, WandSparkles, X, Zap,
 } from 'lucide-react';
 
 type Issue = { title: string; detail: string; time?: string; source?: string; severity: 'critical' | 'review' | 'info'; category?: string; sourceStart?: number; sourceEnd?: number; dubStart?: number; dubEnd?: number; evidenceStatus?: 'cross-checked' | 'audio-only' | 'transcript-only'; sourceQuote?: string; dubQuote?: string };
@@ -21,6 +21,7 @@ const issues: Issue[] = [];
 const languages = ['Tamil', 'Telugu', 'Gujarati', 'Kannada', 'Bengali', 'Marathi', 'Punjabi', 'Malayalam', 'Hindi', 'English', 'Assamese', 'Odia'];
 const cx = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' ');
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
+const clipKey = (videoId: string, start: number, end?: number) => `${videoId}:${start}:${end ?? ''}`;
 const formatDuration = (seconds: number) => seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
 const remainingEstimate = (range: { min: number; max: number } | null, elapsed: number) => {
   if (!range) return 'Estimating from video durationâ€¦';
@@ -78,6 +79,7 @@ export default function Home() {
   const [originalFile, setOriginalFile] = useState<File | null>(null);
   const [dubbedFile, setDubbedFile] = useState<File | null>(null);
   const [report, setReport] = useState<AnalysisReport | null>(null);
+  const [playingClip, setPlayingClip] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState({ stage: '', percent: 0, status: 'idle' as 'idle' | 'processing' | 'complete' | 'error', startedAt: 0 });
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -239,24 +241,62 @@ export default function Home() {
   function playSegment(videoId: string, seconds: number, endSeconds?: number) {
     const video = document.getElementById(videoId) as HTMLVideoElement | null;
     if (!video) return;
-    const rangeKey = `${seconds}:${endSeconds ?? ''}`;
-    if (video.dataset.reviewRange === rangeKey && !video.paused) {
+    const rangeKey = clipKey(videoId, seconds, endSeconds);
+    if (video.dataset.reviewRange === rangeKey && (!video.paused || video.seeking)) {
+      video.dataset.reviewCancelled = 'true';
       video.pause();
       video.ontimeupdate = null;
+      setPlayingClip(null);
       return;
     }
+    document.querySelectorAll<HTMLVideoElement>('.audio-review-grid video').forEach(other => {
+      if (other !== video) { other.pause(); other.ontimeupdate = null; }
+    });
+    video.pause();
     video.ontimeupdate = null;
     video.dataset.reviewRange = rangeKey;
-    video.currentTime = Math.max(0, seconds);
-    if (endSeconds !== undefined && endSeconds > seconds) {
-      video.ontimeupdate = () => {
-        if (video.currentTime >= endSeconds) {
-          video.pause();
-          video.ontimeupdate = null;
+    video.dataset.reviewCancelled = 'false';
+    setPlayingClip(rangeKey);
+    const startPlayback = async () => {
+      try {
+        if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+          await new Promise<void>((resolve, reject) => {
+            const timeout = window.setTimeout(() => { cleanup(); reject(new Error('Video metadata did not load.')); }, 8000);
+            const cleanup = () => { window.clearTimeout(timeout); video.removeEventListener('loadedmetadata', loaded); video.removeEventListener('error', failed); };
+            const loaded = () => { cleanup(); resolve(); };
+            const failed = () => { cleanup(); reject(new Error('Video could not be loaded.')); };
+            video.addEventListener('loadedmetadata', loaded, { once: true });
+            video.addEventListener('error', failed, { once: true });
+          });
         }
-      };
-    }
-    void video.play().catch(() => setNotice('Could not start this video. Try using the video player controls.'));
+        const target = Math.max(0, Math.min(seconds, Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.05) : seconds));
+        if (Math.abs(video.currentTime - target) > 0.08) {
+          const seeked = new Promise<void>(resolve => {
+            const timeout = window.setTimeout(() => { video.removeEventListener('seeked', onSeeked); resolve(); }, 3000);
+            const onSeeked = () => { window.clearTimeout(timeout); resolve(); };
+            video.addEventListener('seeked', onSeeked, { once: true });
+          });
+          video.currentTime = target;
+          await seeked;
+        }
+        if (video.dataset.reviewCancelled === 'true') return;
+        if (endSeconds !== undefined && endSeconds > target) {
+          video.ontimeupdate = () => {
+            if (video.currentTime >= endSeconds) {
+              video.pause();
+              video.ontimeupdate = null;
+              setPlayingClip(current => current === rangeKey ? null : current);
+            }
+          };
+        }
+        await video.play();
+      } catch {
+        video.ontimeupdate = null;
+        setPlayingClip(null);
+        setNotice('Could not play this clip. Use the video controls to start playback, or wait for the video to finish loading.');
+      }
+    };
+    void startPlayback();
   }
 
   return (
@@ -314,7 +354,7 @@ export default function Home() {
         <div className="privacy-note"><ShieldCheck size={15}/><span>{generationMode==='sarvam' ? 'Sarvam receives the original and generates a target-language video dub (usage may be billed to your Sarvam account). The app then transcribes both and asks Gemini to compare the audio.' : 'Sarvam transcribes both videos; Gemini listens to both audio tracks and reports suspected meaning, pronunciation, pacing, and audio issues with timestamps.'}</span></div>
         {busy && <div className="analysis-progress" role="status" aria-live="polite"><div className="progress-heading"><b>{analysisProgress.stage || 'Preparing your analysis'}</b><span>{Math.min(100, analysisProgress.percent)}%</span></div><div className="progress-track" role="progressbar" aria-label="Analysis progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={analysisProgress.percent}><span style={{width: `${analysisProgress.percent}%`}} /></div><div className="progress-meta"><span>Elapsed {formatDuration(elapsedSeconds)}</span><b>{remainingEstimate(estimatedRange, elapsedSeconds)}</b></div><small>Time is an estimate; Sarvam dubbing, transcription and AI review can take several minutes.</small></div>}
         <button className="primary-btn modal-submit" type="submit" disabled={busy}>{busy?<><span className="spinner"/> {generationMode==='sarvam'&&analysisProgress.percent<74?'Generating dub…':'AI listening & comparing…'}</>:<>{generationMode==='sarvam'?'Generate dub + run QA':'Run AI dub review'} <ArrowRight size={15}/></>}</button>
-      </form></div>}      {details && <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setDetails(null)}}><div className="detail-modal"><button className="modal-close icon-btn" onClick={()=>setDetails(null)} aria-label="Close"><X size={18}/></button><div className="detail-topline"><span className="eyebrow-line"/> DUB VIDEO QA REPORT <span className="status-pill needs-review"><i/>AI findings</span></div><h2>{details.title}</h2><p className="detail-language">{details.source} source <ArrowRight size={14}/> {details.target} dub <span>Â·</span> {details.date}</p>{report && reportVerdict && <div className="verdict-card"><div className="verdict-icon"><Headphones size={20}/></div><div><span className="section-kicker">WHAT THIS MEANS FOR YOUR DUB</span><h3>{reportVerdict.title}</h3><p>{reportVerdict.note}</p></div></div>}<div className="detail-explain"><ShieldCheck size={18}/><span>{report?.reviewComplete === false ? <>This review is incomplete and must not be read as a clean pass. {report.transcriptCrossCheckError ? `Transcript check: ${report.transcriptCrossCheckError}. ` : ""}{report.reviewCoverageWarnings?.join(" ")}</> : report?.transcriptCrossCheckAvailable ? 'Gemini checks both audio and transcript evidence. A cross-check label means both checks pointed to a similar phrase; this is stronger evidence, not proof.' : 'The transcript cross-check was unavailable, so findings rely on the audio review and basic transcript rules.'}</span></div><div className="detail-section-title"><b>Automated findings</b><span>{report?.findings.length ?? 0} flags</span></div>{(report?.findings ?? []).map((issue,index)=><div className="detail-issue" key={`${issue.title}-${index}`}><div className={cx('severity-mark',issue.severity)}>{issue.severity==='critical'?<Zap size={14}/>:<Activity size={14}/>}</div><div><b>{issue.title}</b><p>{issue.detail}</p>{(issue.sourceQuote || issue.dubQuote) && <div className="finding-phrases">{issue.sourceQuote && <span><b>Source phrase</b> {issue.sourceQuote}</span>}{issue.dubQuote && <span><b>Dub phrase heard</b> {issue.dubQuote}</span>}</div>}<small>{issue.category ?? issue.source ?? 'Transcript check'}{issue.evidenceStatus ? ` Â· ${issue.evidenceStatus === 'cross-checked' ? 'audio + transcript checks agree' : issue.evidenceStatus === 'audio-only' ? 'audio check only' : 'transcript check only'}` : ''}</small>{(issue.sourceStart!==undefined || issue.dubStart!==undefined) && <div className="finding-time-links">{issue.sourceStart!==undefined && <button onClick={()=>playSegment('source-review-video',issue.sourceStart!,issue.sourceEnd)}>Source {formatTime(issue.sourceStart)}{issue.sourceEnd!==undefined ? `â€“${formatTime(issue.sourceEnd)}` : ''} <Play size={11}/></button>}{issue.dubStart!==undefined && <button onClick={()=>playSegment('dub-review-video',issue.dubStart!,issue.dubEnd)}>Dub {formatTime(issue.dubStart)}{issue.dubEnd!==undefined ? `â€“${formatTime(issue.dubEnd)}` : ''} <Play size={11}/></button>}</div>}</div></div>)}{report && <><div className="audio-review-grid"><label><b>Original Â· {report.sourceLanguage}</b><video id="source-review-video" controls preload="metadata" src={report.originalVideoUrl}/></label><label><b>Dub Â· {report.targetLanguage}</b><video id="dub-review-video" controls preload="metadata" src={report.dubbedVideoUrl}/></label></div><div className="detail-section-title"><b>Dub transcript Â· timed playback</b><span>{report.dubbedSegments.length} timed segments</span></div><div className="segment-list">{report.dubbedSegments.length ? report.dubbedSegments.map((segment,index)=><button key={`${segment.start}-${index}`} className="segment-row" onClick={()=>playSegment('dub-review-video',segment.start,segment.end)}><span>{formatTime(segment.start)}</span><b>{segment.text}</b><Play size={13}/></button>) : <p className="no-timestamps">No timed speech segments were returned for this file. Use the video player above to navigate the dub; the recognized {report.targetLanguage} transcript is available below.</p>}</div><details className="transcript-details"><summary>Show transcript evidence (supporting evidence, not the verdict)</summary><div className="transcript-results"><div><b>Original transcript Â· {report.sourceLanguage}</b><p>{report.originalTranscript}</p></div><div><b>Dub transcript Â· {report.targetLanguage}</b><p>{report.dubbedTranscript}</p></div><div><b>Dub back-translated to {report.sourceLanguage}</b><p>{report.backTranslation}</p></div></div></details></>}<p className="report-disclaimer">{report?.disclaimer}</p>{report?.generatedBySarvam && report.dubbedVideoUrl && <a className="secondary-btn" href={report.dubbedVideoUrl} download={`${report.project.replace(/[^\w-]+/g, "-")}-${report.targetLanguage.toLowerCase()}-dub.mp4`}><ArrowDownToLine size={15}/> Download Sarvam dub</a>}<div className="detail-actions"><button className="secondary-btn" onClick={exportReport}><ArrowDownToLine size={15}/> Export JSON report</button><button className="primary-btn" onClick={()=>{setDetails(null)}}><Check size={15}/> Done</button></div></div></div>}
+      </form></div>}      {details && <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setDetails(null)}}><div className="detail-modal"><button className="modal-close icon-btn" onClick={()=>setDetails(null)} aria-label="Close"><X size={18}/></button><div className="detail-topline"><span className="eyebrow-line"/> DUB VIDEO QA REPORT <span className="status-pill needs-review"><i/>AI findings</span></div><h2>{details.title}</h2><p className="detail-language">{details.source} source <ArrowRight size={14}/> {details.target} dub <span>Â·</span> {details.date}</p>{report && reportVerdict && <div className="verdict-card"><div className="verdict-icon"><Headphones size={20}/></div><div><span className="section-kicker">WHAT THIS MEANS FOR YOUR DUB</span><h3>{reportVerdict.title}</h3><p>{reportVerdict.note}</p></div></div>}<div className="detail-explain"><ShieldCheck size={18}/><span>{report?.reviewComplete === false ? <>This review is incomplete and must not be read as a clean pass. {report.transcriptCrossCheckError ? `Transcript check: ${report.transcriptCrossCheckError}. ` : ""}{report.reviewCoverageWarnings?.join(" ")}</> : report?.transcriptCrossCheckAvailable ? 'Gemini checks both audio and transcript evidence. A cross-check label means both checks pointed to a similar phrase; this is stronger evidence, not proof.' : 'The transcript cross-check was unavailable, so findings rely on the audio review and basic transcript rules.'}</span></div><div className="detail-section-title"><b>Automated findings</b><span>{report?.findings.length ?? 0} flags</span></div>{(report?.findings ?? []).map((issue,index)=><div className="detail-issue" key={`${issue.title}-${index}`}><div className={cx('severity-mark',issue.severity)}>{issue.severity==='critical'?<Zap size={14}/>:<Activity size={14}/>}</div><div><b>{issue.title}</b><p>{issue.detail}</p>{(issue.sourceQuote || issue.dubQuote) && <div className="finding-phrases">{issue.sourceQuote && <span><b>Source phrase</b> {issue.sourceQuote}</span>}{issue.dubQuote && <span><b>Dub phrase heard</b> {issue.dubQuote}</span>}</div>}<small>{issue.category ?? issue.source ?? 'Transcript check'}{issue.evidenceStatus ? ` Â· ${issue.evidenceStatus === 'cross-checked' ? 'audio + transcript checks agree' : issue.evidenceStatus === 'audio-only' ? 'audio check only' : 'transcript check only'}` : ''}</small>{(issue.sourceStart!==undefined || issue.dubStart!==undefined) && <div className="finding-time-links">{issue.sourceStart!==undefined && <button aria-label={playingClip === clipKey('source-review-video',issue.sourceStart!,issue.sourceEnd) ? 'Pause source clip' : 'Play source clip'} onClick={()=>playSegment('source-review-video',issue.sourceStart!,issue.sourceEnd)}>Source {formatTime(issue.sourceStart)}{issue.sourceEnd!==undefined ? `â€“${formatTime(issue.sourceEnd)}` : ''} {playingClip === clipKey('source-review-video',issue.sourceStart!,issue.sourceEnd) ? <Pause size={11}/> : <Play size={11}/>}</button>}{issue.dubStart!==undefined && <button aria-label={playingClip === clipKey('dub-review-video',issue.dubStart!,issue.dubEnd) ? 'Pause dub clip' : 'Play dub clip'} onClick={()=>playSegment('dub-review-video',issue.dubStart!,issue.dubEnd)}>Dub {formatTime(issue.dubStart)}{issue.dubEnd!==undefined ? `â€“${formatTime(issue.dubEnd)}` : ''} {playingClip === clipKey('dub-review-video',issue.dubStart!,issue.dubEnd) ? <Pause size={11}/> : <Play size={11}/>}</button>}</div>}</div></div>)}{report && <><div className="audio-review-grid"><label><b>Original Â· {report.sourceLanguage}</b><video id="source-review-video" controls preload="metadata" src={report.originalVideoUrl} onPause={event=>{event.currentTarget.dataset.reviewCancelled='true';setPlayingClip(null)}} /></label><label><b>Dub Â· {report.targetLanguage}</b><video id="dub-review-video" controls preload="metadata" src={report.dubbedVideoUrl} onPause={event=>{event.currentTarget.dataset.reviewCancelled='true';setPlayingClip(null)}} /></label></div><div className="detail-section-title"><b>Dub transcript Â· timed playback</b><span>{report.dubbedSegments.length} timed segments</span></div><div className="segment-list">{report.dubbedSegments.length ? report.dubbedSegments.map((segment,index)=><button key={`${segment.start}-${index}`} className="segment-row" aria-label={playingClip === clipKey('dub-review-video',segment.start,segment.end) ? 'Pause transcript clip' : 'Play transcript clip'} onClick={()=>playSegment('dub-review-video',segment.start,segment.end)}><span>{formatTime(segment.start)}</span><b>{segment.text}</b>{playingClip === clipKey('dub-review-video',segment.start,segment.end) ? <Pause size={13}/> : <Play size={13}/> }</button>) : <p className="no-timestamps">No timed speech segments were returned for this file. Use the video player above to navigate the dub; the recognized {report.targetLanguage} transcript is available below.</p>}</div><details className="transcript-details"><summary>Show transcript evidence (supporting evidence, not the verdict)</summary><div className="transcript-results"><div><b>Original transcript Â· {report.sourceLanguage}</b><p>{report.originalTranscript}</p></div><div><b>Dub transcript Â· {report.targetLanguage}</b><p>{report.dubbedTranscript}</p></div><div><b>Dub back-translated to {report.sourceLanguage}</b><p>{report.backTranslation}</p></div></div></details></>}<p className="report-disclaimer">{report?.disclaimer}</p>{report?.generatedBySarvam && report.dubbedVideoUrl && <a className="secondary-btn" href={report.dubbedVideoUrl} download={`${report.project.replace(/[^\w-]+/g, "-")}-${report.targetLanguage.toLowerCase()}-dub.mp4`}><ArrowDownToLine size={15}/> Download Sarvam dub</a>}<div className="detail-actions"><button className="secondary-btn" onClick={exportReport}><ArrowDownToLine size={15}/> Export JSON report</button><button className="primary-btn" onClick={()=>{setDetails(null)}}><Check size={15}/> Done</button></div></div></div>}
     </main>
   );
 }
