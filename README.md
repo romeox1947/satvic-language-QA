@@ -7,6 +7,7 @@ A local-first dubbing workflow for creating a target-language video with Sarvam 
 - Node.js 20.9+
 - Sarvam API key with Dubbing, speech-to-text and translation access
 - Gemini API key for direct audio comparison (required for the AI listening report)
+- Optional Resend account/API key for email notifications when a generated job succeeds or fails
 - Optional Python 3.11 environment for the local Whisper transcription worker
 
 ## Setup on Windows
@@ -24,6 +25,9 @@ Add your keys to `.env.local`:
 SARVAM_API_KEY=your_key_here
 GEMINI_API_KEY=your_gemini_key
 GEMINI_MODEL=gemini-3.8-flash
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM_EMAIL=onboarding@resend.dev
+NOTIFICATION_EMAIL=piyushkumaryadav2027@gmail.com
 ```
 
 To use local Whisper for transcription, install and run the worker in a second terminal:
@@ -60,8 +64,11 @@ Before using this flow on Vercel:
 
 1. In the Vercel project, create a Blob store and connect it to this project. Vercel supplies `BLOB_READ_WRITE_TOKEN` automatically.
 2. Set `SARVAM_API_KEY` and `GEMINI_API_KEY` in the Vercel project environment variables.
-3. Set `APP_BASE_URL` to the deployed HTTPS URL if the Vercel deployment URL is not available to the workflow runtime. If you enable Vercel Deployment Protection, also set `VERCEL_AUTOMATION_BYPASS_SECRET` to that project's protection bypass secret so the workflow can call the QA API.
-4. Redeploy after connecting storage and setting variables.
+3. For email alerts, add `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. `NOTIFICATION_EMAIL` defaults to `piyushkumaryadav2027@gmail.com`; set it only if you want a different recipient. Resend's `onboarding@resend.dev` sender is for initial testing; verify your sending domain with Resend before using a custom sender for ongoing delivery.
+4. Set `APP_BASE_URL` to the deployed HTTPS URL if the Vercel deployment URL is not available to the workflow runtime. If you enable Vercel Deployment Protection, also set `VERCEL_AUTOMATION_BYPASS_SECRET` to that project's protection bypass secret so the workflow can call the QA API.
+5. Redeploy after connecting storage and setting variables.
+
+With Resend configured, the generated dubbing-and-QA workflow emails when Sarvam starts processing, then again when QA completes or the workflow fails. The dashboard confirms whether email alerts are enabled when a job starts and tells you when it is safe to close the browser. If Resend is not configured, the job still runs and its dashboard result is unaffected; the server logs that notifications were skipped.
 
 Local background testing also requires a Blob store token in `.env.local`; local workflows do not keep running if the computer is turned off. Protect the deployed app with Vercel Deployment Protection or add app authentication before sharing it: the upload and job APIs are intended for the app owner and should not be left open to public traffic.
 

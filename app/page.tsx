@@ -193,8 +193,13 @@ export default function Home() {
         const project: Project = { title, source, target, status: 'In progress', issues: 0, date: 'Just now', color: 'lilac', initials: title.slice(0, 2).toUpperCase(), jobId: startBody.runId };
         setProjects(previous => [project, ...previous]);
         setModal(false); setOriginalFile(null); setDubbedFile(null); setProjectName('');
-        setNotice('Upload complete. Dubbing and QA are now running on Vercel; this browser can be closed. Reopen this dashboard later to see the result.');
-        window.setTimeout(() => setNotice(''), 9000);
+        const backgroundLocation = startBody.runsOnVercel
+          ? 'The job runs on Vercel, so you can close this browser or turn off your computer.'
+          : 'This is a local run, so keep this computer and the development server running.';
+        setNotice(startBody.emailNotificationsEnabled
+          ? `Job started. ${backgroundLocation} We will email ${startBody.notificationEmail} when it completes or fails.`
+          : `Job started. ${backgroundLocation} Reopen this dashboard later for the result. Configure Resend email settings to receive start, success, and failure emails.`);
+        window.setTimeout(() => setNotice(''), 12000);
         return;
       }
       if (!finalDub) throw new Error('No dubbed media is available for QA.');

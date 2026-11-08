@@ -18,7 +18,13 @@ export async function POST(request: Request) {
     if (!/^https:\/\/.+\.blob\.vercel-storage\.com\//.test(originalBlobUrl)) return Response.json({ error: 'Upload the original video to Blob storage before starting the job.' }, { status: 400 });
     if (!LANGUAGES.has(sourceLanguage) || !LANGUAGES.has(targetLanguage) || sourceLanguage === targetLanguage) return Response.json({ error: 'Choose a supported source and target language, and make sure they differ.' }, { status: 400 });
     const run = await start(generateAndReview, [{ originalBlobUrl, originalName, sourceLanguage, targetLanguage, projectName }]);
-    return Response.json({ runId: run.runId, status: 'running' }, { headers: { 'cache-control': 'no-store' } });
+    return Response.json({
+      runId: run.runId,
+      status: 'running',
+      runsOnVercel: Boolean(process.env.VERCEL),
+      emailNotificationsEnabled: Boolean(process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim()),
+      notificationEmail: process.env.NOTIFICATION_EMAIL?.trim() || 'piyushkumaryadav2027@gmail.com',
+    }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not start the background dubbing job.';
     console.error(`[api/jobs/start] ${message}`);
