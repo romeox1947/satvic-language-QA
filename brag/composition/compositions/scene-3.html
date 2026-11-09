@@ -1,0 +1,47 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; background: #f7f6f9; color: #22242d; font-family: Inter, Arial, sans-serif; }
+    .clip { position: absolute; }
+    .s3-bg { inset: 0; background: radial-gradient(ellipse at 50% 45%,#f0edfa 0%,#f7f6f9 58%); }
+    .s3-head { left: 180px; top: 115px; width: 1560px; text-align: center; }
+    .s3-kicker { color: #7560c8; font-size: 14px; font-weight: 700; letter-spacing: 2px; }
+    .s3-title { margin-top: 18px; font-size: 55px; line-height: 1.1; letter-spacing: -2.6px; }
+    .s3-sub { margin-top: 12px; color: #85828f; font-size: 20px; }
+    .s3-panels { left: 250px; top: 342px; width: 1420px; height: 410px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .s3-panel { position: relative; height: 365px; padding: 29px; border: 1px solid #e7e3ed; border-radius: 22px; background: #fff; box-shadow: 0 22px 64px #35284d0e; }
+    .s3-label { display: flex; align-items: center; justify-content: space-between; color: #87838f; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+    .s3-lang { color: #7560c8; font-size: 13px; letter-spacing: .3px; }
+    .s3-play { margin-top: 24px; width: 49px; height: 49px; border-radius: 50%; display: grid; place-items: center; background: #f0edfa; color: #7560c8; font-size: 19px; }
+    .s3-wave { position: absolute; left: 100px; right: 29px; top: 125px; height: 54px; display: flex; align-items: center; gap: 7px; }
+    .s3-wave i { width: 6px; border-radius: 5px; background: #9583d5; opacity: .8; display: block; }
+    .s3-wave i:nth-child(3n) { background: #c2b5eb; } .s3-wave i:nth-child(4n) { opacity: .5; }
+    .s3-divider { position: absolute; left: 50%; top: 110px; width: 1px; height: 190px; background: #e7e3ed; }
+    .s3-compare { position: absolute; left: calc(50% - 29px); top: 193px; width: 58px; height: 58px; border: 1px solid #e2dcf0; border-radius: 18px; background: #fff; color: #7560c8; display: grid; place-items: center; font-size: 23px; box-shadow: 0 6px 18px #34284210; }
+    .s3-transcript { position: absolute; left: 29px; right: 29px; bottom: 24px; height: 78px; border-radius: 13px; background: #f8f7fa; padding: 15px 17px; }
+    .s3-transcript b { display: block; color: #777480; font-size: 11px; letter-spacing: 1px; }
+    .s3-transcript span { display: block; margin-top: 9px; width: 76%; height: 8px; border-radius: 8px; background: #e4e0eb; }
+    .s3-footer { left: 250px; top: 813px; width: 1420px; display: flex; justify-content: space-between; color: #85828f; font-size: 16px; }
+    .s3-footer b { color: #7560c8; font-weight: 700; }
+  </style>
+  <div id="root" data-composition-id="scene-3" data-width="1920" data-height="1080">
+    <div id="s3-bg" class="clip s3-bg" data-start="0" data-duration="4"></div>
+    <div id="s3-head" class="clip s3-head" data-start="0.12" data-duration="3.88"><div class="s3-kicker">THE REVIEW STEP</div><h1 class="s3-title">The AI listens to both audio tracks.</h1><p class="s3-sub">Transcripts add context. Audio review is the main signal.</p></div>
+    <div id="s3-panels" class="clip s3-panels" data-start="0.38" data-duration="3.62">
+      <div class="s3-panel"><div class="s3-label"><span>ORIGINAL TRACK</span><span class="s3-lang">Hindi  |  source</span></div><div class="s3-play">&#x25B6;</div><div class="s3-wave"><i style="height:13px"></i><i style="height:25px"></i><i style="height:38px"></i><i style="height:18px"></i><i style="height:47px"></i><i style="height:28px"></i><i style="height:20px"></i><i style="height:42px"></i><i style="height:33px"></i><i style="height:16px"></i><i style="height:29px"></i><i style="height:48px"></i><i style="height:22px"></i><i style="height:35px"></i><i style="height:18px"></i><i style="height:42px"></i><i style="height:26px"></i><i style="height:14px"></i></div><div class="s3-transcript"><b>TRANSCRIPT EVIDENCE</b><span></span></div></div>
+      <div class="s3-panel"><div class="s3-label"><span>DUBBED TRACK</span><span class="s3-lang">Marathi  |  target</span></div><div class="s3-play">&#x25B6;</div><div class="s3-wave"><i style="height:35px"></i><i style="height:19px"></i><i style="height:44px"></i><i style="height:29px"></i><i style="height:16px"></i><i style="height:38px"></i><i style="height:48px"></i><i style="height:20px"></i><i style="height:32px"></i><i style="height:14px"></i><i style="height:44px"></i><i style="height:27px"></i><i style="height:18px"></i><i style="height:39px"></i><i style="height:24px"></i><i style="height:49px"></i><i style="height:31px"></i><i style="height:17px"></i></div><div class="s3-transcript"><b>TRANSCRIPT EVIDENCE</b><span style="width:68%"></span></div></div>
+      <div class="s3-divider"></div><div class="s3-compare">&#x2194;</div>
+    </div>
+    <div id="s3-footer" class="clip s3-footer" data-start="2.85" data-duration="1.15"><span><b>Audio review</b>  |  compare meaning and delivery</span><span>Supporting text is not the verdict</span></div>
+  </div>
+  <script src="../assets/gsap.min.js"></script>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#s3-bg", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" }, 0);
+    tl.fromTo("#s3-head", { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.08);
+    tl.fromTo("#s3-panels", { opacity: 0, y: 25, scale: 0.99 }, { opacity: 1, y: 0, scale: 1, duration: 0.48, ease: "power3.out" }, 0.3);
+    tl.fromTo("#s3-footer", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" }, 2.82);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["scene-3"] = tl;
+  </script>
+</template>
+

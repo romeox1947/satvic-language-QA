@@ -13,3 +13,6 @@ yarn-debug.log*
 pnpm-debug.log*
 /.swc
 tsconfig.tsbuildinfo
+.agents/
+skills-lock.json
+brag/composition/.hyperframes/

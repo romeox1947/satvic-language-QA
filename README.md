@@ -27,8 +27,26 @@ GEMINI_API_KEY=your_gemini_key
 GEMINI_MODEL=gemini-3.8-flash
 RESEND_API_KEY=your_resend_api_key
 RESEND_FROM_EMAIL=onboarding@resend.dev
-NOTIFICATION_EMAIL=piyushkumaryadav2027@gmail.com
+NOTIFICATION_EMAIL=your_email@example.com
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_SECRET_KEY=sb_secret_...
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+WORKFLOW_INTERNAL_TOKEN=generate_a_long_random_secret
 ```
+
+## Google sign-in and saved history
+
+The dashboard requires Google sign-in. Supabase stores each user's job metadata and status; row-level security scopes history to the signed-in account. Background workflows use the server-only service role key to save completion and failure status. Keep that key out of browser code and never commit it.
+
+1. Create a Supabase project. In the project dashboard, use **Connect** to copy the Project URL and Publishable key. For the server-only key, open **Settings → API Keys → Secret keys** and create/reveal the default secret key. Put them in `.env.local` using the names above. Never use a `NEXT_PUBLIC_` prefix for the Secret key.
+2. In the Supabase SQL editor, run [`supabase/schema.sql`](supabase/schema.sql) to create the private `qa_jobs` table and its row-level security policies.
+3. In **Authentication → Providers → Google**, enable Google. Create a Google OAuth web client in Google Cloud. Add your app origin (`http://localhost:3000` for local development) to the Google authorized JavaScript origins. Add the callback URL shown by Supabase (usually `https://<project-ref>.supabase.co/auth/v1/callback`) to Google authorized redirect URIs, then paste the Google client ID and secret into Supabase.
+4. In Supabase **Authentication → URL Configuration**, set the local Site URL to `http://localhost:3000` and add `http://localhost:3000/auth/callback` to allowed redirect URLs. For production, add your Vercel app origin and `https://<your-domain>/auth/callback`, then update `NEXT_PUBLIC_APP_URL` in Vercel.
+5. Restart `npm run dev` after adding local environment values. The dashboard redirects signed-out users to the Google sign-in page. Jobs and their QA history then load from Supabase on any device where you sign in.
+6. Set `WORKFLOW_INTERNAL_TOKEN` to a long random secret locally and in Vercel. The background workflow uses it to call the protected QA API after Sarvam finishes.
+
+Supabase's Google provider setup and redirect allow-list must match the app callback URLs exactly. See the official [Google sign-in setup](https://supabase.com/docs/guides/auth/social-sign-in/auth-google) and [redirect URL configuration](https://supabase.com/docs/guides/auth/redirect-urls).
 
 To use local Whisper for transcription, install and run the worker in a second terminal:
 
@@ -64,15 +82,16 @@ Research references: [Sarvam Batch Speech-to-Text](https://docs.sarvam.ai/api/ap
 
 ## Server-side jobs on Vercel
 
-In **Generate with Sarvam** mode, the browser uploads the source directly to private Vercel Blob storage and starts a Vercel Workflow. Sarvam dubbing and QA continue on Vercel if the browser closes; the dashboard saves the workflow ID in that browser and checks the saved job when you return. The QA report and private media remain in the workflow result and Blob storage.
+In **Generate with Sarvam** mode, the browser uploads the source directly to private Vercel Blob storage and starts a Vercel Workflow. Sarvam dubbing and QA continue on Vercel if the browser closes. Supabase stores the job in your account history, and the QA report and private media remain in Blob storage.
 
 Before using this flow on Vercel:
 
 1. In the Vercel project, create a Blob store and connect it to this project. Vercel supplies `BLOB_READ_WRITE_TOKEN` automatically.
-2. Set `SARVAM_API_KEY` and `GEMINI_API_KEY` in the Vercel project environment variables.
-3. For email alerts, add `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. `NOTIFICATION_EMAIL` defaults to `piyushkumaryadav2027@gmail.com`; set it only if you want a different recipient. The `onboarding@resend.dev` sender is restricted to testing with the email address associated with your Resend account. For delivery to your Gmail address, verify a domain in Resend and use a sender on that verified domain. `delivered@resend.dev` is Resend's simulated test recipient, not an inbox.
+2. Set `SARVAM_API_KEY`, `GEMINI_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_APP_URL`, and `WORKFLOW_INTERNAL_TOKEN` in the Vercel project environment variables. Keep the Secret key and workflow token server-only.
+3. For email alerts, add `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and `NOTIFICATION_EMAIL` (the destination inbox). The `onboarding@resend.dev` sender is restricted to testing with the email address associated with your Resend account. For delivery to your Gmail address, verify a domain in Resend and use a sender on that verified domain. `delivered@resend.dev` is Resend's simulated test recipient, not an inbox.
 4. `APP_BASE_URL` is optional. By default, the workflow now uses Vercel's stable production domain before falling back to its per-deployment URL. If you set `APP_BASE_URL`, use the production domain shown under **Vercel → Project → Settings → Domains**, not a unique preview/deployment URL. If production is also protected, create a **Protection Bypass for Automation** secret under **Settings → Deployment Protection** and ensure it is available as `VERCEL_AUTOMATION_BYPASS_SECRET`; the workflow sends it in Vercel's supported bypass header.
-5. Redeploy after connecting storage and setting variables.
+5. In Supabase, add the production Vercel callback to the allowed redirect URLs and configure the Google provider as described above. Run `supabase/schema.sql` once in the Supabase SQL editor.
+6. Redeploy after connecting storage and setting variables.
 
 With Resend configured, the generated dubbing-and-QA workflow emails when Sarvam starts processing, then again when QA completes or the workflow fails. The dashboard confirms whether email alerts are enabled when a job starts and tells you when it is safe to close the browser. Check **Resend → Emails/Logs** for send status; Vercel runtime logs include `[dubbing-workflow]` messages when a notification is rejected or accepted. If Resend is not configured, the job still runs and its dashboard result is unaffected; the server logs that notifications were skipped. The app calls Resend's HTTP API directly, so installing the optional Node SDK is not required.
 
@@ -84,4 +103,4 @@ AI audio review can miss errors or mishear speech. Findings are model estimates,
 
 ## Local data and keys
 
-Video previews live in the current browser session and disappear after reload. The server temporarily extracts compressed audio for Gemini and deletes the temporary files after analysis. Source and dub audio are sent to the configured Sarvam and Gemini APIs. Check those providers' account terms and quotas. `.env.local` is ignored by Git; never commit or share API keys.
+Video and report history is tied to the signed-in Supabase account. The server temporarily extracts compressed audio for Gemini and deletes the temporary files after analysis. Source and dub audio are sent to the configured Sarvam and Gemini APIs. Check those providers' account terms and quotas. `.env.local` is ignored by Git; never commit or share API keys.

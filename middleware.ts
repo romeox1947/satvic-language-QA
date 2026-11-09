@@ -1,0 +1,37 @@
+import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
+import { normalizeSupabaseUrl } from './lib/supabase/url';
+
+export async function middleware(request: NextRequest) {
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = rawUrl ? normalizeSupabaseUrl(rawUrl) : undefined;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const isLogin = request.nextUrl.pathname.startsWith('/login');
+  const isAuthCallback = request.nextUrl.pathname === '/auth/callback';
+  const internalToken = process.env.WORKFLOW_INTERNAL_TOKEN;
+  if (request.nextUrl.pathname === '/api/analyze' && internalToken && request.headers.get('x-workflow-internal') === internalToken) return NextResponse.next();
+  if (!url || !key) {
+    if (isLogin) return NextResponse.next();
+    return NextResponse.redirect(new URL('/login?setup=missing', request.url));
+  }
+
+  let response = NextResponse.next({ request });
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll(values) {
+        values.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        values.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      },
+    },
+  });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user && !isLogin && !isAuthCallback) return NextResponse.redirect(new URL('/login', request.url));
+  if (user && isLogin) return NextResponse.redirect(new URL('/', request.url));
+  return response;
+}
+
+export const config = {
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|\\.well-known/workflow|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+};

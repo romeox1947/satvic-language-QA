@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { uploadPresigned } from '@vercel/blob/client';
+import { signOut } from './login/actions';
 import {
   Activity, ArrowDown, ArrowDownToLine, ArrowRight, AudioLines, BadgeCheck, Bell, BookOpen,
   Check, CheckCheck, ChevronDown, CircleHelp, Clock3, FileAudio, FileText, Filter, FlaskConical,
@@ -15,7 +16,6 @@ type TranscriptSegment = { start: number; end: number; text: string; words?: { s
 type AnalysisReport = { project: string; sourceLanguage: string; targetLanguage: string; createdAt: string; originalTranscript: string; dubbedTranscript: string; backTranslation: string; findings: Issue[]; disclaimer: string; originalSegments: TranscriptSegment[]; dubbedSegments: TranscriptSegment[]; timestampsAvailable: boolean; transcriptionEngine: string; semanticReviewEngine: string | null; transcriptCrossCheckAvailable: boolean; transcriptCrossCheckError?: string | null; audioReviewCompleted?: boolean; audioReviewEngine?: string; audioReviewFindingCount?: number; reviewCoverageWarnings?: string[]; reviewComplete?: boolean; generatedBySarvam?: boolean; originalVideoUrl?: string; dubbedVideoUrl?: string };
 
 const initialProjects: Project[] = [];
-const JOBS_KEY = 'satvic-background-jobs-v1';
 const issues: Issue[] = [];
 
 const languages = ['Tamil', 'Telugu', 'Gujarati', 'Kannada', 'Bengali', 'Marathi', 'Punjabi', 'Malayalam', 'Hindi', 'English', 'Assamese', 'Odia'];
@@ -67,6 +67,7 @@ function readMediaDuration(file: File): Promise<number> {
 
 export default function Home() {
   const [projects, setProjects] = useState(initialProjects);
+  const [accountEmail, setAccountEmail] = useState('');
   const [activeTab, setActiveTab] = useState('All projects');
   const [query, setQuery] = useState('');
   const [modal, setModal] = useState(false);
@@ -87,28 +88,28 @@ export default function Home() {
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]') as Array<{ runId: string; title: string; source: string; target: string; createdAt: string; status: string; issues?: number }>;
-      setProjects(saved.map((job) => ({ title: job.title, source: job.source, target: job.target, status: job.status === 'completed' ? (job.issues ? 'Needs review' : 'Ready') : job.status === 'failed' ? 'Needs review' : 'In progress', issues: job.issues || 0, date: new Date(job.createdAt).toLocaleDateString(), color: 'lilac', initials: job.title.slice(0, 2).toUpperCase(), jobId: job.runId })));
-    } catch { localStorage.removeItem(JOBS_KEY); }
     let active = true;
     const refreshJobs = async () => {
       try {
-        const jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]') as Array<{ runId: string; status: string; issues?: number }>;
-        const updates = await Promise.all(jobs.filter(job => job.status === 'running').map(async job => {
-          const response = await fetch(`/api/jobs/${encodeURIComponent(job.runId)}`, { cache: 'no-store' });
+        const response = await fetch('/api/jobs', { cache: 'no-store' });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'Could not load account history.');
+        if (!active) return;
+        setAccountEmail(body.userEmail || '');
+        const jobs = (body.jobs || []) as Array<{ id: string; run_id: string | null; project_name: string; source_language: string; target_language: string; created_at: string; status: string; issue_count?: number }>;
+        const updates = await Promise.all(jobs.filter(job => ['running', 'queued'].includes(job.status)).map(async job => {
+          const response = await fetch(`/api/jobs/${encodeURIComponent(job.run_id || job.id)}`, { cache: 'no-store' });
           const body = await response.json().catch(() => ({}));
-          if (!response.ok) return { ...job, status: 'failed', error: body.error || 'Could not recover job status.' };
-          if (body.status === 'completed' && body.report) return { ...job, status: 'completed', issues: body.report.findings?.length || 0 };
-          if (body.status === 'failed') return { ...job, status: 'failed', error: body.error || 'Background workflow failed. Check Vercel Workflows for its error.' };
+          if (!response.ok) return job;
+          if (body.status === 'completed' && body.report) return { ...job, status: 'completed', issue_count: body.report.findings?.length || 0 };
+          if (body.status === 'failed') return { ...job, status: 'failed' };
           return job;
         }));
-        if (!active || !updates.length) return;
-        const latest = new Map(updates.map(job => [job.runId, job]));
-        const merged = jobs.map(job => latest.get(job.runId) || job);
-        localStorage.setItem(JOBS_KEY, JSON.stringify(merged));
-        setProjects(merged.map((job: any) => ({ title: job.title, source: job.source, target: job.target, status: job.status === 'completed' ? (job.issues ? 'Needs review' : 'Ready') : job.status === 'failed' ? 'Needs review' : 'In progress', issues: job.issues || 0, date: new Date(job.createdAt).toLocaleDateString(), color: 'lilac', initials: job.title.slice(0, 2).toUpperCase(), jobId: job.runId })));
-      } catch { /* Job cards remain available from their last saved state. */ }
+        if (!active) return;
+        const latest = new Map(updates.map(job => [job.run_id || job.id, job]));
+        const merged = jobs.map(job => latest.get(job.run_id || job.id) || job);
+        setProjects(merged.map((job) => ({ title: job.project_name, source: job.source_language, target: job.target_language, status: job.status === 'completed' ? (job.issue_count ? 'Needs review' : 'Ready') : job.status === 'failed' ? 'Needs review' : 'In progress', issues: job.issue_count || 0, date: new Date(job.created_at).toLocaleDateString(), color: 'lilac', initials: job.project_name.slice(0, 2).toUpperCase(), jobId: job.run_id || job.id })));
+      } catch { /* Keep the current dashboard visible if history is temporarily unavailable. */ }
     };
     void refreshJobs();
     const timer = window.setInterval(refreshJobs, 20_000);
@@ -189,9 +190,6 @@ export default function Home() {
         const startBody = await readApiJson(startResponse);
         if (!startResponse.ok) throw new Error(startBody.error || 'Could not start the server-side dubbing job.');
         const title = projectName || originalFile.name.replace(/\.[^.]+$/, '');
-        const jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]') as Array<Record<string, any>>;
-        jobs.unshift({ runId: startBody.runId, title, source, target, createdAt: new Date().toISOString(), status: 'running', issues: 0 });
-        localStorage.setItem(JOBS_KEY, JSON.stringify(jobs));
         const project: Project = { title, source, target, status: 'In progress', issues: 0, date: 'Just now', color: 'lilac', initials: title.slice(0, 2).toUpperCase(), jobId: startBody.runId };
         setProjects(previous => [project, ...previous]);
         setModal(false); setOriginalFile(null); setDubbedFile(null); setProjectName('');
@@ -205,20 +203,24 @@ export default function Home() {
         return;
       }
       if (!finalDub) throw new Error('No dubbed media is available for QA.');
-      setAnalysisProgress({ stage: 'Starting speech transcription and audio comparison', percent: 74, status: 'processing', startedAt });
-      const form = new FormData();
-      form.set('original', originalFile); form.set('dubbed', finalDub);
-      form.set('sourceLanguage', source); form.set('targetLanguage', target); form.set('projectName', projectName);
-      form.set('progressId', progressId);
-      const response = await fetch('/api/analyze', { method: 'POST', body: form });
+      setAnalysisProgress({ stage: 'Uploading both private video tracks', percent: 8, status: 'processing', startedAt });
+      const [originalStored, dubbedStored] = await Promise.all([
+        uploadPresigned(`satvic-jobs/${crypto.randomUUID()}-${originalFile.name.replace(/[^\w.-]+/g, '-')}`, originalFile, { access: 'private', handleUploadUrl: '/api/blob/upload', multipart: true, onUploadProgress: ({ percentage }) => setAnalysisProgress({ stage: `Uploading original track · ${Math.round(percentage)}%`, percent: Math.max(8, Math.round(percentage * 0.22)), status: 'processing', startedAt }) }),
+        uploadPresigned(`satvic-jobs/${crypto.randomUUID()}-${finalDub.name.replace(/[^\w.-]+/g, '-')}`, finalDub, { access: 'private', handleUploadUrl: '/api/blob/upload', multipart: true, onUploadProgress: ({ percentage }) => setAnalysisProgress({ stage: `Uploading dub track · ${Math.round(percentage)}%`, percent: Math.max(8, Math.round(percentage * 0.22)), status: 'processing', startedAt }) }),
+      ]);
+      const title = projectName || originalFile.name.replace(/\.[^.]+$/, '');
+      const jobResponse = await fetch('/api/jobs/manual', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ originalBlobUrl: originalStored.url, dubbedBlobUrl: dubbedStored.url, originalName: originalFile.name, sourceLanguage: source, targetLanguage: target, projectName: title }) });
+      const jobBody = await readApiJson(jobResponse);
+      if (!jobResponse.ok) throw new Error(jobBody.error || 'Could not save this analysis to your history.');
+      setAnalysisProgress({ stage: 'Transcribing and comparing both audio tracks', percent: 38, status: 'processing', startedAt });
+      const response = await fetch('/api/analyze', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ originalBlobUrl: originalStored.url, dubbedBlobUrl: dubbedStored.url, originalName: originalFile.name, sourceLanguage: source, targetLanguage: target, projectName: title, historyJobId: jobBody.jobId, progressId }) });
       const body = await readApiJson(response);
       if (!response.ok) throw new Error(body.error || 'Analysis failed.');
       const result = body as AnalysisReport;
-      result.originalVideoUrl = URL.createObjectURL(originalFile);
-      result.dubbedVideoUrl = URL.createObjectURL(finalDub);
+      result.originalVideoUrl = `/api/jobs/media?runId=${encodeURIComponent(jobBody.jobId)}&url=${encodeURIComponent(originalStored.url)}`;
+      result.dubbedVideoUrl = `/api/jobs/media?runId=${encodeURIComponent(jobBody.jobId)}&url=${encodeURIComponent(dubbedStored.url)}`;
       result.generatedBySarvam = false;
-      const title = result.project || projectName || originalFile.name.replace(/\.[^.]+$/, '');
-      const project: Project = { title, source, target, status: 'Needs review', issues: result.findings.length, date: 'Just now', color: 'lilac', initials: title.slice(0, 2).toUpperCase() };
+      const project: Project = { title: result.project || title, source, target, status: 'Needs review', issues: result.findings.length, date: 'Just now', color: 'lilac', initials: title.slice(0, 2).toUpperCase(), jobId: jobBody.jobId };
       setReport(result); setProjects((prev) => [project, ...prev]); setDetails(project);
       setModal(false); setOriginalFile(null); setDubbedFile(null); setProjectName(''); setNotice('AI listened to both audio tracks. Open the report for timestamped findings.');
       window.setTimeout(() => setNotice(''), 4500);
@@ -318,11 +320,11 @@ export default function Home() {
         </nav>
         <div className="sidebar-spacer" />
         <div className="plan-card"><div className="plan-icon"><Sparkles size={16} /></div><strong>AI dubbing review</strong><p>AI compares both spoken tracks and marks suspected issues with times.</p><button onClick={() => setNotice('Your local workspace keeps this review workflow on your device.')}>How it works <ArrowRight size={13} /></button><div className="plan-glow" /></div>
-        <button className="profile-row"><div className="profile-avatar">PK</div><div className="profile-copy"><b>Piyush Kumar</b><span>Founder’s Office applicant</span></div><MoreHorizontal size={19} /></button>
+        <form action={signOut} className="profile-row"><div className="profile-avatar">{(accountEmail.slice(0, 1) || 'U').toUpperCase()}</div><div className="profile-copy"><b>{accountEmail || 'Signed in'}</b><span>Personal QA workspace</span></div><button type="submit" className="profile-signout">Sign out</button></form>
       </aside>
 
       <section className="main-area">
-        <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><b>Overview</b></div><div className="top-actions"><div className="local-pill"><span /> Local workspace</div><button className="icon-btn" aria-label="Help" onClick={() => setNotice('This workspace uses AI-assisted checks. AI compares both audio tracks and points to the times that may contain an issue.')}><CircleHelp size={18} /></button><button className="icon-btn notification-btn" aria-label="Notifications" onClick={() => setNotice(`You have ${projects.length} analyzed project(s) in this session.`)}><Bell size={18} /><i /></button><div className="top-divider" /><div className="mini-profile">PK</div></div></header>
+        <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><b>Overview</b></div><div className="top-actions"><div className="local-pill"><span /> Account history synced</div><button className="icon-btn" aria-label="Help" onClick={() => setNotice('This workspace uses AI-assisted checks. AI compares both audio tracks and points to the times that may contain an issue.')}><CircleHelp size={18} /></button><button className="icon-btn notification-btn" aria-label="Notifications" onClick={() => setNotice(`You have ${projects.length} saved project(s) in your account.`)}><Bell size={18} /><i /></button><div className="top-divider" /><div className="mini-profile">{(accountEmail.slice(0, 1) || 'U').toUpperCase()}</div></div></header>
         <div className="content-wrap">
           <section className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-line" /> YOUR MULTILINGUAL REVIEW DESK</div><h1>Good morning, Piyush <span className="wave">✳</span></h1><p className="welcome-subtitle">One source. Every language. Nothing important lost along the way.</p></div><button className="primary-btn" onClick={() => setModal(true)}><Plus size={17} /> New QA project</button></section>
 

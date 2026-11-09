@@ -1,0 +1,55 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; background: #f7f6f9; color: #22242d; font-family: Inter, Arial, sans-serif; }
+    .clip { position: absolute; }
+    .s2-dim { inset: 0; background: linear-gradient(115deg,#eae6f2,#f8f7fa 58%,#eee9f6); }
+    .s2-window { left: 260px; top: 94px; width: 1400px; height: 892px; border: 1px solid #e7e3ed; border-radius: 28px; background: #fff; box-shadow: 0 34px 100px #3028431c; overflow: hidden; }
+    .s2-sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: 255px; padding: 37px 28px; background: #fbfafc; border-right: 1px solid #eeedf2; }
+    .s2-brand { display: flex; align-items: center; gap: 11px; font-size: 18px; font-weight: 700; letter-spacing: -.7px; }
+    .s2-mark { width: 31px; height: 31px; border-radius: 10px; background: linear-gradient(145deg,#a89ae8,#7560c8); color: #fff; display: grid; place-items: center; font-size: 17px; }
+    .s2-nav { margin-top: 65px; display: grid; gap: 18px; color: #85828f; font-size: 14px; }
+    .s2-nav b { color: #7560c8; background: #f0edfa; border-radius: 10px; padding: 14px 16px; margin: 0 -16px; }
+    .s2-content { position: absolute; left: 255px; top: 0; width: 1145px; height: 892px; padding: 55px 66px; }
+    .s2-topline { color: #9995a1; font-size: 13px; letter-spacing: 1.4px; font-weight: 700; }
+    .s2-title { margin-top: 15px; font-size: 43px; letter-spacing: -1.8px; }
+    .s2-intro { margin-top: 11px; color: #85828f; font-size: 18px; }
+    .s2-modal { margin-top: 31px; width: 100%; border: 1px solid #e9e6ef; border-radius: 20px; padding: 27px; background: #fff; box-shadow: 0 14px 44px #3028430c; }
+    .s2-modal-title { font-size: 21px; font-weight: 700; margin-bottom: 16px; }
+    .s2-options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .s2-option { height: 94px; border: 1px solid #eae8ef; border-radius: 15px; padding: 17px; display: flex; align-items: center; gap: 14px; background: #fff; }
+    .s2-option.active { background: #f7f4fc; border-color: #a99be0; box-shadow: inset 0 0 0 1px #a99be0; }
+    .s2-option-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: #efecf8; color: #7560c8; font-size: 20px; }
+    .s2-option b { display: block; font-size: 15px; } .s2-option small { display: block; margin-top: 5px; color: #898692; font-size: 12px; }
+    .s2-label { margin-top: 26px; display: flex; justify-content: space-between; color: #85828f; font-size: 12px; letter-spacing: 1px; font-weight: 700; }
+    .s2-files { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 12px; }
+    .s2-file { height: 150px; padding: 20px; border: 1px dashed #d9d5e2; border-radius: 15px; background: #fcfbfd; }
+    .s2-file-head { display: flex; justify-content: space-between; align-items: center; color: #7560c8; font-size: 12px; font-weight: 700; letter-spacing: .7px; }
+    .s2-file-name { margin-top: 24px; font-size: 16px; font-weight: 700; } .s2-file-meta { margin-top: 6px; font-size: 12px; color: #95919d; }
+    .s2-cta { position: absolute; right: 27px; bottom: 24px; padding: 15px 23px; border: 0; border-radius: 10px; background: linear-gradient(130deg,#8270cf,#6f5abc); color: white; font-size: 15px; font-weight: 700; }
+    .s2-note { position: absolute; left: 67px; bottom: 32px; color: #92909b; font-size: 13px; }
+  </style>
+  <div id="root" data-composition-id="scene-2" data-width="1920" data-height="1080">
+    <div id="s2-dim" class="clip s2-dim" data-start="0" data-duration="3.5"></div>
+    <div id="s2-window" class="clip s2-window" data-start="0.05" data-duration="3.45">
+      <aside class="s2-sidebar"><div class="s2-brand"><span class="s2-mark">S</span> satvic studio</div><div class="s2-nav"><span>Overview</span><b>QA projects</b><span>Review queue</span><span>Settings</span></div></aside>
+      <section class="s2-content">
+        <div class="s2-topline">NEW QA PROJECT</div><h1 class="s2-title">Analyze a dub</h1><p class="s2-intro">Start with the original and the finished target-language version.</p>
+        <div class="s2-modal"><div class="s2-modal-title">Choose how to begin</div>
+          <div class="s2-options"><div class="s2-option"><span class="s2-option-icon">+</span><span><b>Generate with Sarvam</b><small>Original to Sarvam dub to QA report</small></span></div><div class="s2-option active"><span class="s2-option-icon">&#x266B;</span><span><b>I already have a dub</b><small>Upload both tracks to QA report</small></span></div></div>
+          <div class="s2-label"><span>UPLOAD YOUR MEDIA</span><span>HINDI to MARATHI</span></div>
+          <div class="s2-files"><div class="s2-file"><div class="s2-file-head"><span>01  |  ORIGINAL</span><span>READY OK</span></div><div class="s2-file-name">hindi_source.mp4</div><div class="s2-file-meta">Source-language video</div></div><div class="s2-file"><div class="s2-file-head"><span>02  |  DUB</span><span>READY OK</span></div><div class="s2-file-name">marathi_dub.mp4</div><div class="s2-file-meta">Target-language video</div></div></div>
+          <div class="s2-note">Private uploads  |  Both audio tracks are reviewed</div><button class="s2-cta">Run AI dub review&nbsp; to</button>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="../assets/gsap.min.js"></script>
+  <script>
+    const tl = gsap.timeline({ paused: true });
+    tl.fromTo("#s2-dim", { opacity: 0 }, { opacity: 1, duration: 0.28, ease: "power2.out" }, 0);
+    tl.fromTo("#s2-window", { opacity: 0, y: 22, scale: 0.99 }, { opacity: 1, y: 0, scale: 1, duration: 0.48, ease: "power3.out" }, 0.08);
+    window.__timelines = window.__timelines || {};
+    window.__timelines["scene-2"] = tl;
+  </script>
+</template>
+

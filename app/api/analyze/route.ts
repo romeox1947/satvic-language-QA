@@ -6,6 +6,8 @@ import path from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
 import { get as getBlob } from '@vercel/blob';
 import { updateAnalysisProgress } from './progress-store';
+import { put } from '@vercel/blob';
+import { createClient } from '../../../lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -422,10 +424,25 @@ export async function POST(request: Request) {
   if (!process.env.GEMINI_API_KEY?.trim()) return NextResponse.json({ error: 'Add GEMINI_API_KEY to .env.local. The AI audio reviewer needs it to listen to and compare both languages.' }, { status: 503 });
   let stage = 'Reading uploaded files';
   let progressId = '';
+  let historyJobId = '';
+  let historyOriginalUrl = '';
+  let historyDubbedUrl = '';
+  let historySupabase: Awaited<ReturnType<typeof createClient>> | null = null;
   try {
     const isJson = request.headers.get('content-type')?.includes('application/json');
     const form = isJson ? null : await request.formData();
     const json: Json = isJson ? await request.json() : {};
+    historyJobId = String(json.historyJobId || '');
+    if (historyJobId) {
+      historySupabase = await createClient();
+      const { data: { user } } = await historySupabase.auth.getUser();
+      if (!user) return NextResponse.json({ error: 'Sign in before saving this analysis.' }, { status: 401 });
+      const { data: savedJob } = await historySupabase.from('qa_jobs').select('id,original_blob_url,dubbed_blob_url').eq('id', historyJobId).eq('user_id', user.id).maybeSingle();
+      if (!savedJob) return NextResponse.json({ error: 'This QA project does not belong to your account.' }, { status: 404 });
+      if (String(json.originalBlobUrl || '') !== savedJob.original_blob_url || String(json.dubbedBlobUrl || '') !== savedJob.dubbed_blob_url) return NextResponse.json({ error: 'The uploaded media does not match this saved QA project.' }, { status: 400 });
+      historyOriginalUrl = savedJob.original_blob_url;
+      historyDubbedUrl = savedJob.dubbed_blob_url || '';
+    }
     progressId = String(form?.get('progressId') || '');
     updateAnalysisProgress(progressId, 'Checking uploaded videos', 12);
     let original: FormDataEntryValue | File | null = form?.get('original') || null;
@@ -498,7 +515,7 @@ export async function POST(request: Request) {
     ];
     updateAnalysisProgress(progressId, 'Finishing the timestamped report', 97);
     updateAnalysisProgress(progressId, 'Analysis complete', 100, 'complete');
-    return NextResponse.json({
+    const report: Json = {
       project: String(form?.get('projectName') || json.projectName || original.name.replace(/\.[^.]+$/, '')),
       sourceLanguage, targetLanguage, createdAt: new Date().toISOString(),
       originalTranscript: originalResult.transcript, dubbedTranscript: dubbedResult.transcript,
@@ -515,9 +532,17 @@ export async function POST(request: Request) {
       transcriptionEngine: originalResult.engine === dubbedResult.engine ? originalResult.engine : `${originalResult.engine} · ${dubbedResult.engine}`,
       semanticReviewEngine: process.env.GEMINI_API_KEY ? `${process.env.GEMINI_MODEL || 'gemini-3.8-flash'} audio review` : null,
       disclaimer: 'The AI listens to both audio tracks and reports suspected issues with time ranges. Treat these as review findings, not a guarantee: speech recognition and audio models can miss mistakes or infer words incorrectly.',
-    });
+    };
+    if (historyJobId && historySupabase) {
+      report.originalVideoUrl = historyOriginalUrl;
+      report.dubbedVideoUrl = historyDubbedUrl;
+      const stored = await put(`satvic-jobs/${crypto.randomUUID()}-qa-report.json`, JSON.stringify(report), { access: 'private', contentType: 'application/json', addRandomSuffix: true });
+      await historySupabase.from('qa_jobs').update({ report_blob_url: stored.url, status: 'completed', issue_count: combinedFindings.length, error_message: null, updated_at: new Date().toISOString() }).eq('id', historyJobId);
+    }
+    return NextResponse.json(report);
   } catch (error) {
     const message = error instanceof Error ? error.message : providerError(error as Json);
+    if (historyJobId && historySupabase) await historySupabase.from('qa_jobs').update({ status: 'failed', error_message: message.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
     updateAnalysisProgress(progressId, 'Analysis stopped', 100, 'error', message);
     console.error(`[api/analyze] ${stage} failed: ${message || 'Unknown analysis error.'}`);
     const status = message.includes('Whisper worker') || /returned 503/.test(message) ? 503 : /returned 429/.test(message) ? 429 : 502;

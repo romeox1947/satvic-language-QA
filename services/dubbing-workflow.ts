@@ -1,5 +1,6 @@
 import { get, put } from '@vercel/blob';
 import { sleep } from 'workflow';
+import { createAdminClient } from '../lib/supabase/admin';
 
 type JobInput = {
   originalBlobUrl: string;
@@ -7,10 +8,23 @@ type JobInput = {
   sourceLanguage: string;
   targetLanguage: string;
   projectName: string;
+  dbJobId: string;
+  userId: string;
 };
 
 type Json = Record<string, any>;
 const SARVAM = 'https://api.sarvam.ai/dubbing';
+
+async function updateHistory(input: JobInput, values: Record<string, unknown>) {
+  'use step';
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.from('qa_jobs').update({ ...values, updated_at: new Date().toISOString() }).eq('id', input.dbJobId).eq('user_id', input.userId);
+    if (error) console.error(`[dubbing-workflow] Could not update Supabase history: ${error.message}`);
+  } catch (error) {
+    console.error('[dubbing-workflow] Could not update Supabase history.', error);
+  }
+}
 
 function appBaseUrl(): string {
   const configured = process.env.APP_BASE_URL?.trim();
@@ -45,9 +59,9 @@ async function sendJobEmail(input: JobInput, outcome: 'started' | 'completed' | 
   'use step';
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.RESEND_FROM_EMAIL?.trim();
-  const to = process.env.NOTIFICATION_EMAIL?.trim() || 'piyushkumaryadav2027@gmail.com';
-  if (!apiKey || !from) {
-    console.warn('[dubbing-workflow] Email notification skipped: configure RESEND_API_KEY and RESEND_FROM_EMAIL.');
+  const to = process.env.NOTIFICATION_EMAIL?.trim();
+  if (!apiKey || !from || !to) {
+    console.warn('[dubbing-workflow] Email notification skipped: configure RESEND_API_KEY, RESEND_FROM_EMAIL, and NOTIFICATION_EMAIL.');
     return { sent: false };
   }
 
@@ -146,6 +160,7 @@ async function runQa(input: JobInput, dubbedBlobUrl: string) {
   const appUrl = appBaseUrl();
   if (!appUrl) throw new Error('APP_BASE_URL is missing. Set it to your deployed Vercel URL so the workflow can start QA.');
   const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (process.env.WORKFLOW_INTERNAL_TOKEN) headers['x-workflow-internal'] = process.env.WORKFLOW_INTERNAL_TOKEN;
   if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
   let response: Response;
   try {
@@ -174,11 +189,12 @@ async function runQa(input: JobInput, dubbedBlobUrl: string) {
   }
   const report = { ...body, generatedBySarvam: true, originalVideoUrl: input.originalBlobUrl, dubbedVideoUrl: dubbedBlobUrl };
   const storedReport = await put(`satvic-jobs/${crypto.randomUUID()}-qa-report.json`, JSON.stringify(report), { access: 'private', contentType: 'application/json', addRandomSuffix: true });
-  return { reportBlobUrl: storedReport.url };
+  return { reportBlobUrl: storedReport.url, dubbedBlobUrl, issueCount: Array.isArray(body.findings) ? body.findings.length : 0 };
 }
 
 export async function generateAndReview(input: JobInput) {
   'use workflow';
+  await updateHistory(input, { status: 'running' });
   try {
     const { jobId } = await startSarvam(input);
     const hostedOnVercel = Boolean(process.env.VERCEL);
@@ -196,13 +212,16 @@ export async function generateAndReview(input: JobInput) {
     const dubbedBlobUrl = await saveDub(current.downloadUrl);
     const result = await runQa(input, dubbedBlobUrl);
     if ('jobError' in result && typeof result.jobError === 'string') {
+      await updateHistory(input, { status: 'failed', error_message: result.jobError });
       await sendJobEmail(input, 'failed', result.jobError);
       return result;
     }
+    await updateHistory(input, { dubbed_blob_url: result.dubbedBlobUrl, report_blob_url: result.reportBlobUrl, status: 'completed', issue_count: result.issueCount, error_message: null });
     await sendJobEmail(input, 'completed', 'The dubbed video and QA report are ready in Satvic Studio.');
     return result;
   } catch (error) {
     const jobError = errorText(error);
+    await updateHistory(input, { status: 'failed', error_message: jobError });
     await sendJobEmail(input, 'failed', jobError);
     return { jobError };
   }
