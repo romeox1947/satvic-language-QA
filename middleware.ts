@@ -6,12 +6,14 @@ export async function middleware(request: NextRequest) {
   const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const url = rawUrl ? normalizeSupabaseUrl(rawUrl) : undefined;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const isLogin = request.nextUrl.pathname.startsWith('/login');
+  const pathname = request.nextUrl.pathname;
+  const isPublicPage = pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/signup');
+  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
   const isAuthCallback = request.nextUrl.pathname === '/auth/callback';
   const internalToken = process.env.WORKFLOW_INTERNAL_TOKEN;
-  if (request.nextUrl.pathname === '/api/analyze' && internalToken && request.headers.get('x-workflow-internal') === internalToken) return NextResponse.next();
+  if (pathname === '/api/analyze' && internalToken && request.headers.get('x-workflow-internal') === internalToken) return NextResponse.next();
   if (!url || !key) {
-    if (isLogin) return NextResponse.next();
+    if (isPublicPage || isAuthCallback) return NextResponse.next();
     return NextResponse.redirect(new URL('/login?setup=missing', request.url));
   }
 
@@ -27,8 +29,8 @@ export async function middleware(request: NextRequest) {
     },
   });
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user && !isLogin && !isAuthCallback) return NextResponse.redirect(new URL('/login', request.url));
-  if (user && isLogin) return NextResponse.redirect(new URL('/', request.url));
+  if (!user && !isPublicPage && !isAuthCallback) return NextResponse.redirect(new URL('/login', request.url));
+  if (user && isAuthPage) return NextResponse.redirect(new URL('/dashboard', request.url));
   return response;
 }
 
