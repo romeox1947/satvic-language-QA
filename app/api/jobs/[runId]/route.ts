@@ -35,7 +35,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in to view this job.' }, { status: 401 });
-    const { data: job, error: jobError } = await supabase.from('qa_jobs').select('id,run_id,status,report_blob_url,error_message').eq('user_id', user.id).or(`run_id.eq.${runId},id.eq.${runId}`).maybeSingle();
+    const jobLookup = supabase.from('qa_jobs').select('id,run_id,status,report_blob_url,error_message').eq('user_id', user.id);
+    const { data: job, error: jobError } = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId)
+      ? await jobLookup.eq('id', runId).maybeSingle()
+      : await jobLookup.eq('run_id', runId).maybeSingle();
     if (jobError) throw jobError;
     if (!job) return Response.json({ error: 'This job does not belong to your account.' }, { status: 404 });
     // The durable workflow may finish before its run metadata is readable again.
