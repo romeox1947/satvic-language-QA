@@ -199,11 +199,11 @@ export async function generateAndReview(input: JobInput) {
   'use workflow';
   await updateHistory(input, { status: 'running' });
   try {
-    const { jobId } = await startSarvam(input);
     const hostedOnVercel = Boolean(process.env.VERCEL);
     await sendJobEmail(input, 'started', hostedOnVercel
-      ? 'Your video has been accepted and the dubbing and QA workflow is running on Vercel. You can close your browser or turn off your computer; we will email you again when it completes or fails.'
-      : 'Your video has been accepted and the dubbing and QA workflow has started locally. Keep this computer and the local development server running until the job finishes.');
+      ? 'Your video has been accepted and the background workflow has started on Vercel. Dubbing and QA are starting; you can close your browser or turn off your computer. We will email you again when it completes or fails.'
+      : 'Your video has been accepted and the background workflow has started locally. Keep this computer and the local development server running until the job finishes.');
+    const { jobId } = await startSarvam(input);
     const deadline = Date.now() + 12 * 60 * 60 * 1000;
     let current = { ready: false, progress: 0, step: 'Sarvam is creating the dub' } as Awaited<ReturnType<typeof checkSarvam>>;
     while (Date.now() < deadline) {
