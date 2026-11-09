@@ -7,7 +7,7 @@ A local-first dubbing workflow for creating a target-language video with Sarvam 
 - Node.js 20.9+
 - Sarvam API key with Dubbing, speech-to-text and translation access
 - Gemini API key for direct audio comparison (required for the AI listening report)
-- Optional Resend account/API key for email notifications when a generated job succeeds or fails
+- Optional Mailjet API credentials and validated sender for email notifications to the signed-in Google account
 - Optional Python 3.11 environment for the local Whisper transcription worker
 
 ## Setup on Windows
@@ -25,9 +25,9 @@ Add your keys to `.env.local`:
 SARVAM_API_KEY=your_key_here
 GEMINI_API_KEY=your_gemini_key
 GEMINI_MODEL=gemini-3.8-flash
-RESEND_API_KEY=your_resend_api_key
-RESEND_FROM_EMAIL=onboarding@resend.dev
-NOTIFICATION_EMAIL=your_email@example.com
+MAILJET_API_KEY=your_mailjet_api_key
+MAILJET_SECRET_KEY=your_mailjet_secret_key
+MAILJET_FROM_EMAIL=your_validated_sender@example.com
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 SUPABASE_SECRET_KEY=sb_secret_...
@@ -88,12 +88,12 @@ Before using this flow on Vercel:
 
 1. In the Vercel project, create a Blob store and connect it to this project. Vercel supplies `BLOB_READ_WRITE_TOKEN` automatically.
 2. Set `SARVAM_API_KEY`, `GEMINI_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_APP_URL`, and `WORKFLOW_INTERNAL_TOKEN` in the Vercel project environment variables. Keep the Secret key and workflow token server-only.
-3. For email alerts, add `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and `NOTIFICATION_EMAIL` (the destination inbox). The `onboarding@resend.dev` sender is restricted to testing with the email address associated with your Resend account. For delivery to your Gmail address, verify a domain in Resend and use a sender on that verified domain. `delivered@resend.dev` is Resend's simulated test recipient, not an inbox.
+3. For email alerts, add `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, and `MAILJET_FROM_EMAIL`. Get the API key and secret from Mailjet, then validate the sender address in Mailjet. Job alerts go to the email on the signed-in Google account. Mailjet's current Free plan includes 6,000 emails per month with a 200-per-day cap. Mailjet warns that senders from free email providers such as Gmail may have deliverability issues; a domain sender is preferable. See [Mailjet pricing](https://www.mailjet.com/pricing/), [sender validation](https://documentation.mailjet.com/hc/en-us/articles/360042759253-How-to-add-a-sender-address), and [Send API](https://dev.mailjet.com/docs/email-api/send-api-v31/send-basic-email).
 4. `APP_BASE_URL` is optional. By default, the workflow now uses Vercel's stable production domain before falling back to its per-deployment URL. If you set `APP_BASE_URL`, use the production domain shown under **Vercel → Project → Settings → Domains**, not a unique preview/deployment URL. If production is also protected, create a **Protection Bypass for Automation** secret under **Settings → Deployment Protection** and ensure it is available as `VERCEL_AUTOMATION_BYPASS_SECRET`; the workflow sends it in Vercel's supported bypass header.
 5. In Supabase, add the production Vercel callback to the allowed redirect URLs and configure the Google provider as described above. Run `supabase/schema.sql` once in the Supabase SQL editor.
 6. Redeploy after connecting storage and setting variables.
 
-With Resend configured, the generated dubbing-and-QA workflow emails when Sarvam starts processing, then again when QA completes or the workflow fails. The dashboard confirms whether email alerts are enabled when a job starts and tells you when it is safe to close the browser. Check **Resend → Emails/Logs** for send status; Vercel runtime logs include `[dubbing-workflow]` messages when a notification is rejected or accepted. If Resend is not configured, the job still runs and its dashboard result is unaffected; the server logs that notifications were skipped. The app calls Resend's HTTP API directly, so installing the optional Node SDK is not required.
+With Mailjet configured, the generated dubbing-and-QA workflow emails the signed-in account when Sarvam starts processing, then again when QA completes or the workflow fails. The dashboard confirms whether email alerts are enabled when a job starts and tells you when it is safe to close the browser. Check Mailjet's message activity for delivery status; Vercel runtime logs include `[dubbing-workflow]` messages when a notification is rejected or accepted. If Mailjet is not configured, the job still runs and its dashboard result is unaffected; the server logs that notifications were skipped. The app calls Mailjet's HTTP API directly, so no email SDK package is required.
 
 Local background testing also requires a Blob store token in `.env.local`; local workflows do not keep running if the computer is turned off. Protect the deployed app with Vercel Deployment Protection or add app authentication before sharing it: the upload and job APIs are intended for the app owner and should not be left open to public traffic.
 

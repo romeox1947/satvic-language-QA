@@ -10,6 +10,7 @@ type JobInput = {
   projectName: string;
   dbJobId: string;
   userId: string;
+  notificationEmail: string;
 };
 
 type Json = Record<string, any>;
@@ -57,11 +58,12 @@ async function readResponse(response: Response): Promise<{ body: Json | null; te
 
 async function sendJobEmail(input: JobInput, outcome: 'started' | 'completed' | 'failed', detail: string) {
   'use step';
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.RESEND_FROM_EMAIL?.trim();
-  const to = process.env.NOTIFICATION_EMAIL?.trim();
-  if (!apiKey || !from || !to) {
-    console.warn('[dubbing-workflow] Email notification skipped: configure RESEND_API_KEY, RESEND_FROM_EMAIL, and NOTIFICATION_EMAIL.');
+  const apiKey = process.env.MAILJET_API_KEY?.trim();
+  const secretKey = process.env.MAILJET_SECRET_KEY?.trim();
+  const from = process.env.MAILJET_FROM_EMAIL?.trim();
+  const to = input.notificationEmail?.trim();
+  if (!apiKey || !secretKey || !from || !to) {
+    console.warn('[dubbing-workflow] Email notification skipped: configure Mailjet API credentials, a validated sender, and a signed-in account email.');
     return { sent: false };
   }
 
@@ -70,25 +72,26 @@ async function sendJobEmail(input: JobInput, outcome: 'started' | 'completed' | 
   const title = outcome === 'started' ? 'Dubbing job started' : outcome === 'completed' ? 'Dubbing and QA completed' : 'Dubbing or QA failed';
   const appUrl = appBaseUrl();
   try {
-    const response = await fetch('https://api.resend.com/emails', {
+    const response = await fetch('https://api.mailjet.com/v3.1/send', {
       method: 'POST',
-      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: `[Satvic Studio] ${title}: ${input.projectName}`,
-        text: `${title}\nProject: ${input.projectName}\nLanguages: ${input.sourceLanguage} → ${input.targetLanguage}\n\n${detail}${appUrl ? `\n\nOpen Satvic Studio: ${appUrl}` : ''}`,
-        html: `<h2>${title}</h2><p><strong>Project:</strong> ${escapeHtml(input.projectName)}</p><p><strong>Languages:</strong> ${escapeHtml(input.sourceLanguage)} &rarr; ${escapeHtml(input.targetLanguage)}</p><p>${escapeHtml(detail)}</p>${appUrl ? `<p><a href="${escapeHtml(appUrl)}">Open Satvic Studio</a></p>` : ''}`,
-      }),
+      headers: { authorization: `Basic ${Buffer.from(`${apiKey}:${secretKey}`).toString('base64')}`, accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ Messages: [{
+        From: { Email: from, Name: 'Satvic Studio' },
+        To: [{ Email: to }],
+        Subject: `[Satvic Studio] ${title}: ${input.projectName}`,
+        TextPart: `${title}\nProject: ${input.projectName}\nLanguages: ${input.sourceLanguage} to ${input.targetLanguage}\n\n${detail}${appUrl ? `\n\nOpen Satvic Studio: ${appUrl}` : ''}`,
+        HTMLPart: `<h2>${title}</h2><p><strong>Project:</strong> ${escapeHtml(input.projectName)}</p><p><strong>Languages:</strong> ${escapeHtml(input.sourceLanguage)} &rarr; ${escapeHtml(input.targetLanguage)}</p><p>${escapeHtml(detail)}</p>${appUrl ? `<p><a href="${escapeHtml(appUrl)}">Open Satvic Studio</a></p>` : ''}`,
+      }] }),
       signal: AbortSignal.timeout(15_000),
     });
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      console.warn(`[dubbing-workflow] Email notification failed (${response.status}): ${body.slice(0, 500)}`);
+    const responseText = await response.text();
+    let result: Json = {};
+    try { result = JSON.parse(responseText) as Json; } catch { /* report the response text below */ }
+    if (!response.ok || result.Messages?.[0]?.Status !== 'success') {
+      console.warn(`[dubbing-workflow] Mailjet email notification failed (${response.status}): ${responseText.slice(0, 500)}`);
       return { sent: false };
     }
-    const result = await response.json().catch(() => ({}));
-    console.info(`[dubbing-workflow] Email notification accepted by Resend: ${result.id || 'message ID unavailable'}`);
+    console.info(`[dubbing-workflow] Email notification accepted by Mailjet: ${result.Messages[0].To?.[0]?.MessageID || 'message ID unavailable'}`);
     return { sent: true };
   } catch (error) {
     console.warn(`[dubbing-workflow] Email notification could not be sent: ${errorText(error)}`);

@@ -1,11 +1,17 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { ArrowDownRight, ArrowRight, AudioLines, Check, CirclePlay, Languages, ShieldCheck, Sparkles, Waves } from 'lucide-react';
 
 function BrandMark() {
   return <span className="landing-mark" aria-hidden="true"><i /><i /><i /></span>;
 }
 
-export default function LandingPage() {
+export default async function LandingPage({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
+  const { code } = await searchParams;
+  // If Supabase's Site URL fallback sends OAuth directly to `/`, finish the
+  // one-time code exchange through the same callback route as normal sign-in.
+  if (code) redirect(`/auth/callback?code=${encodeURIComponent(code)}`);
+
   return (
     <main className="landing-page">
       <header className="landing-nav">

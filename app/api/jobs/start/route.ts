@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     if (insertError || !job) throw insertError || new Error('Could not save this job to your history.');
     let run;
     try {
-      run = await start(generateAndReview, [{ originalBlobUrl, originalName, sourceLanguage, targetLanguage, projectName, dbJobId: job.id, userId: user.id }]);
+      run = await start(generateAndReview, [{ originalBlobUrl, originalName, sourceLanguage, targetLanguage, projectName, dbJobId: job.id, userId: user.id, notificationEmail: user.email || '' }]);
     } catch (error) {
       await supabase.from('qa_jobs').update({ status: 'failed', error_message: error instanceof Error ? error.message : 'Could not start workflow.' }).eq('id', job.id);
       throw error;
@@ -37,8 +37,8 @@ export async function POST(request: Request) {
       runId: run.runId,
       status: 'running',
       runsOnVercel: Boolean(process.env.VERCEL),
-      emailNotificationsEnabled: Boolean(process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim()),
-      notificationEmail: process.env.NOTIFICATION_EMAIL?.trim() || '',
+      emailNotificationsEnabled: Boolean(process.env.MAILJET_API_KEY?.trim() && process.env.MAILJET_SECRET_KEY?.trim() && process.env.MAILJET_FROM_EMAIL?.trim() && user.email),
+      notificationEmail: user.email || '',
     }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not start the background dubbing job.';

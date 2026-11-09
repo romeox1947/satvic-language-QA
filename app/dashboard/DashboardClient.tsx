@@ -198,7 +198,7 @@ export default function Home() {
           : 'This is a local run, so keep this computer and the development server running.';
         setNotice(startBody.emailNotificationsEnabled
           ? `Job started. ${backgroundLocation} We will email ${startBody.notificationEmail} when it completes or fails.`
-          : `Job started. ${backgroundLocation} Reopen this dashboard later for the result. Configure Resend email settings to receive start, success, and failure emails.`);
+          : `Job started. ${backgroundLocation} Reopen this dashboard later for the result. Configure Mailjet email settings to receive start, success, and failure emails.`);
         window.setTimeout(() => setNotice(''), 12000);
         return;
       }
