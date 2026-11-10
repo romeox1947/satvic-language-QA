@@ -8,6 +8,7 @@ import { get as getBlob } from '@vercel/blob';
 import { updateAnalysisProgress } from './progress-store';
 import { put } from '@vercel/blob';
 import { createClient } from '../../../lib/supabase/server';
+import { sendGmailJobEmail } from '../../../lib/email/gmail';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -427,6 +428,10 @@ export async function POST(request: Request) {
   let historyJobId = '';
   let historyOriginalUrl = '';
   let historyDubbedUrl = '';
+  let historyNotificationEmail = '';
+  let historyProjectName = '';
+  let historySourceLanguage = '';
+  let historyTargetLanguage = '';
   let historySupabase: Awaited<ReturnType<typeof createClient>> | null = null;
   try {
     const isJson = request.headers.get('content-type')?.includes('application/json');
@@ -437,6 +442,7 @@ export async function POST(request: Request) {
       historySupabase = await createClient();
       const { data: { user } } = await historySupabase.auth.getUser();
       if (!user) return NextResponse.json({ error: 'Sign in before saving this analysis.' }, { status: 401 });
+      historyNotificationEmail = user.email || '';
       const { data: savedJob } = await historySupabase.from('qa_jobs').select('id,original_blob_url,dubbed_blob_url').eq('id', historyJobId).eq('user_id', user.id).maybeSingle();
       if (!savedJob) return NextResponse.json({ error: 'This QA project does not belong to your account.' }, { status: 404 });
       if (String(json.originalBlobUrl || '') !== savedJob.original_blob_url || String(json.dubbedBlobUrl || '') !== savedJob.dubbed_blob_url) return NextResponse.json({ error: 'The uploaded media does not match this saved QA project.' }, { status: 400 });
@@ -459,11 +465,25 @@ export async function POST(request: Request) {
     }
     const sourceLanguage = String(form?.get('sourceLanguage') || json.sourceLanguage || 'Hindi');
     const targetLanguage = String(form?.get('targetLanguage') || json.targetLanguage || 'Tamil');
+    historyProjectName = String(form?.get('projectName') || json.projectName || '');
+    historySourceLanguage = sourceLanguage;
+    historyTargetLanguage = targetLanguage;
     if (!(original instanceof File) || !(dubbed instanceof File)) return NextResponse.json({ error: 'Choose both the original and dubbed media.' }, { status: 400 });
+    if (!historyProjectName) historyProjectName = original.name.replace(/\.[^.]+$/, '');
     if (!original.size || !dubbed.size) return NextResponse.json({ error: 'One of the selected files is empty.' }, { status: 400 });
     if (original.size > 450 * 1024 * 1024 || dubbed.size > 450 * 1024 * 1024) return NextResponse.json({ error: 'Each media file must be smaller than 450 MB for this local server.' }, { status: 413 });
     const source = LANGUAGES[sourceLanguage]; const target = LANGUAGES[targetLanguage];
     if (!source || !target) return NextResponse.json({ error: 'That language pair is not enabled yet.' }, { status: 400 });
+
+    if (historyJobId) await sendGmailJobEmail({
+      to: historyNotificationEmail,
+      outcome: 'started',
+      projectName: historyProjectName,
+      sourceLanguage,
+      targetLanguage,
+      detail: 'Your video QA is starting. We will email you again when the report is ready or if the analysis fails.',
+      appUrl: new URL(request.url).origin,
+    });
 
     stage = 'Transcribing original and dubbed media';
     updateAnalysisProgress(progressId, stage, 24);
@@ -516,7 +536,7 @@ export async function POST(request: Request) {
     updateAnalysisProgress(progressId, 'Finishing the timestamped report', 97);
     updateAnalysisProgress(progressId, 'Analysis complete', 100, 'complete');
     const report: Json = {
-      project: String(form?.get('projectName') || json.projectName || original.name.replace(/\.[^.]+$/, '')),
+      project: historyProjectName || original.name.replace(/\.[^.]+$/, ''),
       sourceLanguage, targetLanguage, createdAt: new Date().toISOString(),
       originalTranscript: originalResult.transcript, dubbedTranscript: dubbedResult.transcript,
       backTranslation, findings: combinedFindings,
@@ -538,11 +558,31 @@ export async function POST(request: Request) {
       report.dubbedVideoUrl = historyDubbedUrl;
       const stored = await put(`satvic-jobs/${crypto.randomUUID()}-qa-report.json`, JSON.stringify(report), { access: 'private', contentType: 'application/json', addRandomSuffix: true });
       await historySupabase.from('qa_jobs').update({ report_blob_url: stored.url, status: 'completed', issue_count: combinedFindings.length, error_message: null, updated_at: new Date().toISOString() }).eq('id', historyJobId);
+      await sendGmailJobEmail({
+        to: historyNotificationEmail,
+        outcome: 'completed',
+        projectName: historyProjectName,
+        sourceLanguage,
+        targetLanguage,
+        detail: 'Your dub QA report is ready in Satvic Studio.',
+        appUrl: new URL(request.url).origin,
+      });
     }
     return NextResponse.json(report);
   } catch (error) {
     const message = error instanceof Error ? error.message : providerError(error as Json);
-    if (historyJobId && historySupabase) await historySupabase.from('qa_jobs').update({ status: 'failed', error_message: message.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
+    if (historyJobId && historySupabase) {
+      await historySupabase.from('qa_jobs').update({ status: 'failed', error_message: message.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
+      await sendGmailJobEmail({
+        to: historyNotificationEmail,
+        outcome: 'failed',
+        projectName: historyProjectName || 'Video QA',
+        sourceLanguage: historySourceLanguage || 'Unknown',
+        targetLanguage: historyTargetLanguage || 'Unknown',
+        detail: `${stage}: ${message}`,
+        appUrl: new URL(request.url).origin,
+      });
+    }
     updateAnalysisProgress(progressId, 'Analysis stopped', 100, 'error', message);
     console.error(`[api/analyze] ${stage} failed: ${message || 'Unknown analysis error.'}`);
     const status = message.includes('Whisper worker') || /returned 503/.test(message) ? 503 : /returned 429/.test(message) ? 429 : 502;

@@ -7,7 +7,7 @@ A local-first dubbing workflow for creating a target-language video with Sarvam 
 - Node.js 20.9+
 - Sarvam API key with Dubbing, speech-to-text and translation access
 - Gemini API key for direct audio comparison (required for the AI listening report)
-- Optional Mailjet API credentials and validated sender for email notifications to the signed-in Google account
+- Optional Gmail App Password for email notifications to the signed-in Google account
 - Optional Python 3.11 environment for the local Whisper transcription worker
 
 ## Setup on Windows
@@ -25,9 +25,8 @@ Add your keys to `.env.local`:
 SARVAM_API_KEY=your_key_here
 GEMINI_API_KEY=your_gemini_key
 GEMINI_MODEL=gemini-3.8-flash
-MAILJET_API_KEY=your_mailjet_api_key
-MAILJET_SECRET_KEY=your_mailjet_secret_key
-MAILJET_FROM_EMAIL=your_validated_sender@example.com
+GMAIL_USER=piyushkumaryadav2027@gmail.com
+GMAIL_APP_PASSWORD=your_16_character_google_app_password
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 SUPABASE_SECRET_KEY=sb_secret_...
@@ -74,30 +73,46 @@ Open [http://localhost:3000](http://localhost:3000). If the Whisper worker is un
 5. Gemini checks the actual compressed audio tracks and also runs a separate text cross-check using both transcripts and Sarvam back-translation. Findings show whether a matching phrase was flagged by both passes or only one. Times are anchored to ASR segment boundaries when available.
 6. While processing, the analysis dialog shows elapsed time, provider stage and progress. The report lists suspected findings with categories and source/dub time ranges. It avoids model-reported confidence percentages; matching audio and text evidence is shown as corroboration, not proof. Click a time button to jump to that moment. Generated Sarvam dubs can also be downloaded from the report. The transcript evidence can be expanded, and the JSON export includes findings and timestamps.
 
+## Preflight, storage and provider checks
+
+The upload dialog has a two-part start gate. The first click performs preflight before any video is uploaded or Sarvam dubbing starts:
+
+1. The server checks that the signed-in user, Blob store, Sarvam key, Gemini key and background-job configuration (for generated dubs) are present.
+2. Gemini receives a tiny “reply READY” request using the configured model. This confirms that the key/model responds at that moment. It uses a small amount of Gemini quota; it does not reserve future capacity or guarantee the later audio-review request will fit quota or avoid a 429/503.
+3. The browser reads media duration and the server rejects uploads over the current 450 MiB/file limit or clips likely to exceed Gemini’s 18 MiB two-audio request limit (roughly 15–20 minutes at the app’s current audio encoding; generated dubbing uses a more conservative estimate). This protects generated jobs from spending Sarvam dubbing usage on media the existing QA endpoint cannot review in one request.
+4. The server lists this app’s `satvic-jobs/` Blob objects, reads their sizes, and estimates whether the selected upload fits. For Sarvam generation it budgets two copies of the source size plus a 50 MiB reserve; for an existing dub it budgets both selected file sizes plus that reserve. `BLOB_STORAGE_LIMIT_BYTES` controls the soft limit and defaults to 1 GiB. Adjust this env var to reflect the storage capacity you want this app to enforce.
+5. The dialog shows the estimate and the limits of the check. Review it, and check the Sarvam dashboard’s **Settings → Billing** for available credits. There is no Sarvam balance/reservation check in this app.
+6. The second click rechecks storage immediately before upload. If free space is short, the app deletes the oldest inactive media files under `satvic-jobs/` until the estimated job fits. It skips blobs attached to active jobs and media uploaded in the last 10 minutes, and keeps `*-qa-report*.json` reports. Deleted videos can no longer be played or downloaded from history. The existing daily retention job continues to remove expired media automatically.
+7. Only after preparation succeeds does the browser upload the source (and, in existing-dub mode, both tracks) to private Blob storage. Generated mode then starts the Sarvam workflow; existing-dub mode starts transcription and QA.
+
+This is an estimate of the current objects in this app’s Blob store. It cannot read Vercel’s account-level monthly-average storage or data-transfer budget, and deleting blobs does not immediately reset those billing/usage meters. Actual output size may differ from the estimate. Gemini’s successful ping does not guarantee later capacity; Sarvam credits and provider availability can also change between preflight and the real request. If a provider rejects the job, the app reports that error. Keep the logic in `app/api/jobs/preflight/route.ts` and this section in sync when replacing storage or AI providers.
+
+### Editing the workflow later
+
+- Change provider readiness checks, storage estimates, safe-cleanup rules, or the soft storage limit in `app/api/jobs/preflight/route.ts`.
+- Change which stage runs first or the confirmation copy in `app/dashboard/DashboardClient.tsx`.
+- Change the automatic 24-hour cleanup cadence in `vercel.json` and the retention implementation in `app/api/cron/blob-cleanup/route.ts`.
+- Keep this README flow and `.env.local.example` updated whenever providers, limits, or retention rules change.
+
 ### Transcript timing and clip playback
 
 Sarvam Batch Speech-to-Text provides sentence/phrase timestamps, not word-level timestamps. The QA parser accepts the timestamp field variants returned by Sarvam and normalizes them to timed transcript rows. If a provider response has transcript text but no timing data, the report marks timing coverage incomplete instead of inventing timestamps. Finding and transcript playback waits for the media seek to finish, supports pause/resume, and stops at the selected clip end. Gemini transcript/audio reviews request schema-constrained JSON to avoid malformed model output breaking the review. Indic number tokenization retains Unicode combining marks so number words are not split during the heuristic comparison.
 
 Research references: [Sarvam Batch Speech-to-Text](https://docs.sarvam.ai/api/api-guides-tutorials/speech-to-text/batch-api) documents phrase-level timestamps and the two-hour batch limit. [WhisperX (INTERSPEECH 2023)](https://arxiv.org/abs/2303.00747) describes VAD plus forced phoneme alignment for word-level timing; it is a possible local enhancement, but requires a suitable alignment model for each target language. [Gemini structured outputs](https://ai.google.dev/gemini-api/docs/structured-output) documents schema-constrained JSON for model responses.
 
-## Server-side jobs on Vercel
+## Background jobs on Vercel
 
-In **Generate with Sarvam** mode, the browser uploads the source directly to private Vercel Blob storage and starts a Vercel Workflow. Sarvam dubbing and QA continue on Vercel if the browser closes. Supabase stores the job in your account history, and the QA report and private media remain in Blob storage.
+In **Generate with Sarvam** mode, the browser uploads the source to private Vercel Blob storage and starts a Vercel Workflow. Sarvam creates the dub, then the workflow calls the QA API on Vercel. Supabase stores the job history, and Blob stores the media and QA report. The browser can close while the generated dubbing workflow runs; email alerts are sent when it starts and when it completes or fails.
 
-Before using this flow on Vercel:
+For the deployed app, connect a Vercel Blob store and configure `BLOB_READ_WRITE_TOKEN`, `SARVAM_API_KEY`, `GEMINI_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_APP_URL`, and `WORKFLOW_INTERNAL_TOKEN`. Keep secret values server-side. `APP_BASE_URL` is optional; use the stable production domain if you set it. If deployment protection is enabled, configure `VERCEL_AUTOMATION_BYPASS_SECRET` for the workflow callback.
 
-1. In the Vercel project, create a Blob store and connect it to this project. Vercel supplies `BLOB_READ_WRITE_TOKEN` automatically.
-2. Set `SARVAM_API_KEY`, `GEMINI_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NEXT_PUBLIC_APP_URL`, and `WORKFLOW_INTERNAL_TOKEN` in the Vercel project environment variables. Keep the Secret key and workflow token server-only.
-3. For email alerts, add `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, and `MAILJET_FROM_EMAIL`. Get the API key and secret from Mailjet, then validate the sender address in Mailjet. Job alerts go to the email on the signed-in Google account. Mailjet's current Free plan includes 6,000 emails per month with a 200-per-day cap. Mailjet warns that senders from free email providers such as Gmail may have deliverability issues; a domain sender is preferable. See [Mailjet pricing](https://www.mailjet.com/pricing/), [sender validation](https://documentation.mailjet.com/hc/en-us/articles/360042759253-How-to-add-a-sender-address), and [Send API](https://dev.mailjet.com/docs/email-api/send-api-v31/send-basic-email).
-4. `APP_BASE_URL` is optional. By default, the workflow now uses Vercel's stable production domain before falling back to its per-deployment URL. If you set `APP_BASE_URL`, use the production domain shown under **Vercel → Project → Settings → Domains**, not a unique preview/deployment URL. If production is also protected, create a **Protection Bypass for Automation** secret under **Settings → Deployment Protection** and ensure it is available as `VERCEL_AUTOMATION_BYPASS_SECRET`; the workflow sends it in Vercel's supported bypass header.
-5. In Supabase, add the production Vercel callback to the allowed redirect URLs and configure the Google provider as described above. Run `supabase/schema.sql` once in the Supabase SQL editor.
-6. Redeploy after connecting storage and setting variables.
+For Gmail email alerts, configure `GMAIL_USER=piyushkumaryadav2027@gmail.com` and `GMAIL_APP_PASSWORD` in Vercel. The sender is this Gmail account, and each job's start, completion, or failure notices go to the email address of the user signed into Satvic Studio. To create the app password, first enable 2-Step Verification on that Google account, then create an App Password in its Google Account security settings. Use that generated app password, not the regular Google password. Google may not offer App Passwords for some account configurations; see [Google's App Password requirements](https://support.google.com/mail/answer/185833). Add the same two values in `.env.local` for local testing. Keep the app password private and redeploy Vercel after adding it. Standard Gmail accounts have a daily sending limit, so this is suitable for low-volume job notifications rather than bulk email; see [Gmail sending limits](https://support.google.com/mail/answer/22839).
 
-With Mailjet configured, the generated dubbing-and-QA workflow emails the signed-in account when Sarvam starts processing, then again when QA completes or the workflow fails. The dashboard confirms whether email alerts are enabled when a job starts and tells you when it is safe to close the browser. Check Mailjet's message activity for delivery status; Vercel runtime logs include `[dubbing-workflow]` messages when a notification is rejected or accepted. If Mailjet is not configured, the job still runs and its dashboard result is unaffected; the server logs that notifications were skipped. The app calls Mailjet's HTTP API directly, so no email SDK package is required.
+Vercel Hobby functions can run for up to five minutes. The QA analysis still runs inside a Vercel function, so a long video can hit that limit. If QA times out, try a shorter clip. Generated dubbing waits run durably in the Vercel Workflow, but this does not extend the QA function's time limit. Local background testing needs a Blob token and the local computer/server must stay on. Protect the deployed app with authentication or Vercel Deployment Protection before sharing it.
 
-Local background testing also requires a Blob store token in `.env.local`; local workflows do not keep running if the computer is turned off. Protect the deployed app with Vercel Deployment Protection or add app authentication before sharing it: the upload and job APIs are intended for the app owner and should not be left open to public traffic.
+### Blob media retention
 
-Vercel Hobby functions are limited to 300 seconds per function invocation. Sarvam dubbing waits are durable and do not hold a function open, but the QA transcription/audio-review stage still runs within that function limit. Very long media can therefore fail QA or exceed the audio-review provider's inline audio limit; inspect the job status and Vercel Workflow run details for the actual outcome.
+The production Vercel Cron Job calls `/api/cron/blob-cleanup` daily. It deletes original and dubbed media in `satvic-jobs/` only after they are at least 24 hours old, skips media used by queued or running jobs, and keeps the small QA report JSON and Supabase history. On Hobby, actual deletion can happen between 24 and roughly 49 hours after upload because scheduled jobs run once a day with up to 59 minutes of timing variation. After media expires, transcripts and QA findings remain in history, but the videos can no longer be played or downloaded. Vercel storage usage is averaged over time, so the displayed monthly average decreases gradually after deletion. Set `CRON_SECRET` in Vercel to authorize the cleanup route.
 
 AI audio review can miss errors or mishear speech. Findings are model estimates, not a guarantee that a dub is correct. Inline audio comparison is limited to requests under 18 MB; for longer videos, split them into shorter clips and analyze each part.
 

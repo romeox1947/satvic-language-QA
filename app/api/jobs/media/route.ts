@@ -19,7 +19,7 @@ export async function GET(request: Request) {
       : await jobLookup.eq('run_id', runId).maybeSingle();
     if (!job || ![job.original_blob_url, job.dubbed_blob_url].includes(url)) return Response.json({ error: 'This media does not belong to your account.' }, { status: 404 });
     const result = await get(url, { access: 'private' });
-    if (!result) return Response.json({ error: 'Media not found.' }, { status: 404 });
+    if (!result) return Response.json({ error: 'This video may have expired after the 24-hour media retention period.' }, { status: 404 });
     return new Response(result.stream, { headers: { 'content-type': result.blob.contentType || 'application/octet-stream', 'cache-control': 'private, no-store' } });
   } catch {
     return Response.json({ error: 'Could not read this private media file.' }, { status: 502 });

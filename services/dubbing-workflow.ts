@@ -1,6 +1,7 @@
 import { get, put } from '@vercel/blob';
 import { sleep } from 'workflow';
 import { createAdminClient } from '../lib/supabase/admin';
+import { sendGmailJobEmail } from '../lib/email/gmail';
 
 type JobInput = {
   originalBlobUrl: string;
@@ -58,45 +59,15 @@ async function readResponse(response: Response): Promise<{ body: Json | null; te
 
 async function sendJobEmail(input: JobInput, outcome: 'started' | 'completed' | 'failed', detail: string) {
   'use step';
-  const apiKey = process.env.MAILJET_API_KEY?.trim();
-  const secretKey = process.env.MAILJET_SECRET_KEY?.trim();
-  const from = process.env.MAILJET_FROM_EMAIL?.trim();
-  const to = input.notificationEmail?.trim();
-  if (!apiKey || !secretKey || !from || !to) {
-    console.warn('[dubbing-workflow] Email notification skipped: configure Mailjet API credentials, a validated sender, and a signed-in account email.');
-    return { sent: false };
-  }
-
-  const htmlEntities: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-  const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => htmlEntities[char]);
-  const title = outcome === 'started' ? 'Dubbing job started' : outcome === 'completed' ? 'Dubbing and QA completed' : 'Dubbing or QA failed';
-  const appUrl = appBaseUrl();
-  try {
-    const response = await fetch('https://api.mailjet.com/v3.1/send', {
-      method: 'POST',
-      headers: { authorization: `Basic ${Buffer.from(`${apiKey}:${secretKey}`).toString('base64')}`, accept: 'application/json', 'content-type': 'application/json' },
-      body: JSON.stringify({ Messages: [{
-        From: { Email: from, Name: 'Satvic Studio' },
-        To: [{ Email: to }],
-        Subject: `[Satvic Studio] ${title}: ${input.projectName}`,
-        TextPart: `${title}\nProject: ${input.projectName}\nLanguages: ${input.sourceLanguage} to ${input.targetLanguage}\n\n${detail}${appUrl ? `\n\nOpen Satvic Studio: ${appUrl}` : ''}`,
-        HTMLPart: `<h2>${title}</h2><p><strong>Project:</strong> ${escapeHtml(input.projectName)}</p><p><strong>Languages:</strong> ${escapeHtml(input.sourceLanguage)} &rarr; ${escapeHtml(input.targetLanguage)}</p><p>${escapeHtml(detail)}</p>${appUrl ? `<p><a href="${escapeHtml(appUrl)}">Open Satvic Studio</a></p>` : ''}`,
-      }] }),
-      signal: AbortSignal.timeout(15_000),
-    });
-    const responseText = await response.text();
-    let result: Json = {};
-    try { result = JSON.parse(responseText) as Json; } catch { /* report the response text below */ }
-    if (!response.ok || result.Messages?.[0]?.Status !== 'success') {
-      console.warn(`[dubbing-workflow] Mailjet email notification failed (${response.status}): ${responseText.slice(0, 500)}`);
-      return { sent: false };
-    }
-    console.info(`[dubbing-workflow] Email notification accepted by Mailjet: ${result.Messages[0].To?.[0]?.MessageID || 'message ID unavailable'}`);
-    return { sent: true };
-  } catch (error) {
-    console.warn(`[dubbing-workflow] Email notification could not be sent: ${errorText(error)}`);
-    return { sent: false };
-  }
+  return sendGmailJobEmail({
+    to: input.notificationEmail,
+    outcome,
+    projectName: input.projectName,
+    sourceLanguage: input.sourceLanguage,
+    targetLanguage: input.targetLanguage,
+    detail,
+    appUrl: appBaseUrl(),
+  });
 }
 
 const lang: Record<string, string> = {

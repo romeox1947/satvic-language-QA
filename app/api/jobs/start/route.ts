@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       runId: run.runId,
       status: 'running',
       runsOnVercel: Boolean(process.env.VERCEL),
-      emailNotificationsEnabled: Boolean(process.env.MAILJET_API_KEY?.trim() && process.env.MAILJET_SECRET_KEY?.trim() && process.env.MAILJET_FROM_EMAIL?.trim() && user.email),
+      emailNotificationsEnabled: Boolean(process.env.GMAIL_USER?.trim() && process.env.GMAIL_APP_PASSWORD?.trim() && user.email),
       notificationEmail: user.email || '',
     }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
