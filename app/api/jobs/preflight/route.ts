@@ -38,7 +38,8 @@ async function checkGemini() {
   if (!key) throw new Error('GEMINI_API_KEY is missing. Add it before starting a job.');
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
+  const timeoutMs = 30_000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, signal: controller.signal,
@@ -49,6 +50,11 @@ async function checkGemini() {
       throw new Error(`Gemini readiness check failed (HTTP ${response.status}): ${detail.slice(0, 300)}`);
     }
     return model;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Gemini readiness check timed out after ${timeoutMs / 1000} seconds. No video was uploaded and no Sarvam job was started. Try again; if this keeps happening, check Gemini API availability and the configured model.`);
+    }
+    throw error;
   } finally { clearTimeout(timeout); }
 }
 
