@@ -36,37 +36,47 @@ async function inspectStorage() {
 async function checkGemini() {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) throw new Error('GEMINI_API_KEY is missing. Add it before starting a job.');
-  const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
+  const models = [...new Set([
+    process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash',
+    process.env.GEMINI_FALLBACK_MODEL?.trim() || 'gemini-3.5-flash-lite',
+  ])];
   const timeoutMs = 15_000;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-        method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, signal: controller.signal,
-        body: JSON.stringify({ contents: [{ parts: [{ text: 'Reply READY only.' }] }], generationConfig: { maxOutputTokens: 8 } }),
-      });
-      if (response.ok) return model;
-      const payload = await response.json().catch(() => ({}));
-      const providerMessage = payload?.error?.message || `HTTP ${response.status}`;
-      if ((response.status === 503 || response.status === 429) && attempt === 0) {
-        await new Promise(resolve => setTimeout(resolve, 2_000));
-        continue;
+  let lastUnavailable = '';
+  for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
+    const model = models[modelIndex];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+          method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, signal: controller.signal,
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'Reply READY only.' }] }], generationConfig: { maxOutputTokens: 8 } }),
+        });
+        if (response.ok) return modelIndex === 0 ? model : `${model} (fallback; ${models[0]} was unavailable)`;
+        const payload = await response.json().catch(() => ({}));
+        const providerMessage = payload?.error?.message || `HTTP ${response.status}`;
+        if ((response.status === 503 || response.status === 429) && attempt === 0) {
+          lastUnavailable = `${model}: ${providerMessage}`;
+          await new Promise(resolve => setTimeout(resolve, 2_000));
+          continue;
+        }
+        if (response.status === 503 || response.status === 429) {
+          lastUnavailable = `${model}: ${providerMessage}`;
+          break;
+        }
+        throw new Error(`Gemini readiness check failed for ${model} (HTTP ${response.status}): ${providerMessage}`);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          lastUnavailable = `${model}: readiness request timed out after ${timeoutMs / 1000} seconds`;
+          break;
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeout);
       }
-      if (response.status === 503 || response.status === 429) {
-        throw new Error(`Gemini is temporarily overloaded or rate-limited (${response.status}). Google says: ${providerMessage} No video was uploaded and Sarvam dubbing was not started. Wait a minute and try the readiness check again.`);
-      }
-      throw new Error(`Gemini readiness check failed (HTTP ${response.status}): ${providerMessage}`);
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(`Gemini readiness check timed out after ${timeoutMs / 1000} seconds. No video was uploaded and no Sarvam job was started. Try again; if this keeps happening, check Gemini API availability and the configured model.`);
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeout);
     }
   }
-  throw new Error('Gemini did not pass the readiness check. No video was uploaded and no Sarvam job was started.');
+  throw new Error(`Gemini could not take the readiness request on the primary or fallback model (${lastUnavailable}). No video was uploaded and Sarvam dubbing was not started. Wait and retry, or choose a different audio-capable fallback model.`);
 }
 
 export async function POST(request: Request) {

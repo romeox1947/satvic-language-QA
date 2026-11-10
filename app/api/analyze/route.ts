@@ -204,31 +204,40 @@ async function sarvamJson(path: string, key: string, body: Json): Promise<Json> 
 }
 
 async function geminiRequest(body: Json, key: string, timeoutMs: number) {
-  const requestBody = JSON.stringify(body);
+  const primaryModel = String(body.model || process.env.GEMINI_MODEL || 'gemini-3.8-flash');
+  const models = [...new Set([primaryModel, process.env.GEMINI_FALLBACK_MODEL?.trim() || 'gemini-3.5-flash-lite'])];
   let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-        method: 'POST', headers: { 'x-goog-api-key': key, 'content-type': 'application/json' }, cache: 'no-store',
-        body: requestBody, signal: AbortSignal.timeout(timeoutMs),
-      });
-      if ([429, 500, 502, 503, 504].includes(response.status) && attempt < 2) {
-        const retryAfter = Number(response.headers.get('retry-after'));
-        const pauseMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(10_000, retryAfter * 1000) : 1500 * (attempt + 1);
-        await response.body?.cancel();
-        await new Promise(resolve => setTimeout(resolve, pauseMs));
-        continue;
+  for (const model of models) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+          method: 'POST', headers: { 'x-goog-api-key': key, 'content-type': 'application/json' }, cache: 'no-store',
+          body: JSON.stringify({ ...body, model }), signal: AbortSignal.timeout(timeoutMs),
+        });
+        if ([429, 500, 502, 503, 504].includes(response.status) && attempt < 2) {
+          const retryAfter = Number(response.headers.get('retry-after'));
+          const pauseMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(10_000, retryAfter * 1000) : 1500 * (attempt + 1);
+          await response.body?.cancel();
+          await new Promise(resolve => setTimeout(resolve, pauseMs));
+          continue;
+        }
+        if ([429, 500, 502, 503, 504].includes(response.status) && model !== models[models.length - 1]) {
+          await response.body?.cancel();
+          break;
+        }
+        const headers = new Headers(response.headers);
+        headers.set('x-satvic-gemini-model', model);
+        return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+      } catch (error) {
+        lastError = error;
+        const named = error as Error & { cause?: Error & { code?: string } };
+        const cause = named.cause;
+        const detail = [cause?.code, cause?.message || named.message].filter(Boolean).join(': ');
+        if (named.name === 'TimeoutError' || attempt === 2) {
+          throw new Error(`Could not reach Gemini model ${model} after ${attempt + 1} attempt(s): ${detail || 'network request failed'}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
       }
-      return response;
-    } catch (error) {
-      lastError = error;
-      const named = error as Error & { cause?: Error & { code?: string } };
-      const cause = named.cause;
-      const detail = [cause?.code, cause?.message || named.message].filter(Boolean).join(': ');
-      if (named.name === 'TimeoutError' || attempt === 2) {
-        throw new Error(`Could not reach Gemini after ${attempt + 1} attempt(s): ${detail || 'network request failed'}`);
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
     }
   }
   throw lastError instanceof Error ? lastError : new Error('Could not reach Gemini.');
@@ -352,7 +361,7 @@ function segmentRange(segments: Segment[], startIndex: unknown, endIndex: unknow
   const boundedEnd = Math.max(first, last ?? first);
   return { start: segments[first].start, end: segments[boundedEnd].end };
 }
-async function geminiTranscriptReview(source: Transcript, dub: Transcript, backTranslation: string, sourceLanguage: string, targetLanguage: string): Promise<AudioFinding[]> {
+async function geminiTranscriptReview(source: Transcript, dub: Transcript, backTranslation: string, sourceLanguage: string, targetLanguage: string, modelsUsed: Set<string>): Promise<AudioFinding[]> {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) return [];
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
@@ -363,6 +372,8 @@ async function geminiTranscriptReview(source: Transcript, dub: Transcript, backT
     const part = (text: string) => text.slice(Math.floor(text.length * chunk / chunkCount), Math.floor(text.length * (chunk + 1) / chunkCount));
     const prompt = `Compare these matching passage portions for dubbing QA (portion ${chunk + 1} of ${chunkCount}, in original order). Source is ${sourceLanguage}; dub transcript is ${targetLanguage}; back-translation is Sarvam's translation of the dub into ${sourceLanguage}. Flag specific meaning changes: incorrect/missing/added claims, quantities or food names, negation/instructions, and omissions. Natural rewording is correct. Use quoted source and dub transcript evidence. Do not infer pronunciation or accent from text, and do not treat back-translation wording differences alone as proof. Return JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Other","title":"short issue","detail":"plain English explanation with evidence","sourceQuote":"short source phrase","dubQuote":"short target-language transcript phrase"}]}. Return an empty findings list if no concrete mismatch appears.\n\nSOURCE (${sourceLanguage}):\n${part(texts[0])}\n\nDUB TRANSCRIPT (${targetLanguage}):\n${part(texts[1])}\n\nDUB BACK-TRANSLATION (${sourceLanguage}):\n${part(texts[2])}`;
     const response = await geminiRequest({ model, input: prompt, response_format: { type: 'text', mime_type: 'application/json', schema: transcriptFindingsSchema }, generation_config: { max_output_tokens: 2048 } }, key, 5 * 60 * 1000);
+    const usedModel = response.headers.get('x-satvic-gemini-model');
+    if (usedModel) modelsUsed.add(usedModel);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(`Gemini transcript cross-check returned ${response.status}: ${providerError(payload)}`);
     const output = interactionOutputText(payload);
@@ -384,7 +395,7 @@ async function geminiTranscriptReview(source: Transcript, dub: Transcript, backT
   }
   return [...findingsByKey.values()];
 }
-async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudio: { data: string; mime_type: string }, dubAudio: { data: string; mime_type: string }, sourceLanguage: string, targetLanguage: string): Promise<AudioFinding[]> {
+async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudio: { data: string; mime_type: string }, dubAudio: { data: string; mime_type: string }, sourceLanguage: string, targetLanguage: string, modelsUsed: Set<string>): Promise<AudioFinding[]> {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) return [] as AudioFinding[];
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
@@ -399,6 +410,8 @@ async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudi
   const requestBytes = Buffer.byteLength(JSON.stringify(body));
   if (requestBytes > 18 * 1024 * 1024) throw new Error('The two audio tracks are too long for one AI listening review. Use shorter clips (about 20 minutes or less) and analyze the video in parts.');
   const response = await geminiRequest({ ...body, response_format: { type: 'text', mime_type: 'application/json', schema: audioFindingsSchema }, generation_config: { max_output_tokens: 4096 } }, key, 10 * 60 * 1000);
+  const usedModel = response.headers.get('x-satvic-gemini-model');
+  if (usedModel) modelsUsed.add(usedModel);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(`Gemini audio review returned ${response.status}: ${providerError(payload)}`);
   const output = interactionOutputText(payload);
@@ -501,10 +514,12 @@ export async function POST(request: Request) {
     stage = 'Gemini checking transcript meaning';
     updateAnalysisProgress(progressId, stage, 82);
     let textFindings: AudioFinding[] = [];
+    const transcriptModelsUsed = new Set<string>();
+    const audioModelsUsed = new Set<string>();
     let transcriptCrossCheckAvailable = true;
     let transcriptCrossCheckError: string | null = null;
     try {
-      textFindings = await geminiTranscriptReview(originalResult, dubbedResult, backTranslation, sourceLanguage, targetLanguage);
+      textFindings = await geminiTranscriptReview(originalResult, dubbedResult, backTranslation, sourceLanguage, targetLanguage, transcriptModelsUsed);
     } catch (error) {
       transcriptCrossCheckAvailable = false;
       transcriptCrossCheckError = error instanceof Error ? error.message.slice(0, 500) : 'Unknown Gemini error';
@@ -516,7 +531,7 @@ export async function POST(request: Request) {
     if (!dubbedResult.segments.length) reviewCoverageWarnings.push('The dub transcript has no timing data, so dub-side issue locations and transcript playback are unavailable.');
     stage = 'Gemini listening to both audio tracks';
     updateAnalysisProgress(progressId, stage, 88);
-    const aiFindings = await geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage);
+    const aiFindings = await geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage, audioModelsUsed);
     const audioFindings = aiFindings.map(item => ({
       ...item,
       evidenceStatus: textFindings.some(check => phrasesSupportSameFinding(item, check)) ? 'cross-checked' as const : 'audio-only' as const,
@@ -543,14 +558,14 @@ export async function POST(request: Request) {
       transcriptCrossCheckAvailable,
       transcriptCrossCheckError,
       audioReviewCompleted: true,
-      audioReviewEngine: process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+      audioReviewEngine: [...audioModelsUsed].join(', ') || process.env.GEMINI_MODEL || 'gemini-3.8-flash',
       audioReviewFindingCount: aiFindings.length,
       reviewCoverageWarnings,
       reviewComplete: transcriptCrossCheckAvailable && reviewCoverageWarnings.length === 0,
       originalSegments: originalResult.segments, dubbedSegments: dubbedResult.segments,
       timestampsAvailable: originalResult.segments.length > 0 && dubbedResult.segments.length > 0,
       transcriptionEngine: originalResult.engine === dubbedResult.engine ? originalResult.engine : `${originalResult.engine} · ${dubbedResult.engine}`,
-      semanticReviewEngine: process.env.GEMINI_API_KEY ? `${process.env.GEMINI_MODEL || 'gemini-3.8-flash'} audio review` : null,
+      semanticReviewEngine: process.env.GEMINI_API_KEY ? `${[...transcriptModelsUsed].join(', ') || process.env.GEMINI_MODEL || 'gemini-3.8-flash'} transcript review` : null,
       disclaimer: 'The AI listens to both audio tracks and reports suspected issues with time ranges. Treat these as review findings, not a guarantee: speech recognition and audio models can miss mistakes or infer words incorrectly.',
     };
     if (historyJobId && historySupabase) {
