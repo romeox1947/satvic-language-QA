@@ -1,18 +1,37 @@
 import { getRun } from 'workflow/api';
 import { get } from '@vercel/blob';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { createClient } from '../../../../lib/supabase/server';
+import { getB2Client, getB2Config } from '../../../../lib/b2/client';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-async function completedResponse(reportUrl: string, runId: string) {
-  const reportBlob = await get(reportUrl, { access: 'private' });
-  if (!reportBlob) return Response.json({ error: 'The saved QA report is no longer available in private storage.' }, { status: 502 });
-  const report = await new Response(reportBlob.stream).json() as Record<string, any>;
+async function completedResponse(job: Record<string, any>, runId: string) {
+  let report: Record<string, any>;
+  if (job.report_b2_key) {
+    const config = getB2Config();
+    const response = await getB2Client().send(new GetObjectCommand({ Bucket: config.bucket, Key: job.report_b2_key }));
+    if (!response.Body) return Response.json({ error: 'Could not load the saved QA report from Backblaze B2.' }, { status: 502 });
+    report = JSON.parse(await response.Body.transformToString()) as Record<string, any>;
+  } else if (job.report_blob_url) {
+    const reportBlob = await get(job.report_blob_url, { access: 'private' });
+    if (!reportBlob) return Response.json({ error: 'The saved QA report is no longer available in private storage.' }, { status: 502 });
+    report = await new Response(reportBlob.stream).json() as Record<string, any>;
+  } else {
+    return Response.json({ error: 'The QA report is not available in Vercel Blob or Backblaze B2.' }, { status: 502 });
+  }
   return Response.json({ runId, status: 'completed', stage: 'Analysis complete', report: {
     ...report,
-    originalVideoUrl: `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(report.originalVideoUrl || '')}`,
-    dubbedVideoUrl: `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(report.dubbedVideoUrl || '')}`,
+    originalVideoUrl: job.original_b2_key
+      ? `/api/jobs/${encodeURIComponent(runId)}/b2/media?track=source`
+      : job.original_blob_url ? `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(job.original_blob_url)}` : null,
+    dubbedVideoUrl: job.dubbed_b2_key
+      ? `/api/jobs/${encodeURIComponent(runId)}/b2/media?track=dub`
+      : job.dubbed_blob_url ? `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(job.dubbed_blob_url)}` : null,
+    originalB2Key: job.original_b2_key,
+    dubbedB2Key: job.dubbed_b2_key,
+    reportB2Key: job.report_b2_key,
   } }, { headers: { 'cache-control': 'no-store' } });
 }
 
@@ -35,7 +54,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in to view this job.' }, { status: 401 });
-    const jobLookup = supabase.from('qa_jobs').select('id,run_id,status,report_blob_url,error_message').eq('user_id', user.id);
+    const jobLookup = supabase.from('qa_jobs').select('id,run_id,status,report_blob_url,error_message,original_blob_url,dubbed_blob_url,original_b2_key,dubbed_b2_key,report_b2_key').eq('user_id', user.id);
     const { data: job, error: jobError } = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId)
       ? await jobLookup.eq('id', runId).maybeSingle()
       : await jobLookup.eq('run_id', runId).maybeSingle();
@@ -44,8 +63,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     // The durable workflow may finish before its run metadata is readable again.
     // Supabase already has the durable completion state and private report URL.
     if (job.status === 'completed') {
-      if (!job.report_blob_url) return Response.json({ error: 'The job is marked complete, but its QA report URL was not saved.' }, { status: 502 });
-      return await completedResponse(job.report_blob_url, runId);
+      return await completedResponse(job, runId);
     }
     if (job.status === 'failed') return Response.json({ runId, status: 'failed', error: job.error_message || 'This job failed.', stage: 'Job failed' }, { headers: { 'cache-control': 'no-store' } });
     if (!job.run_id) {
@@ -63,9 +81,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
       await supabase.from('qa_jobs').update({ status: 'failed', error_message: String(result.jobError) }).eq('user_id', user.id).eq('run_id', runId);
       return Response.json({ runId, status: 'failed', error: result.jobError, stage: 'Job failed' }, { headers: { 'cache-control': 'no-store' } });
     }
-    const reportUrl = result?.reportBlobUrl || job.report_blob_url;
-    if (!reportUrl) return Response.json({ error: 'The workflow completed, but no saved QA report URL was found.' }, { status: 502 });
-    return await completedResponse(reportUrl, runId);
+    const completedJob = { ...job, report_blob_url: job.report_blob_url || result?.reportBlobUrl };
+    return await completedResponse(completedJob, runId);
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
   }

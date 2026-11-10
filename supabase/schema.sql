@@ -44,3 +44,9 @@ create policy "Users can update their own QA jobs" on public.qa_jobs for update 
 create policy "Users can delete their own QA jobs" on public.qa_jobs for delete to authenticated using ((select auth.uid()) = user_id);
 create index if not exists qa_jobs_user_created_idx on public.qa_jobs (user_id, created_at desc);
 grant select, insert, update, delete on public.qa_jobs to authenticated;
+
+-- Optional Backblaze B2 archive for the complete report and both video tracks.
+alter table public.qa_jobs alter column original_blob_url drop not null;
+alter table public.qa_jobs add column if not exists original_b2_key text;
+alter table public.qa_jobs add column if not exists dubbed_b2_key text;
+alter table public.qa_jobs add column if not exists report_b2_key text;

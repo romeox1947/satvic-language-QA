@@ -115,6 +115,30 @@ Vercel Hobby functions can run for up to five minutes. The QA analysis still run
 
 The production Vercel Cron Job calls `/api/cron/blob-cleanup` daily. It deletes original and dubbed media in `satvic-jobs/` only after they are at least 24 hours old, skips media used by queued or running jobs, and keeps the small QA report JSON and Supabase history. On Hobby, actual deletion can happen between 24 and roughly 49 hours after upload because scheduled jobs run once a day with up to 59 minutes of timing variation. After media expires, transcripts and QA findings remain in history, but the videos can no longer be played or downloaded. Vercel storage usage is averaged over time, so the displayed monthly average decreases gradually after deletion. Set `CRON_SECRET` in Vercel to authorize the cleanup route.
 
+### Archive the full QA report and videos to Backblaze B2
+
+When a report is ready, use the **three-dot menu → Archive full report to Backblaze B2** (or the archive button at the bottom). Satvic Studio copies three assets to a private B2 bucket: the complete QA report JSON (findings, transcripts, timings, and metadata), the source video, and the dubbed video. It saves all three B2 object keys to Supabase, then removes the matching Vercel Blob objects. The report still opens in Satvic Studio: its JSON loads from B2 and both videos stream through authenticated, byte-range-aware routes, keeping seeking and transcript playback available. If an upload or database update fails, the Vercel copies remain; if cleanup fails, the B2 archive still works and cleanup can be retried.
+
+To set up B2:
+
+1. Create a Backblaze account. Open **B2 Cloud Storage → Buckets**, create a private bucket, and note its region and S3 endpoint (for example `https://s3.us-west-004.backblazeb2.com`).
+2. Open **Application Keys → Add a New Application Key**. Restrict it to that bucket and select **Read and Write**. Copy the key ID and application key; the application key is shown only once.
+3. Add these server-only values to local `.env.local` and Vercel:
+
+   ```env
+   B2_S3_ENDPOINT=https://s3.<your-region>.backblazeb2.com
+   B2_BUCKET_NAME=<your-private-bucket-name>
+   B2_APPLICATION_KEY_ID=<your-application-key-id>
+   B2_APPLICATION_KEY=<your-application-key>
+   ```
+
+   Use the exact endpoint and region shown on the bucket details page. Keep these credentials server-side; never add a `NEXT_PUBLIC_` prefix.
+
+4. Run the updated [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor to add the three B2 object-key columns.
+5. Restart local Next.js or redeploy Vercel after setting the environment variables.
+6. Open a completed report and choose **Archive full report to Backblaze B2** from its three-dot menu.
+
+Backblaze states that the first 10 GB of B2 storage is free and account signup does not require a payment card. Free egress covers up to three times your average monthly stored data; additional egress may be billed. Existing R2 or Google Drive archives are not migrated. See [B2 pricing](https://www.backblaze.com/cloud-storage/pricing) and the [S3-compatible API guide](https://www.backblaze.com/docs/cloud-storage-s3-compatible-api).
 AI audio review can miss errors or mishear speech. Findings are model estimates, not a guarantee that a dub is correct. Inline audio comparison is limited to requests under 18 MB; for longer videos, split them into shorter clips and analyze each part.
 
 ## Local data and keys
