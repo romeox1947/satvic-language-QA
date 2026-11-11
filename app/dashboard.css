@@ -493,9 +493,21 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 
 /* Keep dashboard content readable on a consistent 21/17/14px type scale. */
 .app-shell .content-wrap > :not(.modal-backdrop) * { font-size: max(14px, 1em) !important; }
+.app-shell .content-wrap .section-kicker,
+.app-shell .content-wrap .eyebrow { font-size: 12px !important; }
 .app-shell .content-wrap > :not(.modal-backdrop) h1 { font-size: 21px !important; }
 .app-shell .content-wrap > :not(.modal-backdrop) h2,
 .app-shell .content-wrap > :not(.modal-backdrop) h3,
 .app-shell .content-wrap > :not(.modal-backdrop) h4 { font-size: 17px !important; }
 .app-shell .content-wrap > :not(.modal-backdrop) .metric-number,
 .app-shell .content-wrap > :not(.modal-backdrop) .founder-summary-card > b { font-size: 21px !important; }
+
+@media (min-width: 701px) and (max-width: 1200px) {
+  .app-shell .work-grid { grid-template-columns: minmax(0, 1fr); }
+  .app-shell .insight-column { grid-template-columns: minmax(0, 1fr); }
+  .app-shell .project-score { width: auto; min-width: 58px; flex-direction: row; white-space: nowrap; }
+  .app-shell .project-issues { width: auto; min-width: 62px; white-space: nowrap; }
+  .app-shell .status-cell { width: auto; min-width: 108px; }
+  .app-shell .status-pill { white-space: nowrap; }
+  .app-shell .issue-copy > span { line-height: 1.45; }
+}
