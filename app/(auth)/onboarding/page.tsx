@@ -15,7 +15,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   if (profile) redirect('/dashboard');
   return (
     <main className="auth-screen">
-      <Link href="/" className="auth-back"><span>âœ³</span> SATVIC STUDIO</Link>
+      <Link href="/" className="auth-back"><span>✳</span> SATVIC STUDIO</Link>
       <section className="auth-card onboarding-card">
         <div className="auth-orb">S</div><p className="auth-kicker">ONE LAST STEP</p>
         <h1>Set up your<br /><em>workspace.</em></h1>

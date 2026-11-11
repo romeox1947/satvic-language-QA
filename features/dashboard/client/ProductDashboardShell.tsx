@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  AudioLines, BookOpen, Building2, Check, CheckCheck, ChevronDown, CircleHelp,
+  BookOpen, Building2, Check, CheckCheck, ChevronDown, CircleHelp,
   FileText, Globe2, LayoutDashboard, ListChecks, LogOut, Menu, PanelLeftClose,
   PanelLeftOpen, Plus, Settings, Settings2, X, type LucideIcon,
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
 import { getProduct, products, type ProductFeature, type ProductId } from '@/features/products/registry';
+import SatvicFluteMark from '@/features/products/SatvicFluteMark';
 
 const featureIcons: Record<ProductFeature['icon'], LucideIcon> = {
   plus: Plus,
@@ -116,7 +117,7 @@ export default function ProductDashboardShell({
         </button>
         <div className="rail-product-list" aria-label="Products">
           {products.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`rail-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)} title={item.name}>
-            <span className="rail-product-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19} /> : <Building2 size={19} />}</span>
+            <span className="rail-product-icon">{item.id === 'satvic-fluid' ? <SatvicFluteMark size={21} /> : <Building2 size={19} />}</span>
           </button>)}
         </div>
         <div className="rail-spacer" />
@@ -130,7 +131,7 @@ export default function ProductDashboardShell({
           </button>
           <div className="drawer-product-list" aria-label="Products">
             {products.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`drawer-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)}>
-              <span className="product-menu-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19}/> : <Building2 size={19}/>}</span><span><b>{item.name}</b><small>{item.description}</small></span>
+              <span className="product-menu-icon">{item.id === 'satvic-fluid' ? <SatvicFluteMark size={22} /> : <Building2 size={19}/>}</span><span><b>{item.name}</b><small>{item.description}</small></span>
             </button>)}
           </div>
         </section>

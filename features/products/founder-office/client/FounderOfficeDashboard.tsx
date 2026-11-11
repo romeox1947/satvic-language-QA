@@ -5,7 +5,7 @@ import { ArrowRight, CalendarDays, Check, CircleDot, Plus, Target } from 'lucide
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
 
 const priorities = [
-  { title: 'Prepare the Satvic Fluid pilot', owner: 'Piyush', due: 'This week', status: 'In progress' },
+  { title: 'Prepare the Satvic Flute pilot', owner: 'Piyush', due: 'This week', status: 'In progress' },
   { title: 'Choose the first launch partners', owner: 'Partnerships', due: 'Nov 18', status: 'Needs a decision' },
   { title: 'Review the product onboarding flow', owner: 'Product', due: 'Nov 21', status: 'Planned' },
 ];
@@ -47,13 +47,13 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
         </section>
         <section className="founder-lower-grid">
           <article className="founder-panel panel"><div className="section-kicker">OPEN DECISION</div><h3>Which partners join the first pilot?</h3><p>Compare launch readiness, audience fit, and capacity before confirming the first group.</p><button className="founder-inline-action" onClick={() => setActiveFeature('decisions')}>Review decision <ArrowRight size={14}/></button></article>
-          <article className="founder-panel panel"><div className="section-kicker">UPCOMING MILESTONE</div><h3><CalendarDays size={17}/> Satvic Fluid pilot</h3><p>Confirm partners, finish onboarding, and prepare the first language QA projects.</p><button className="founder-inline-action" onClick={() => setActiveFeature('roadmap')}>Open roadmap <ArrowRight size={14}/></button></article>
+          <article className="founder-panel panel"><div className="section-kicker">UPCOMING MILESTONE</div><h3><CalendarDays size={17}/> Satvic Flute pilot</h3><p>Confirm partners, finish onboarding, and prepare the first language QA projects.</p><button className="founder-inline-action" onClick={() => setActiveFeature('roadmap')}>Open roadmap <ArrowRight size={14}/></button></article>
         </section>
       </> : <section className="founder-panel panel founder-detail-panel">
         <div className="panel-heading"><div><div className="section-kicker">SAMPLE CONTENT</div><h3>{page?.title}</h3></div></div>
         {activeFeature === 'priorities' && <div className="founder-priority-list">{priorities.map((item,index) => <article className="founder-priority" key={item.title}><span className="founder-priority-number">0{index+1}</span><div><b>{item.title}</b><small>{item.owner} <span>·</span> Due {item.due}</small></div><span className="founder-status"><i/>{item.status}</span></article>)}</div>}
         {activeFeature === 'decisions' && <div className="founder-detail-copy"><h4>Which partners join the first pilot?</h4><p>Owner: Piyush · Target date: Nov 18</p><p>Compare launch readiness, audience fit, and capacity before confirming the first group.</p><button className="founder-inline-action" onClick={() => setNotice('Decision marked for the next weekly operating review.')}><Check size={15}/> Mark for review</button></div>}
-        {activeFeature === 'meeting-notes' && <div className="founder-detail-copy"><h4>Weekly operating review</h4><p>Sample note · Nov 11</p><ul><li>Finalize the first Satvic Fluid pilot partners.</li><li>Walk through the onboarding and QA review flow.</li><li>Assign owners for launch readiness tasks.</li></ul><button className="founder-inline-action" onClick={() => setNotice('Meeting note creation is a starter action.')}><Plus size={15}/> Add a note</button></div>}
+        {activeFeature === 'meeting-notes' && <div className="founder-detail-copy"><h4>Weekly operating review</h4><p>Sample note · Nov 11</p><ul><li>Finalize the first Satvic Flute pilot partners.</li><li>Walk through the onboarding and QA review flow.</li><li>Assign owners for launch readiness tasks.</li></ul><button className="founder-inline-action" onClick={() => setNotice('Meeting note creation is a starter action.')}><Plus size={15}/> Add a note</button></div>}
         {activeFeature === 'roadmap' && <div className="founder-priority-list">{['Pilot onboarding', 'First partner launch', 'Review pilot feedback'].map((item,index) => <article className="founder-priority" key={item}><span className="founder-priority-number">0{index+1}</span><div><b>{item}</b><small>{index === 0 ? 'November' : index === 1 ? 'December' : 'After launch'}</small></div><Target size={17} className="founder-roadmap-icon"/></article>)}</div>}
       </section>}
 
