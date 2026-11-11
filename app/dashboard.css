@@ -18,7 +18,7 @@
   font-family: "Matter";
   box-shadow: 0 2px 12px #20211f08;
 }
-body:has(.app-shell) { background: #f2f3f1; }
+body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell *, .app-shell *::before, .app-shell *::after { box-sizing: border-box; }
 .app-shell button, .app-shell input, .app-shell select { font-family: "Matter"; }
 
@@ -169,7 +169,8 @@ body:has(.app-shell) { background: #f2f3f1; }
 .account-menu form { margin: 5px 0 0; padding-top: 5px; border-top: 1px solid #ededeb; }
 .account-menu .account-logout, .account-menu .account-logout svg { color: #bd3935; }
 
-.app-shell .main-area { width: calc(100% - 346px); height: 100%; margin-left: 346px; overflow: auto; background: #fff; }
+.app-shell .main-area { width: calc(100% - 346px); height: 100%; margin-left: 346px; overflow: auto; scrollbar-width: none; background: #fff; }
+.app-shell .main-area::-webkit-scrollbar { display: none; }
 .app-shell .topbar { height: 68px; padding: 0 38px; border-bottom: 1px solid #ededeb; background: #ffffff; backdrop-filter: none; }
 .app-shell .breadcrumbs { color: #858780; font: 400 13px/1.3 "Matter"; }
 .app-shell .breadcrumbs b { color: #242521; font-weight: 500; }
@@ -270,7 +271,8 @@ body:has(.app-shell) { background: #f2f3f1; }
 .app-shell .footer-flower { color: #686a64; }
 .app-shell .toast { background: #272824; border-color: #41433d; border-radius: 12px; box-shadow: 0 10px 30px #20211f20; font: 400 12px/1.4 "Matter"; }
 .app-shell .toast > svg { color: #bec9be; }
-.app-shell .modal-backdrop { background: #20211f66; }
+.app-shell .modal-backdrop { overflow: auto; scrollbar-width: none; background: #20211f66; }
+.app-shell .modal-backdrop::-webkit-scrollbar { display: none; }
 .app-shell .create-modal, .app-shell .detail-modal { border-color: #e8e9e6; border-radius: 18px; background: #fff; box-shadow: 0 18px 60px #20211f20; }
 .app-shell .modal-icon, .app-shell .upload-icon { background: #f0f1ee; color: #555751; }
 .app-shell .create-modal h2, .app-shell .detail-modal h2 { color: #252622; font: 500 24px/1.2 "Matter"; }
