@@ -285,6 +285,8 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .modal-backdrop { overflow: auto; scrollbar-width: none; background: #20211f66; }
 .app-shell .modal-backdrop::-webkit-scrollbar { display: none; }
 .app-shell .create-modal, .app-shell .detail-modal { border-color: #e8e9e6; border-radius: 18px; background: #fff; box-shadow: 0 18px 60px #20211f20; }
+.app-shell .detail-modal { overflow: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.app-shell .detail-modal::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .app-shell .modal-icon, .app-shell .upload-icon { background: #f0f1ee; color: #555751; }
 .app-shell .create-modal h2, .app-shell .detail-modal h2 { color: #252622; font: 500 24px/1.2 "Matter"; }
 .app-shell .text-input:focus, .app-shell .field-label select:focus { border-color: #858780; box-shadow: 0 0 0 3px #85878018; }
