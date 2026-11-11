@@ -34,12 +34,45 @@ body:has(.app-shell) { background: #f2f3f1; }
   padding: 16px 9px 12px;
   border-right: 1px solid #ededeb;
   background: #fff;
+  transition: width .18s ease, box-shadow .18s ease;
 }
+.product-rail.product-rail-expanded { width: 300px; align-items: stretch; padding: 15px 12px 12px; box-shadow: 12px 0 30px #20211f0b; }
+.rail-workspace { display: flex; width: 100%; min-height: 52px; align-items: center; gap: 10px; padding: 4px 7px; border: 0; border-radius: 11px; background: transparent; color: #30322e; text-align: left; cursor: pointer; }
+.rail-workspace:hover { background: #f5f6f4; }
+.rail-workspace-mark { display: grid; width: 40px; height: 40px; flex: none; place-items: center; }
+.rail-workspace-mark .brand-mark { width: 36px; height: 36px; border: 1px solid #e6e7e3; border-radius: 11px; background: #fff; }
+.rail-workspace-mark .brand-mark span { background: #555751; }
+.rail-workspace-copy { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.rail-workspace-copy b { overflow: hidden; color: #292a27; font: 500 14px/1.25 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
+.rail-workspace-copy small { overflow: hidden; color: #8a8c87; font: 400 12px/1.25 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
+.rail-workspace > svg { color: #666962; }
+.rail-product-list { display: grid; gap: 5px; margin-top: 20px; }
 .rail-brand { display: grid; width: 42px; height: 42px; place-items: center; }
 .rail-brand .brand-mark { width: 34px; height: 34px; border: 1px solid #e6e7e3; border-radius: 12px; background: #fff; box-shadow: none; }
 .rail-brand .brand-mark span { background: #555751; }
-.rail-product { display: grid; width: 42px; height: 42px; place-items: center; border: 0; border-radius: 13px; background: transparent; color: #858780; cursor: pointer; }
-.rail-product.active { background: #f0f1ee; color: #343631; }
+.rail-product { display: flex; width: 100%; min-height: 48px; align-items: center; gap: 10px; padding: 4px 7px; border: 0; border-radius: 11px; background: transparent; color: #555751; text-align: left; cursor: pointer; }
+.rail-product:hover { background: #f5f6f4; }
+.rail-product.active { background: #efefed; color: #242521; }
+.rail-product-icon { display: grid; width: 40px; height: 40px; flex: none; place-items: center; border-radius: 11px; color: #73766f; }
+.rail-product.active .rail-product-icon { color: #30322d; }
+.rail-product-copy { display: grid; flex: 1; gap: 2px; }
+.rail-product-copy b { color: #292a27; font: 500 14px/1.3 "Matter"; }
+.rail-product-copy small { color: #858780; font: 400 11px/1.3 "Matter"; }
+.product-rail:not(.product-rail-expanded) .rail-workspace { width: 42px; justify-content: center; padding: 0; }
+.product-rail:not(.product-rail-expanded) .rail-workspace-copy,
+.product-rail:not(.product-rail-expanded) .rail-workspace > svg,
+.product-rail:not(.product-rail-expanded) .rail-product-copy { display: none; }
+.product-rail:not(.product-rail-expanded) .rail-product-list { gap: 7px; margin-top: 13px; }
+.product-rail:not(.product-rail-expanded) .rail-product { width: 42px; min-height: 42px; justify-content: center; padding: 0; }
+.product-rail:not(.product-rail-expanded) .rail-product-icon { width: 42px; height: 42px; }
+.rail-account { display: flex; width: 100%; min-height: 49px; align-items: center; gap: 10px; padding: 6px 8px; border: 0; border-radius: 12px; background: #f4f5f3; color: #30312e; text-align: left; cursor: pointer; }
+.rail-account:hover { background: #eff0ee; }
+.rail-account-copy { overflow: hidden; flex: 1; color: #343631; font: 400 14px/1.3 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
+.rail-account > svg { color: #686a64; }
+.product-rail:not(.product-rail-expanded) .rail-account { width: 42px; min-height: 42px; justify-content: center; padding: 3px; }
+.product-rail:not(.product-rail-expanded) .rail-account .account-trigger-avatar { width: 36px; height: 36px; }
+.product-rail:not(.product-rail-expanded) .rail-account-copy,
+.product-rail:not(.product-rail-expanded) .rail-account > svg { display: none; }
 .product-switcher { position: relative; z-index: 40; }
 .product-menu { position: absolute; z-index: 45; top: -6px; left: 51px; width: 258px; padding: 11px; border: 1px solid #e7e8e5; border-radius: 14px; background: #fff; box-shadow: 0 12px 35px #20211f18; }
 .product-menu-label { padding: 3px 7px 9px; color: #858780; font: 500 9px/1.3 "Matter"; letter-spacing: .1em; }
@@ -68,7 +101,7 @@ body:has(.app-shell) { background: #f2f3f1; }
 .workspace-heading { display: flex; min-height: 46px; align-items: center; justify-content: space-between; padding: 0 9px 8px; border: 0; }
 .workspace-heading-actions { display: flex; align-items: center; gap: 4px; }
 .app-shell .sidebar-shrink { display: grid; width: 32px; height: 32px; border-radius: 8px; }
-.workspace-product { color: #171815; font: 400 25px/1.05 "Season Mix"; letter-spacing: -.035em; }
+.workspace-product { color: #171815; font: 400 22px/1.05 "Season Mix"; letter-spacing: -.035em; }
 .app-shell .workspace-switch { width: 100%; margin: 17px 0 24px; padding: 10px 9px; border: 1px solid #ecece9; border-radius: 12px; background: #fff; box-shadow: none; color: #30312e; text-align: left; cursor: default; }
 .app-shell .workspace-avatar { width: 34px; height: 34px; border-radius: 10px; background: #f0f1ee; color: #474943; font: 500 14px "Matter"; }
 .app-shell .workspace-label b { color: #30312e; font-size: 12px; font-weight: 500; }
@@ -89,6 +122,7 @@ body:has(.app-shell) { background: #f2f3f1; }
 .account-trigger-name { flex: 1; overflow: hidden; color: #343631; font: 400 13px/1.3 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
 .account-trigger > svg { color: #686a64; }
 .account-menu { position: absolute; z-index: 50; bottom: 72px; left: 76px; width: 274px; padding: 7px; border: 1px solid #e4e5e1; border-radius: 15px; background: #fff; box-shadow: 0 12px 34px #20211f20; }
+.account-menu.account-menu-rail { left: 16px; }
 .account-menu > button, .account-menu form > button { display: flex; width: 100%; min-height: 44px; align-items: center; gap: 11px; padding: 0 10px; border: 0; border-radius: 9px; background: #fff; color: #31332e; text-align: left; font: 400 14px/1.3 "Matter"; cursor: pointer; }
 .account-menu > button:hover, .account-menu form > button:hover { background: #f4f5f3; }
 .account-menu svg { color: #60635c; stroke-width: 1.8; }
@@ -111,7 +145,7 @@ body:has(.app-shell) { background: #f2f3f1; }
 .app-shell .eyebrow, .app-shell .section-kicker { color: #777a74; font: 500 10px/1.35 "Matter"; letter-spacing: .12em; }
 .app-shell .eyebrow-line { background: #92958e; }
 .app-shell .welcome-row { align-items: center; margin-bottom: 27px; gap: 20px; }
-.app-shell .welcome-row h1 { color: #20211f; font: 500 26px/1.2 "Matter"; letter-spacing: -.035em; }
+.app-shell .welcome-row h1 { color: #20211f; font: 500 22px/1.2 "Matter"; letter-spacing: -.035em; }
 .app-shell .wave { color: #747770; }
 .app-shell .welcome-subtitle { color: #777a74; font: 400 14px/1.5 "Matter"; }
 .app-shell .primary-btn { border: 1px solid #20211f; border-radius: 999px; background: #20211f; color: white; box-shadow: none; font: 500 13px/1 "Matter"; }
@@ -227,7 +261,7 @@ body:has(.app-shell) { background: #f2f3f1; }
 .app-shell .topbar { display: none; }
 .app-shell.sidebar-collapsed .sidebar { width: 0; padding-right: 0; padding-left: 0; overflow: hidden; visibility: hidden; }
 .app-shell.sidebar-collapsed .main-area { width: calc(100% - 64px); margin-left: 64px; }
-.app-shell.sidebar-collapsed .account-menu { left: 76px; }
+.app-shell.sidebar-collapsed .account-menu { left: 16px; }
 .app-shell .qa-flow { margin-bottom: 22px; padding: 22px 23px 18px; border: 1px solid #e7e8e5; border-radius: 16px; background: #fff; }
 .app-shell .qa-flow-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .app-shell .qa-flow-heading h2 { margin: 7px 0 0; color: #252622; font: 500 21px/1.25 "Matter"; letter-spacing: -.025em; }
@@ -289,6 +323,36 @@ body:has(.app-shell) { background: #f2f3f1; }
 .app-shell .founder-detail-copy p { margin: 7px 0; color: #777a74; }
 .app-shell .founder-detail-copy ul { display: grid; gap: 8px; padding-left: 20px; color: #555751; }
 .app-shell .founder-roadmap-icon { color: #656761; }
+/* Restrained purple is reserved for review attention and flagged work. */
+.app-shell .issue-count.issue-hot,
+.app-shell .status-pill.needs-review,
+.app-shell .status-pill.needs-review i,
+.app-shell .severity-mark.review,
+.app-shell .chip-flag,
+.app-shell .tabs .tab-dot { color: #5950CC; }
+.app-shell .status-pill.needs-review,
+.app-shell .severity-mark.review,
+.app-shell .chip-flag { background: #f0efff; }
+.app-shell .status-pill.needs-review i,
+.app-shell .tabs .tab-dot { background: #5950CC; }
+.app-shell .issue-count.issue-hot { background: #f0efff; }
+.app-shell .queue-count { background: #f0efff; color: #5950CC; }
+.app-shell.dashboard-home-shell .sidebar { display: none; }
+.app-shell.dashboard-home-shell .main-area { width: calc(100% - 64px); margin-left: 64px; }
+.app-shell.dashboard-home-shell .content-wrap { max-width: 1120px; padding-top: 68px; }
+.dashboard-home-intro { margin-bottom: 27px; }
+.dashboard-home-intro h1 { margin: 9px 0 7px; color: #20211f; font: 500 22px/1.25 "Matter"; letter-spacing: -.025em; }
+.dashboard-home-intro > p { margin: 0; color: #777a74; font: 400 14px/1.5 "Matter"; }
+.dashboard-product-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 15px; }
+.dashboard-product-card { display: grid; min-height: 166px; grid-template-columns: 46px minmax(0,1fr) 20px; align-content: start; align-items: center; gap: 2px 13px; padding: 20px; border: 1px solid #e8e9e6; border-radius: 15px; background: #fff; color: #30312e; text-align: left; cursor: pointer; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+.dashboard-product-card:hover { transform: translateY(-2px); border-color: #cfd1cb; background: #fcfcfb; }
+.dashboard-product-card-icon { display: grid; width: 44px; height: 44px; grid-row: span 2; place-items: center; border-radius: 12px; background: #f0f1ee; color: #444740; }
+.dashboard-product-card-copy { display: grid; gap: 4px; }
+.dashboard-product-card-copy b { color: #272824; font: 500 16px/1.3 "Matter"; }
+.dashboard-product-card-copy small { color: #858780; font: 400 12px/1.35 "Matter"; }
+.dashboard-product-arrow { justify-self: end; color: #777a74; }
+.dashboard-product-card-detail { display: flex; grid-column: 2 / 4; align-items: center; gap: 7px; margin-top: 18px; color: #686a64; font: 400 12px/1.4 "Matter"; }
+.dashboard-product-card-detail svg { flex: none; color: #777a74; }
 
 @media (max-width: 1200px) {
   .app-shell .sidebar { width: 250px; }
@@ -304,7 +368,8 @@ body:has(.app-shell) { background: #f2f3f1; }
 }
 @media (max-width: 700px) {
   .app-shell { height: 100svh; min-height: 560px; margin: 0; border: 0; border-radius: 0; }
-  .app-shell .product-rail { display: none; }
+  .app-shell .product-rail { position: fixed; inset: 0 auto 0 0; display: flex; width: 56px; padding: 12px 7px; border-right: 1px solid #ededeb; }
+  .app-shell .product-rail.product-rail-expanded { width: min(300px, 86vw); }
   .app-shell .sidebar { position: fixed; inset: 0 auto 0 0; width: min(300px, 86vw); padding: 18px 15px; transform: translateX(-105%); transition: transform .23s ease; box-shadow: 8px 0 30px #20211f20; }
   .app-shell .sidebar.sidebar-open { transform: translateX(0); }
   .app-shell .sidebar-shrink { display: none; }
@@ -315,13 +380,19 @@ body:has(.app-shell) { background: #f2f3f1; }
   .app-shell .topbar { position: absolute; z-index: 10; top: 4px; left: 8px; display: flex; height: 44px; padding: 0; border: 0; background: transparent; }
   .app-shell .mobile-close { display: grid !important; }
   .app-shell .main-area { width: 100%; height: 100%; margin: 0; }
+  .app-shell:not(.dashboard-home-shell) .main-area { width: calc(100% - 56px); margin-left: 56px; }
+  .app-shell.dashboard-home-shell .main-area { width: calc(100% - 56px); margin-left: 56px; }
+  .app-shell.dashboard-home-shell .topbar { display: none; }
+  .app-shell.dashboard-home-shell .content-wrap { padding: 42px 18px; }
+  .dashboard-product-grid { grid-template-columns: 1fr; }
+  .app-shell .account-menu.account-menu-rail { left: 10px; }
   .app-shell .menu-trigger { display: grid; }
   .app-shell .topbar { height: 58px; padding: 0 16px; }
   .app-shell .top-actions { gap: 8px; }
   .app-shell .content-wrap { padding: 23px 16px 20px; }
   .app-shell .content-wrap { padding-top: 50px; }
   .app-shell .welcome-row { align-items: flex-start; }
-  .app-shell .welcome-row h1 { font-size: 23px; }
+  .app-shell .welcome-row h1 { font-size: 22px; }
   .app-shell .welcome-subtitle { max-width: 290px; font-size: 12px; }
   .app-shell .welcome-row > .primary-btn { width: 40px; height: 40px; flex: none; padding: 0; overflow: hidden; font-size: 0; }
   .app-shell .welcome-row > .primary-btn svg { width: 19px; height: 19px; flex: none; }
