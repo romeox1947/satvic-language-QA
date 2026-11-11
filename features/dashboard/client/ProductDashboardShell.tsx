@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AudioLines, BookOpen, Building2, Check, CheckCheck, ChevronDown, CircleHelp,
@@ -58,7 +58,7 @@ export default function ProductDashboardShell({
     if (!accountMenuOpen) return;
     const closeOnOutsideClick = (event: PointerEvent) => {
       const target = event.target;
-      if (target instanceof Element && !target.closest('.account-menu, .account-trigger, .rail-account, .rail-account-collapsed')) setAccountMenuOpen(false);
+      if (target instanceof Element && !target.closest('.account-menu, .account-trigger, .rail-account, .rail-account-collapsed, .drawer-account')) setAccountMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setAccountMenuOpen(false); };
     document.addEventListener('pointerdown', closeOnOutsideClick);
@@ -79,7 +79,8 @@ export default function ProductDashboardShell({
     if (productHoverTimer.current) clearTimeout(productHoverTimer.current);
     productHoverTimer.current = null;
   };
-  const openProductRail = () => {
+  const openProductRail = (event: MouseEvent<HTMLElement>) => {
+    if (event.target instanceof Element && event.target.closest('.rail-account')) return;
     clearProductHoverTimer();
     setProductMenuOpen(true);
   };
@@ -110,7 +111,15 @@ export default function ProductDashboardShell({
 
   return (
     <main className={`app-shell${productRailCollapsed ? ' product-rail-collapsed' : ''}${featureRailCollapsed ? ' feature-rail-collapsed' : ''}${hideFeatureNavigation ? ' dashboard-home-shell' : ''}`}>
-      <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products" onMouseEnter={openProductRail} onMouseLeave={closeProductRail} onFocusCapture={() => { clearProductHoverTimer(); setProductMenuOpen(true); }}>
+      <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products" onMouseEnter={openProductRail} onMouseLeave={closeProductRail} onFocusCapture={event => {
+        if (event.target instanceof Element && event.target.closest('.rail-account')) {
+          clearProductHoverTimer();
+          setProductMenuOpen(false);
+          return;
+        }
+        clearProductHoverTimer();
+        setProductMenuOpen(true);
+      }}>
         <button type="button" className={`rail-workspace${hideFeatureNavigation ? ' active' : ''}`} aria-label="Satvic Organization workspace" onClick={() => navigateToProduct('/dashboard')} title="Satvic Organization">
           <span className="rail-workspace-mark"><span className="brand-mark"><span /><span /><span /></span></span>
         </button>
@@ -120,7 +129,7 @@ export default function ProductDashboardShell({
           </button>)}
         </div>
         <div className="rail-spacer" />
-        <button type="button" className="rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)} title={accountName}>
+        <button type="button" className="rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onMouseEnter={closeProductRail} onClick={() => { setProductMenuOpen(false); setAccountMenuOpen(open => !open); }} title={accountName}>
           <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span>
         </button>
         <section className="product-drawer" aria-label="Organization and product switcher">
@@ -133,6 +142,9 @@ export default function ProductDashboardShell({
               <span className="product-menu-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19}/> : <Building2 size={19}/>}</span><span><b>{item.name}</b><small>{item.description}</small></span>
             </button>)}
           </div>
+          <button type="button" className="drawer-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => { setProductMenuOpen(false); setAccountMenuOpen(open => !open); }}>
+            <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span><span>{accountName}</span><ChevronDown size={16}/>
+          </button>
         </section>
       </nav>
 
