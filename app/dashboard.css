@@ -43,7 +43,7 @@ body:has(.app-shell) { background: #f2f3f1; }
 .rail-workspace.active { background: #efefed; }
 .rail-workspace-mark { display: grid; width: 40px; height: 40px; flex: none; place-items: center; }
 .rail-workspace-mark .brand-mark { width: 36px; height: 36px; border: 1px solid #e6e7e3; border-radius: 11px; background: #fff; }
-.rail-workspace-mark .brand-mark span { background: #555751; }
+.rail-workspace-mark .brand-mark svg { width: 25px; height: 25px; color: #555751; stroke-width: 1.8; }
 .rail-workspace-copy { display: grid; min-width: 0; flex: 1; gap: 3px; opacity: 0; transform: translateX(-5px); transition: opacity .24s ease, transform .3s ease; visibility: hidden; }
 .rail-workspace-copy b { overflow: hidden; color: #292a27; font: 500 14px/1.25 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
 .rail-workspace-copy small { overflow: hidden; color: #8a8c87; font: 400 12px/1.25 "Matter"; text-overflow: ellipsis; white-space: nowrap; }

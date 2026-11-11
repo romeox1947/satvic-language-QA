@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  BookOpen, Building2, Check, CheckCheck, ChevronDown, CircleHelp,
+  AudioLines, BookOpen, Building2, Check, CheckCheck, ChevronDown, CircleHelp,
   FileText, Globe2, LayoutDashboard, ListChecks, LogOut, Menu, PanelLeftClose,
   PanelLeftOpen, Plus, Settings, Settings2, X, type LucideIcon,
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
 import { getProduct, products, type ProductFeature, type ProductId } from '@/features/products/registry';
-import SatvicFluteMark from '@/features/products/SatvicFluteMark';
+import SatvicMovementMark from '@/features/products/SatvicMovementMark';
 
 const featureIcons: Record<ProductFeature['icon'], LucideIcon> = {
   plus: Plus,
@@ -113,11 +113,11 @@ export default function ProductDashboardShell({
     <main className={`app-shell${productRailCollapsed ? ' product-rail-collapsed' : ''}${featureRailCollapsed ? ' feature-rail-collapsed' : ''}${hideFeatureNavigation ? ' dashboard-home-shell' : ''}`}>
       <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products" onMouseEnter={openProductRail} onMouseLeave={closeProductRail} onFocusCapture={() => { clearProductHoverTimer(); setProductMenuOpen(true); }}>
         <button type="button" className={`rail-workspace${hideFeatureNavigation ? ' active' : ''}`} aria-label="Satvic Organization workspace" onClick={() => navigateToProduct('/dashboard')} title="Satvic Organization">
-          <span className="rail-workspace-mark"><span className="brand-mark"><span /><span /><span /></span></span>
+          <span className="rail-workspace-mark"><span className="brand-mark"><SatvicMovementMark /></span></span>
         </button>
         <div className="rail-product-list" aria-label="Products">
           {products.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`rail-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)} title={item.name}>
-            <span className="rail-product-icon">{item.id === 'satvic-fluid' ? <SatvicFluteMark size={21} /> : <Building2 size={19} />}</span>
+            <span className="rail-product-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19} /> : <Building2 size={19} />}</span>
           </button>)}
         </div>
         <div className="rail-spacer" />
@@ -126,12 +126,12 @@ export default function ProductDashboardShell({
         </button>
         <section className="product-drawer" aria-label="Organization and product switcher">
           <button type="button" className={`drawer-workspace${hideFeatureNavigation ? ' active' : ''}`} onClick={() => navigateToProduct('/dashboard')}>
-            <span className="rail-workspace-mark"><span className="brand-mark"><span /><span /><span /></span></span>
+            <span className="rail-workspace-mark"><span className="brand-mark"><SatvicMovementMark /></span></span>
             <span><b>Satvic Organization</b><small>{workspaceName}</small></span><ChevronDown size={15}/>
           </button>
           <div className="drawer-product-list" aria-label="Products">
             {products.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`drawer-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)}>
-              <span className="product-menu-icon">{item.id === 'satvic-fluid' ? <SatvicFluteMark size={22} /> : <Building2 size={19}/>}</span><span><b>{item.name}</b><small>{item.description}</small></span>
+              <span className="product-menu-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19} /> : <Building2 size={19}/>}</span><span><b>{item.name}</b><small>{item.description}</small></span>
             </button>)}
           </div>
         </section>
