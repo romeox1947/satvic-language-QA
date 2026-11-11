@@ -32,8 +32,8 @@ const remainingEstimate = (range: { min: number; max: number } | null, elapsed: 
   return `${formatDuration(min)}â€“${formatDuration(max)} estimated left`;
 };
 
-function SarvamLogoMark() {
-  return <span className="sarvam-mark-wrap"><img className="sarvam-mark" src="https://web.sarvam.dev/assets/brand/guidelines/logomark-on-light.png" alt="" aria-hidden="true" /></span>;
+function SarvamLogoMark({ onDark = false }: { onDark?: boolean }) {
+  return <span className={`sarvam-mark-wrap${onDark ? ' sarvam-mark-on-dark' : ''}`}><img className="sarvam-mark" src="https://web.sarvam.dev/assets/brand/guidelines/logomark-on-light.png" alt="" aria-hidden="true" /></span>;
 }
 
 async function readApiJson(response: Response): Promise<Record<string, any>> {
@@ -418,7 +418,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
       initialFeatureId="generate-sarvam"
       onFeatureSelect={(featureId) => setActiveWorkflow(featureId as 'generate-sarvam' | 'start-review')}
     >
-      <section className="welcome-row"><div><h1>{isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{isSarvamWorkflow ? 'Create a dubbed version, then review it against the source.' : 'Upload the source and a dub you already have to review them together.'}</p></div><button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <Plus size={17}/>} {workflow.action}</button></section>
+      <section className="welcome-row"><div><h1>{isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{isSarvamWorkflow ? 'Create a dubbed version, then review it against the source.' : 'Upload the source and a dub you already have to review them together.'}</p></div><button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark onDark/> : <Plus size={17}/>} {workflow.action}</button></section>
 
 
 

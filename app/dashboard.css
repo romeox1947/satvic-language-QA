@@ -347,8 +347,9 @@ body:has(.app-shell) { background: #f2f3f1; }
 .app-shell .review-empty { display: grid; gap: 5px; margin: auto 0; padding: 18px 0; color: #777a74; font: 400 11px/1.5 "Matter"; }
 .app-shell .review-empty b { color: #454741; font: 500 13px/1.35 "Matter"; }
 .app-shell .review-panel .queue-link { min-height: 38px; margin-top: auto; border-top: 1px solid #ededeb; }
-.app-shell .sarvam-mark-wrap { display: inline-grid; width: 18px; height: 18px; flex: none; place-items: center; overflow: hidden; border-radius: 4px; background: #fff; }
-.app-shell .sarvam-mark { display: block; width: 16px; height: 16px; object-fit: contain; }
+.app-shell .sarvam-mark-wrap { display: inline-grid; width: 24px; height: 24px; flex: none; place-items: center; overflow: hidden; border-radius: 4px; background: transparent; }
+.app-shell .sarvam-mark { display: block; width: 22px; height: 22px; object-fit: contain; }
+.app-shell .sarvam-mark-on-dark .sarvam-mark { filter: brightness(0) invert(1); }
 .app-shell .founder-welcome { margin-bottom: 20px; }
 .app-shell .founder-sample-note { display: flex; align-items: center; gap: 9px; margin: 0 0 18px; padding: 11px 13px; border: 1px solid #e8e9e5; border-radius: 11px; background: #f8f9f7; color: #686a64; font: 400 11px/1.45 "Matter"; }
 .app-shell .founder-sample-note svg { flex: none; color: #696c65; }
