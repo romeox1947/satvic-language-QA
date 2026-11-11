@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AudioLines, BookOpen, Building2, Check, CheckCheck, ChevronDown, CircleHelp,
@@ -47,8 +47,9 @@ export default function ProductDashboardShell({
   const router = useRouter();
   const product = getProduct(productId)!;
   const [navOpen, setNavOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [productRailCollapsed, setProductRailCollapsed] = useState(false);
   const [productMenuOpen, setProductMenuOpen] = useState(false);
+  const productHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [activeFeatureId, setActiveFeatureId] = useState(initialFeatureId ?? product.groups[0].features[1]?.id ?? product.groups[0].features[0].id);
 
@@ -73,22 +74,50 @@ export default function ProductDashboardShell({
     setNavOpen(false);
   };
 
+  const clearProductHoverTimer = () => {
+    if (productHoverTimer.current) clearTimeout(productHoverTimer.current);
+    productHoverTimer.current = null;
+  };
+  const openProductRail = () => {
+    clearProductHoverTimer();
+    try {
+      const closedUntil = Number(sessionStorage.getItem('satvic-product-rail-closed-until') || 0);
+      if (Date.now() < closedUntil) return;
+      sessionStorage.removeItem('satvic-product-rail-closed-until');
+    } catch { /* Storage may be unavailable; hover still works normally. */ }
+    productHoverTimer.current = setTimeout(() => setProductMenuOpen(true), 100);
+  };
+  const closeProductRail = () => {
+    clearProductHoverTimer();
+    productHoverTimer.current = setTimeout(() => setProductMenuOpen(false), 180);
+  };
+
+  useEffect(() => () => {
+    if (productHoverTimer.current) clearTimeout(productHoverTimer.current);
+  }, []);
+
+  const navigateToProduct = (href: string) => {
+    clearProductHoverTimer();
+    setProductMenuOpen(false);
+    try { sessionStorage.setItem('satvic-product-rail-closed-until', String(Date.now() + 700)); } catch { /* Storage may be unavailable. */ }
+    productHoverTimer.current = setTimeout(() => router.push(href), 240);
+  };
+
   const accountName = accountEmail
     ? accountEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())
     : 'Account';
   const workspaceName = accountName === 'Account' ? 'Satvic Workspace' : `${accountName}'s Workspace`;
 
   return (
-    <main className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}${hideFeatureNavigation ? ' dashboard-home-shell' : ''}`}>
-      <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products" onMouseEnter={() => setProductMenuOpen(true)} onMouseLeave={() => setProductMenuOpen(false)}>
-        <button type="button" className="rail-workspace" aria-label="Satvic Organization workspace" onClick={() => router.push('/dashboard')}>
+    <main className={`app-shell${productRailCollapsed ? ' product-rail-collapsed' : ''}${hideFeatureNavigation ? ' dashboard-home-shell' : ''}`}>
+      <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products" onMouseEnter={openProductRail} onMouseLeave={closeProductRail} onFocusCapture={() => { clearProductHoverTimer(); setProductMenuOpen(true); }}>
+        <button type="button" className="rail-workspace" aria-label="Satvic Organization workspace" onClick={() => navigateToProduct('/dashboard')}>
           <span className="rail-workspace-mark"><span className="brand-mark"><span /><span /><span /></span></span>
           <span className="rail-workspace-copy"><b>Satvic Organization</b><small>{workspaceName}</small></span>
           <ChevronDown size={15} />
         </button>
-        {sidebarCollapsed && <button className="rail-expand" onClick={() => setSidebarCollapsed(false)} aria-label="Expand feature navigation" title="Expand feature navigation"><PanelLeftOpen size={18} /></button>}
         <div className="rail-product-list" aria-label="Products">
-          {products.map(item => <button key={item.id} type="button" aria-current={item.id === productId ? 'page' : undefined} className={`rail-product${item.id === productId ? ' active' : ''}`} onClick={() => router.push(item.href)} title={item.name}>
+          {products.map(item => <button key={item.id} type="button" aria-current={item.id === productId ? 'page' : undefined} className={`rail-product${item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)} title={item.name}>
             <span className="rail-product-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19} /> : <Building2 size={19} />}</span>
             <span className="rail-product-copy"><b>{item.name}</b><small>{item.description}</small></span>
           </button>)}
@@ -100,12 +129,12 @@ export default function ProductDashboardShell({
       </nav>
 
       <aside className={`sidebar${navOpen ? ' sidebar-open' : ''}`}>
-        {!hideFeatureNavigation && <><div className="workspace-heading"><div className="workspace-product">{product.name}</div><div className="workspace-heading-actions"><button className="sidebar-shrink icon-btn" onClick={() => setSidebarCollapsed(true)} aria-label="Collapse feature navigation" title="Collapse navigation"><PanelLeftClose size={18} /></button><button className="icon-btn mobile-close" onClick={() => setNavOpen(false)} aria-label="Close navigation"><X size={18} /></button></div></div>
+        {!hideFeatureNavigation && <><div className="workspace-heading"><div className="workspace-product">{product.name}</div><div className="workspace-heading-actions"><button className="sidebar-shrink icon-btn" onClick={() => setProductRailCollapsed(collapsed => !collapsed)} aria-label={productRailCollapsed ? 'Show product navigation' : 'Hide product navigation'} title={productRailCollapsed ? 'Show product navigation' : 'Hide product navigation'}>{productRailCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button><button className="icon-btn mobile-close" onClick={() => setNavOpen(false)} aria-label="Close navigation"><X size={18} /></button></div></div>
         {product.groups.map(group => <div className="product-nav-group" key={group.label || product.id}>{group.label && <div className="nav-label nav-label-spaced">{group.label}</div>}<nav className="main-nav">{group.features.map(feature => {const Icon = featureIcons[feature.icon];return <button key={feature.id} className={`nav-item${activeFeatureId === feature.id ? ' active' : ''}`} onClick={() => chooseFeature(feature)}><Icon size={18} /><span>{feature.label}</span></button>})}</nav></div>)}</>}
         <div className="sidebar-spacer" />
       </aside>
 
-      {accountMenuOpen && <div className={`account-menu account-menu-rail${sidebarCollapsed ? ' account-menu-collapsed' : ''}`} role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice(`Support for ${product.name} is ready.`)}}><CircleHelp size={18} /><span>Support</span></button><form action={signOut}><button role="menuitem" type="submit" className="account-logout"><LogOut size={18} /><span>Logout</span></button></form></div>}
+      {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice(`Support for ${product.name} is ready.`)}}><CircleHelp size={18} /><span>Support</span></button><form action={signOut}><button role="menuitem" type="submit" className="account-logout"><LogOut size={18} /><span>Logout</span></button></form></div>}
 
       <section className="main-area">
         <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button></header>
