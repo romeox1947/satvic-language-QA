@@ -58,7 +58,7 @@ export default function ProductDashboardShell({
     if (!accountMenuOpen) return;
     const closeOnOutsideClick = (event: PointerEvent) => {
       const target = event.target;
-      if (target instanceof Element && !target.closest('.account-menu, .account-trigger, .rail-account, .rail-account-collapsed')) setAccountMenuOpen(false);
+      if (target instanceof Element && !target.closest('.account-menu, .account-trigger, .rail-account, .rail-account-collapsed, .drawer-account')) setAccountMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setAccountMenuOpen(false); };
     document.addEventListener('pointerdown', closeOnOutsideClick);
@@ -142,6 +142,11 @@ export default function ProductDashboardShell({
               <span className="product-menu-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19} /> : <Building2 size={19}/>}</span><span><b>{item.name}</b><small>{item.description}</small></span>
             </button>)}
           </div>
+          <button type="button" className="drawer-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)}>
+            <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span>
+            <span>{accountName}</span>
+            <ChevronDown size={16} />
+          </button>
         </section>
       </nav>
 
