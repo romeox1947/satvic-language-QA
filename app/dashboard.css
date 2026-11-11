@@ -77,9 +77,14 @@ body:has(.app-shell) { background: #f2f3f1; }
 .product-rail:not(.product-rail-expanded) .rail-account { width: 42px; min-height: 42px; justify-content: center; padding: 3px; }
 .product-rail:not(.product-rail-expanded) .rail-account .account-trigger-avatar { width: 36px; height: 36px; }
 .product-rail:not(.product-rail-expanded) .rail-account-copy { width: 0; flex: 0 0 0; overflow: hidden; }
-.product-drawer { position: absolute; z-index: 1; top: 8px; bottom: auto; left: 64px; display: flex; width: 256px; flex-direction: column; gap: 4px; padding: 9px; border: 1px solid #e8e9e6; border-radius: 14px; background: #fff; box-shadow: 8px 8px 24px #20211f16; opacity: 0; pointer-events: none; transform: translateX(-6px); transition: opacity .2s ease, transform .26s cubic-bezier(.2,.7,.2,1), visibility .2s; visibility: hidden; }
-.product-rail-expanded .product-drawer { opacity: 1; pointer-events: auto; transform: translateX(0); visibility: visible; }
+.product-drawer { position: absolute; z-index: 1; top: 8px; bottom: auto; left: 64px; display: flex; width: 256px; flex-direction: column; gap: 4px; padding: 9px; border: 1px solid #e8e9e6; border-radius: 14px; background: #fff; box-shadow: 8px 8px 24px #20211f16; opacity: 0; pointer-events: none; transform: translate3d(-9px,0,0) scale(.985); transform-origin: top left; transition: opacity .28s ease, transform .36s cubic-bezier(.2,.7,.2,1), visibility 0s linear .36s; visibility: hidden; will-change: opacity, transform; }
+.product-rail-expanded .product-drawer { opacity: 1; pointer-events: auto; transform: translate3d(0,0,0) scale(1); transition-delay: 0s; visibility: visible; }
 .drawer-workspace { display: flex; width: 100%; min-height: 54px; align-items: center; gap: 9px; padding: 4px 6px; border: 0; border-radius: 10px; background: transparent; color: #30322e; text-align: left; cursor: pointer; }
+.drawer-workspace, .drawer-product { opacity: 0; transform: translateY(5px); transition: opacity .22s ease, transform .28s cubic-bezier(.2,.7,.2,1); }
+.product-rail-expanded .drawer-workspace, .product-rail-expanded .drawer-product { opacity: 1; transform: translateY(0); }
+.product-rail-expanded .drawer-workspace { transition-delay: .07s; }
+.product-rail-expanded .drawer-product:nth-child(1) { transition-delay: .11s; }
+.product-rail-expanded .drawer-product:nth-child(2) { transition-delay: .16s; }
 .drawer-workspace:hover, .drawer-workspace.active { background: #f0f1ee; }
 .drawer-workspace > span:nth-child(2) { display: grid; min-width: 0; flex: 1; gap: 3px; }
 .drawer-workspace b, .drawer-product b { overflow: hidden; color: #292a27; font: 500 13px/1.3 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
