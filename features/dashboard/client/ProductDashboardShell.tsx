@@ -117,21 +117,29 @@ export default function ProductDashboardShell({
   return (
     <main className={`app-shell${productRailCollapsed ? ' product-rail-collapsed' : ''}${featureRailCollapsed ? ' feature-rail-collapsed' : ''}${hideFeatureNavigation ? ' dashboard-home-shell' : ''}`}>
       <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products" onMouseEnter={openProductRail} onMouseLeave={closeProductRail} onFocusCapture={() => { clearProductHoverTimer(); setProductMenuOpen(true); }}>
-        <button type="button" className="rail-workspace" aria-label="Satvic Organization workspace" onClick={() => navigateToProduct('/dashboard')}>
+        <button type="button" className={`rail-workspace${hideFeatureNavigation ? ' active' : ''}`} aria-label="Satvic Organization workspace" onClick={() => navigateToProduct('/dashboard')} title="Satvic Organization">
           <span className="rail-workspace-mark"><span className="brand-mark"><span /><span /><span /></span></span>
-          <span className="rail-workspace-copy"><b>Satvic Organization</b><small>{workspaceName}</small></span>
-          <ChevronDown size={15} />
         </button>
         <div className="rail-product-list" aria-label="Products">
-          {products.map(item => <button key={item.id} type="button" aria-current={item.id === productId ? 'page' : undefined} className={`rail-product${item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)} title={item.name}>
+          {products.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`rail-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)} title={item.name}>
             <span className="rail-product-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19} /> : <Building2 size={19} />}</span>
-            <span className="rail-product-copy"><b>{item.name}</b><small>{item.description}</small></span>
           </button>)}
         </div>
         <div className="rail-spacer" />
         <button type="button" className="rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)} title={accountName}>
-          <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span><span className="rail-account-copy">{accountName}</span><ChevronDown size={16} />
+          <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span>
         </button>
+        <section className="product-drawer" aria-label="Organization and product switcher">
+          <button type="button" className={`drawer-workspace${hideFeatureNavigation ? ' active' : ''}`} onClick={() => navigateToProduct('/dashboard')}>
+            <span className="rail-workspace-mark"><span className="brand-mark"><span /><span /><span /></span></span>
+            <span><b>Satvic Organization</b><small>{workspaceName}</small></span><ChevronDown size={15}/>
+          </button>
+          <div className="drawer-product-list" aria-label="Products">
+            {products.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`drawer-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)}>
+              <span className="product-menu-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19}/> : <Building2 size={19}/>}</span><span><b>{item.name}</b><small>{item.description}</small></span>
+            </button>)}
+          </div>
+        </section>
       </nav>
 
       <aside className={`sidebar${navOpen ? ' sidebar-open' : ''}`}>
