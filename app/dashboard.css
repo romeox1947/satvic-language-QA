@@ -77,10 +77,10 @@ body:has(.app-shell) { background: #f2f3f1; }
 .product-rail:not(.product-rail-expanded) .rail-account { width: 42px; min-height: 42px; justify-content: center; padding: 3px; }
 .product-rail:not(.product-rail-expanded) .rail-account .account-trigger-avatar { width: 36px; height: 36px; }
 .product-rail:not(.product-rail-expanded) .rail-account-copy { width: 0; flex: 0 0 0; overflow: hidden; }
-.product-drawer { position: absolute; z-index: 1; inset: 0 auto 0 0; display: flex; width: 304px; flex-direction: column; gap: 4px; padding: 18px 14px 14px; border-right: 1px solid #e8e9e6; border-radius: 0 16px 16px 0; background: #fff; box-shadow: 8px 0 24px #20211f16; opacity: 0; pointer-events: none; transform: translate3d(-12px,0,0); transition: opacity .22s ease, transform .28s cubic-bezier(.2,.7,.2,1), visibility 0s linear .28s; visibility: hidden; will-change: opacity, transform; }
+.product-drawer { position: absolute; z-index: 1; inset: 0 auto 0 0; display: flex; width: 304px; flex-direction: column; gap: 4px; padding: 18px 14px 14px; border-right: 1px solid #e8e9e6; border-radius: 0 16px 16px 0; background: #fff; box-shadow: 8px 0 24px #20211f16; opacity: 0; pointer-events: none; transform: translate3d(0,-18px,0); transition: opacity .32s ease, transform .42s cubic-bezier(.2,.7,.2,1), visibility 0s linear .42s; visibility: hidden; will-change: opacity, transform; }
 .product-rail-expanded .product-drawer { opacity: 1; pointer-events: auto; transform: translate3d(0,0,0); transition-delay: 0s; visibility: visible; }
 .drawer-workspace { display: flex; width: 100%; min-height: 54px; align-items: center; gap: 9px; padding: 4px 6px; border: 0; border-radius: 10px; background: transparent; color: #30322e; text-align: left; cursor: pointer; }
-.drawer-workspace, .drawer-product { opacity: 0; transform: translateY(5px); transition: opacity .22s ease, transform .28s cubic-bezier(.2,.7,.2,1); }
+.drawer-workspace, .drawer-product { opacity: 0; transform: translateY(9px); transition: opacity .28s ease, transform .34s cubic-bezier(.2,.7,.2,1); }
 .product-rail-expanded .drawer-workspace, .product-rail-expanded .drawer-product { opacity: 1; transform: translateY(0); }
 .product-rail-expanded .drawer-workspace { transition-delay: .07s; }
 .product-rail-expanded .drawer-product:nth-child(1) { transition-delay: .11s; }
@@ -100,6 +100,9 @@ body:has(.app-shell) { background: #f2f3f1; }
 .drawer-account > span:nth-child(2) { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .drawer-account > svg { color: #686a64; }
 .drawer-account:hover { background: #f7f8f6; }
+@media (prefers-reduced-motion: reduce) {
+  .product-drawer, .drawer-workspace, .drawer-product { transition: none; }
+}
 .product-rail .rail-workspace { width: 42px; min-height: 42px; justify-content: center; padding: 0; }
 .product-rail .rail-product-list { gap: 7px; margin-top: 13px; }
 .product-rail .rail-product { width: 42px; min-height: 42px; justify-content: center; padding: 0; }
