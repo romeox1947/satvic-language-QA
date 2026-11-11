@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { uploadPresigned } from '@vercel/blob/client';
 import { signOut } from '@/features/auth/server/actions';
 import {
-  Activity, ArrowDown, ArrowDownToLine, ArrowRight, AudioLines, BadgeCheck, Bell, BookOpen,
-  Check, CheckCheck, ChevronDown, CircleHelp, Clock3, FileAudio, FileText, Filter, FlaskConical,
-  ExternalLink, Globe2, Headphones, Heart, Languages, LayoutDashboard, ListChecks, Menu, MoreHorizontal,
-  Pause, Play, Plus, Search, Settings2, ShieldCheck, Sparkles, Upload, WandSparkles, X, Zap,
+  Activity, ArrowDown, ArrowDownToLine, ArrowRight, AudioLines, BookOpen,
+  Check, CheckCheck, ChevronDown, CircleHelp, Clock3, FileAudio, FileText, Filter,
+  ExternalLink, Globe2, Headphones, Languages, ListChecks, Menu, MoreHorizontal,
+  LogOut, PanelLeftClose, PanelLeftOpen, Pause, Play, Plus, Search, Settings, Settings2, ShieldCheck, Sparkles, Upload, WandSparkles, X, Zap,
 } from 'lucide-react';
 
 type Issue = { title: string; detail: string; time?: string; source?: string; severity: 'critical' | 'review' | 'info'; category?: string; sourceStart?: number; sourceEnd?: number; dubStart?: number; dubEnd?: number; evidenceStatus?: 'cross-checked' | 'audio-only' | 'transcript-only'; sourceQuote?: string; dubQuote?: string };
@@ -92,12 +92,30 @@ export default function Home() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [estimatedRange, setEstimatedRange] = useState<{ min: number; max: number } | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [productMenuOpen, setProductMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
     fetch('/api/jobs/b2-status', { cache: 'no-store' }).then(response => response.json()).then(body => { if (active) setB2Configured(Boolean(body.configured)); }).catch(() => { if (active) setB2Configured(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && !target.closest('.account-menu, .account-trigger, .rail-account-collapsed')) setAccountMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setAccountMenuOpen(false); };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [accountMenuOpen]);
 
   useEffect(() => {
     let active = true;
@@ -357,26 +375,27 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={cx('app-shell', sidebarCollapsed && 'sidebar-collapsed')}>
       <nav className="product-rail" aria-label="Satvic products">
         <div className="rail-brand" aria-label="Satvic"><div className="brand-mark"><span /><span /><span /></div></div>
-        <button className="rail-product active" aria-label="Satvic Fluid" title="Satvic Fluid"><AudioLines size={19} /></button>
+        {sidebarCollapsed && <button className="rail-expand" onClick={() => setSidebarCollapsed(false)} aria-label="Expand product navigation" title="Expand navigation"><PanelLeftOpen size={18} /></button>}
+        <div className="product-switcher" onMouseEnter={() => setProductMenuOpen(true)} onMouseLeave={() => setProductMenuOpen(false)}>
+          <button className="rail-product active" aria-label="Open product switcher" aria-haspopup="menu" aria-expanded={productMenuOpen} onClick={() => setProductMenuOpen(true)} onFocus={() => setProductMenuOpen(true)} title="Satvic Fluid"><AudioLines size={19} /></button>
+          {productMenuOpen && <div className="product-menu"><div className="product-menu-label">YOUR PRODUCTS</div><button className="product-menu-item active" onClick={() => setProductMenuOpen(false)}><span className="product-menu-icon"><AudioLines size={17} /></span><span><b>Satvic Fluid</b><small>Language QA</small></span><Check size={16} /></button></div>}
+        </div>
         <div className="rail-spacer" />
-        <form action={signOut} className="rail-account">
-          <button type="submit" className="profile-avatar" aria-label={`Sign out ${accountEmail || 'account'}`} title={accountEmail || 'Account'}>{(accountEmail.slice(0, 1) || 'U').toUpperCase()}</button>
-        </form>
+        {sidebarCollapsed && <button type="button" className="profile-avatar rail-account-collapsed" aria-label="Open account menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)} title={accountEmail || 'Account'}>{(accountEmail.slice(0, 1) || 'U').toUpperCase()}</button>}
       </nav>
       <aside className={cx('sidebar', navOpen && 'sidebar-open')}>
-        <div className="workspace-heading"><div><div className="workspace-product">Satvic Fluid</div><div className="workspace-caption">Language QA workspace</div></div><button className="icon-btn mobile-close" onClick={() => setNavOpen(false)} aria-label="Close navigation"><X size={18} /></button></div>
-        <div className="workspace-switch"><div className="workspace-avatar">S</div><div className="workspace-label"><b>My workspace</b><span>Satvic Fluid</span></div><ChevronDown size={15} /></div>
-        <div className="nav-label">YOUR WORKSPACE</div>
+        <div className="workspace-heading"><div><div className="workspace-product">Satvic Fluid</div><div className="workspace-caption">Language QA workspace</div></div><div className="workspace-heading-actions"><button className="sidebar-shrink icon-btn" onClick={() => setSidebarCollapsed(true)} aria-label="Collapse product navigation" title="Collapse navigation"><PanelLeftClose size={18}/></button><button className="icon-btn mobile-close" onClick={() => setNavOpen(false)} aria-label="Close navigation"><X size={18} /></button></div></div>
+        <div className="nav-label">REVIEW</div>
         <nav className="main-nav">
-          <button className="nav-item" onClick={() => {setPreflight(null);setModal(true)}}><Plus size={18} /><span>New QA project</span></button>
-          <button className="nav-item active"><LayoutDashboard size={18} /><span>Overview</span></button>
-          <button className="nav-item" onClick={() => setActiveTab('All projects')}><FileText size={18} /><span>All projects</span><span className="nav-count">{projects.length}</span></button>
+          <button className="nav-item" onClick={() => {setPreflight(null);setModal(true)}}><Plus size={18} /><span>Start a review</span></button>
+          <button className="nav-item active"><CheckCheck size={18} /><span>QA workflow</span></button>
+          <button className="nav-item" onClick={() => setActiveTab('All projects')}><FileText size={18} /><span>Recent projects</span><span className="nav-count">{projects.length}</span></button>
           <button className="nav-item" onClick={() => setActiveTab('Needs review')}><ListChecks size={18} /><span>Review queue</span><span className="nav-badge">{projects.filter(p=>p.status==='Needs review').length}</span></button>
         </nav>
-        <div className="nav-label nav-label-spaced">TOOLS</div>
+        <div className="nav-label nav-label-spaced">LANGUAGE TOOLS</div>
         <nav className="main-nav">
           <button className="nav-item" onClick={() => setNotice('Language coverage: Hindi, Tamil, Telugu, Gujarati, Kannada, Bengali, Marathi and more.')}><Globe2 size={18} /><span>Languages</span></button>
           <button className="nav-item" onClick={() => setNotice('Terminology library is ready for your preferred translations and words to preserve.')}><BookOpen size={18} /><span>Term library</span></button>
@@ -384,24 +403,25 @@ export default function Home() {
         </nav>
         <div className="sidebar-spacer" />
         <div className="sidebar-help"><Sparkles size={15} /><span>AI-assisted language review</span><button onClick={() => setNotice('AI compares both audio tracks and highlights moments for your review.')}>How it works <ArrowRight size={13} /></button></div>
+          <button type="button" className="account-trigger" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)}><span className="account-trigger-avatar">{(accountEmail.slice(0, 1) || 'U').toUpperCase()}</span><span className="account-trigger-name">{accountEmail || 'Account'}</span><ChevronDown size={17}/></button>
       </aside>
+      {accountMenuOpen && <div className={cx('account-menu', sidebarCollapsed && 'account-menu-collapsed')} role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);setNotice('Account settings are ready for this workspace.')}}><Settings size={18}/><span>Settings</span></button><button role="menuitem" onClick={() => {setAccountMenuOpen(false);setNotice('Contact Satvic Fluid support for help with your language QA workspace.')}}><CircleHelp size={18}/><span>Support</span></button><form action={signOut}><button role="menuitem" type="submit" className="account-logout"><LogOut size={18}/><span>Logout</span></button></form></div>}
 
       <section className="main-area">
-        <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button><div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><b>Overview</b></div><div className="top-actions"><div className="local-pill"><span /> Account history synced</div><button className="icon-btn" aria-label="Help" onClick={() => setNotice('This workspace uses AI-assisted checks. AI compares both audio tracks and points to the times that may contain an issue.')}><CircleHelp size={18} /></button><button className="icon-btn notification-btn" aria-label="Notifications" onClick={() => setNotice(`You have ${projects.length} saved project(s) in your account.`)}><Bell size={18} /><i /></button><div className="top-divider" /><div className="mini-profile">{(accountEmail.slice(0, 1) || 'U').toUpperCase()}</div></div></header>
+        <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button></header>
         <div className="content-wrap">
-          <section className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-line" /> YOUR MULTILINGUAL REVIEW DESK</div><h1>Good morning, Piyush <span className="wave">✳</span></h1><p className="welcome-subtitle">One source. Every language. Nothing important lost along the way.</p></div><button className="primary-btn" onClick={() => {setPreflight(null);setModal(true)}}><Plus size={17} /> New QA project</button></section>
+          <section className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-line" /> SATVIC FLUID · LANGUAGE QA</div><h1>Review a dubbed video</h1><p className="welcome-subtitle">Follow each step from source upload to a timestamped QA report.</p></div><button className="primary-btn" onClick={() => {setPreflight(null);setModal(true)}}><Plus size={17} /> Start a review</button></section>
 
-          <section className="hero-panel"><div className="hero-text"><div className="hero-kicker"><WandSparkles size={14} /> THE DUBBING QUALITY WORKFLOW</div><h2>Make every translation<br />feel <em>like it belongs.</em></h2><p>Review meaning, completeness, health terminology and timing across your dubbed content — all in one thoughtful workspace.</p><button className="hero-button" onClick={() => {setPreflight(null);setModal(true)}}>Start a project <ArrowRight size={15} /></button><div className="hero-footnote"><ShieldCheck size={14} /> AI listens, compares, and points to the moment.</div></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="orbit-core"><div className="orbit-logo"><AudioLines size={27} /></div><span>VOICE<br />REVIEW</span></div><div className="float-chip chip-source"><span className="chip-flag">अ</span><span>Hindi source</span><Check size={13} /></div><div className="float-chip chip-target"><span className="chip-tamil">அ</span><span>Tamil dub</span><AudioLines size={14} /></div><div className="float-chip chip-match"><div className="match-dot"><Check size={11} /></div><div><b>Dub transcript</b><small>Click to listen</small></div></div><div className="sparkle s-one">✳</div><div className="sparkle s-two">✦</div></div><div className="hero-bottom-label">LANGUAGE IS THE BRIDGE <span>—</span> CLARITY IS THE PROMISE</div></section>
 
-          <section className="metric-grid" aria-label="Workspace summary"><article className="metric-card"><div className="metric-top"><span className="metric-icon icon-violet"><FileText size={18} /></span><span className="metric-change">THIS WORKSPACE</span></div><div className="metric-number">{projects.length}</div><div className="metric-caption">Analysis projects</div></article><article className="metric-card"><div className="metric-top"><span className="metric-icon icon-coral"><ListChecks size={18} /></span><span className="metric-change alert-text">AI REVIEW</span></div><div className="metric-number">{projects.filter(p=>p.status==='Needs review').length}</div><div className="metric-caption">Projects needing review</div><div className="metric-progress"><span style={{width:projects.length ? `${Math.min(100,projects.filter(p=>p.status==='Needs review').length/projects.length*100)}%` : '0%'}} /></div><div className="metric-foot"><span>Review queue</span><span>{projects.length ? Math.round(projects.filter(p=>p.status==='Needs review').length/projects.length*100) : 0}%</span></div></article><article className="metric-card"><div className="metric-top"><span className="metric-icon icon-green"><Globe2 size={18} /></span><span className="metric-change">LANGUAGES</span></div><div className="metric-number">{new Set(projects.map(p=>p.target)).size}</div><div className="metric-caption">Target languages analyzed</div></article><article className="metric-card"><div className="metric-top"><span className="metric-icon icon-blue"><BadgeCheck size={18} /></span><span className="metric-change">PROVIDER</span></div><div className="metric-number" style={{fontSize:18,letterSpacing:'-.4px'}}>Sarvam AI</div><div className="metric-caption">Saaras v4 + Sarvam Translate</div></article></section>
+
+          <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div><div className="section-kicker">REVIEW WORKFLOW</div><h2 id="qa-flow-title">One project, four clear steps</h2></div><span className="qa-flow-time"><Clock3 size={15}/> 4-step process</span></div><ol className="qa-flow-steps"><li><span className="qa-step-number">01</span><div><b>Upload both videos</b><p>Add the original and dubbed versions.</p></div></li><li><span className="qa-step-number">02</span><div><b>Compare speech</b><p>Check meaning, omissions, and timing.</p></div></li><li><span className="qa-step-number">03</span><div><b>Review flagged moments</b><p>Open each finding at its timestamp.</p></div></li><li><span className="qa-step-number">04</span><div><b>Export the report</b><p>Save the reviewed QA outcome.</p></div></li></ol><button className="qa-flow-action" onClick={() => {setPreflight(null);setModal(true)}}><Upload size={16}/> Create a QA project <ArrowRight size={15}/></button></section>
 
           <section className="work-grid"><div className="projects-panel panel"><div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>Recent projects <span className="heading-count">{projects.length}</span></h3></div><button className="text-action" onClick={() => setActiveTab('All projects')}>View all <ArrowRight size={14} /></button></div><div className="project-toolbar"><div className="tabs">{['All projects','Needs review','In progress','Ready'].map(tab => <button key={tab} className={cx('tab', activeTab===tab && 'tab-active')} onClick={() => setActiveTab(tab)}>{tab}{tab==='Needs review' && <i className="tab-dot"/>}</button>)}</div><div className="project-tools"><label className="search-box"><Search size={15}/><input placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)} /></label><button className="filter-btn" onClick={() => setNotice('Showing the latest dubbing QA projects.')}><Filter size={14}/><span>Filter</span></button></div></div><div className="project-list">{visibleProjects.length ? visibleProjects.map((p,index)=><button className="project-row" key={`${p.title}-${index}`} onClick={()=>setDetails(p)}><div className={`project-thumb ${p.color}`}><span>{p.initials}</span><div className="thumb-play"><Play size={10} fill="currentColor"/></div></div><div className="project-name"><b>{p.title}</b><span>{p.source} <ArrowRight size={11}/> {p.target}<span className="project-dot">·</span>{p.date}</span></div><div className="project-score"><div className="outcome-mark"><Headphones size={15}/></div><span>Dub QA</span></div><div className="project-issues">{p.issues>0 ? <><span className={cx('issue-count',p.status==='Needs review'&&'issue-hot')}>{p.issues}</span><span>{p.issues===1?'flag':'flags'}</span></> : <><CheckCheck size={15}/><span>No flags</span></>}</div><div className="status-cell"><span className={cx('status-pill',p.status.toLowerCase().replace(' ','-'))}><i/>{p.status}</span></div><MoreHorizontal className="row-more" size={18}/></button>) : <div className="empty-state"><Search size={19}/><b>No matching projects</b><span>Try another search or choose a different view.</span></div>}</div><button className="list-footer" onClick={()=>setNotice('You’re viewing the latest projects in this workspace.')}>Showing {visibleProjects.length} of {projects.length} projects <ArrowDown size={13}/></button></div>
 
           <aside className="insight-column"><div className="review-panel panel"><div className="review-heading"><div><div className="section-kicker">AI AUDIO REVIEW</div><h3>Review queue <span className="queue-count">{projects.filter(p=>p.status==='Needs review').length}</span></h3></div><button className="icon-btn small" onClick={()=>setNotice('The queue is calculated from analyses run in this workspace.')} aria-label="Review options"><MoreHorizontal size={17}/></button></div><div className="review-sub">{projects.length ? 'AI detected possible issues in this dub. Open a finding to play its time range.' : 'Run an analysis to see real findings here.'}</div><div className="issue-list">{report?.findings.slice(0,3).map((issue,index)=><button key={`${issue.title}-${index}`} className="issue-row" onClick={()=>setDetails(projects[0] ?? null)}><div className={cx('severity-mark',issue.severity)}>{issue.severity==='critical'?<Zap size={14}/>:<Activity size={14}/>}</div><div className="issue-copy"><b>{issue.title}</b><span>{issue.detail}</span><small><Languages size={11}/> {report.targetLanguage} dub</small></div><ArrowRight className="issue-arrow" size={14}/></button>)}</div><button className="queue-link" onClick={()=>projects.length ? setDetails(projects[0]) : setModal(true)}>{projects.length ? 'Open latest report' : 'Start your first analysis'} <ArrowRight size={14}/></button></div>
-          <div className="tip-card"><div className="tip-decoration"><div/><div/><div/></div><div className="tip-content"><div className="tip-kicker"><Heart size={12}/> A SMALL REMINDER</div><h4>AI listens to<br/>both languages.</h4><p>The AI listens to both tracks, compares what was said, and points you to the moments that may need fixing.</p><button onClick={()=>setNotice('Gemini compares the actual source and dubbed audio, then reports likely meaning and delivery issues with timestamps.')}>Our review philosophy <ArrowRight size={13}/></button></div></div></aside></section>
+          <div className="next-action panel"><div className="section-kicker">NEXT STEP</div><h4>{projects.length ? 'Review the latest findings' : 'Create your first QA project'}</h4><p>{projects.length ? 'Open a project to check its flagged timestamps and finish the review.' : 'Upload the source and dubbed videos to start the four-step review.'}</p><button onClick={()=>projects.length ? setDetails(projects[0]) : setModal(true)}>{projects.length ? 'Open latest project' : 'Start a review'} <ArrowRight size={14}/></button></div></aside></section>
 
-          <section className="workflow-strip"><div className="workflow-title"><div className="workflow-icon"><FlaskConical size={17}/></div><div><b>AI checks from audio to timestamped findings</b><span>Every suspected issue includes the moments the AI heard.</span></div></div><div className="workflow-steps"><div className="workflow-step"><span className="step-number">01</span><div><b>Transcribe independently</b><small>Listen to the dubbed audio</small></div></div><ArrowRight className="step-arrow" size={15}/><div className="workflow-step"><span className="step-number">02</span><div><b>Compare the meaning</b><small>Spot gaps and changed claims</small></div></div><ArrowRight className="step-arrow" size={15}/><div className="workflow-step"><span className="step-number">03</span><div><b>Open AI findings</b><small>Check flagged time ranges</small></div></div></div></section>
-          <footer className="page-footer"><span>Made with care for every language <span className="footer-flower">✳</span></span><span>PRIVATE WORKSPACE <i/> SARVAM + GEMINI QA</span></footer>
+
         </div>
       </section>
 
