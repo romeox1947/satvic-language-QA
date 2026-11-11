@@ -8,7 +8,7 @@
   --canvas: #f2f3f1;
   position: relative;
   height: calc(100svh - 16px);
-  min-height: 680px;
+  min-height: 0;
   margin: 8px;
   overflow: hidden;
   border: 1px solid #e7e8e5;
@@ -512,16 +512,62 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
   .app-shell .project-issues, .app-shell .row-more { display: none; }
 }
 
-/* Keep dashboard content readable on a consistent 21/17/14px type scale. */
-.app-shell .content-wrap > :not(.modal-backdrop) * { font-size: max(14px, 1em) !important; }
-.app-shell .content-wrap .section-kicker,
-.app-shell .content-wrap .eyebrow { font-size: 12px !important; }
-.app-shell .content-wrap > :not(.modal-backdrop) h1 { font-size: 21px !important; }
-.app-shell .content-wrap > :not(.modal-backdrop) h2,
-.app-shell .content-wrap > :not(.modal-backdrop) h3,
-.app-shell .content-wrap > :not(.modal-backdrop) h4 { font-size: 17px !important; }
-.app-shell .content-wrap > :not(.modal-backdrop) .metric-number,
-.app-shell .content-wrap > :not(.modal-backdrop) .founder-summary-card > b { font-size: 21px !important; }
+/* Scale text by role without forcing every badge and label to the same size. */
+@media (min-width: 701px) {
+  .app-shell {
+    --font-label: clamp(11px, calc(10.5px + .1vw), 12px);
+    --font-caption: clamp(12px, calc(11px + .15vw), 14px);
+    --font-body: clamp(14px, calc(13px + .1vw), 16px);
+    --font-heading: clamp(17px, calc(16px + .15vw), 20px);
+    --font-title: clamp(21px, calc(19px + .22vw), 26px);
+  }
+  .app-shell .content-wrap { font-size: var(--font-body); }
+  .app-shell .content-wrap .section-kicker,
+  .app-shell .content-wrap .eyebrow { font-size: var(--font-label) !important; }
+  .app-shell .content-wrap h1 { font-size: var(--font-title) !important; }
+  .app-shell .content-wrap h2,
+  .app-shell .content-wrap h3,
+  .app-shell .content-wrap h4 { font-size: var(--font-heading) !important; }
+  .app-shell .content-wrap .welcome-subtitle,
+  .app-shell .content-wrap .dashboard-home-intro > p,
+  .app-shell .content-wrap .founder-sample-note,
+  .app-shell .content-wrap .qa-flow-steps p,
+  .app-shell .content-wrap .founder-detail-copy,
+  .app-shell .content-wrap .founder-lower-grid p,
+  .app-shell .content-wrap .issue-copy > span,
+  .app-shell .content-wrap .issue-copy small,
+  .app-shell .content-wrap .review-empty { font-size: var(--font-caption) !important; }
+  .app-shell .content-wrap .qa-flow-steps b,
+  .app-shell .content-wrap .panel-heading h3,
+  .app-shell .content-wrap .review-empty b,
+  .app-shell .content-wrap .dashboard-product-card-copy b { font-size: var(--font-heading) !important; }
+  .app-shell .content-wrap .project-name > b,
+  .app-shell .content-wrap .founder-summary-card > small { font-size: var(--font-caption) !important; }
+  .app-shell .content-wrap .project-name > span,
+  .app-shell .content-wrap .project-score,
+  .app-shell .content-wrap .project-score > span,
+  .app-shell .content-wrap .project-issues,
+  .app-shell .content-wrap .project-issues > *,
+  .app-shell .content-wrap .status-pill,
+  .app-shell .content-wrap .tab,
+  .app-shell .content-wrap .filter-btn,
+  .app-shell .content-wrap .search-box input,
+  .app-shell .content-wrap .qa-flow-time,
+  .app-shell .content-wrap .qa-flow-action,
+  .app-shell .content-wrap .primary-btn,
+  .app-shell .content-wrap .text-action,
+  .app-shell .content-wrap .queue-link,
+  .app-shell .content-wrap .list-footer,
+  .app-shell .content-wrap .founder-summary-card > span,
+  .app-shell .content-wrap .founder-priority-number,
+  .app-shell .content-wrap .founder-priority small,
+  .app-shell .content-wrap .founder-status,
+  .app-shell .content-wrap .founder-inline-action,
+  .app-shell .content-wrap .dashboard-product-card-detail { font-size: var(--font-label) !important; }
+  .app-shell .content-wrap .founder-summary-card > b { font-size: var(--font-title) !important; }
+  .app-shell .content-wrap .founder-priority > div > b,
+  .app-shell .content-wrap .founder-detail-copy h4 { font-size: var(--font-caption) !important; }
+}
 
 @media (min-width: 701px) and (max-width: 1200px) {
   .app-shell .work-grid { grid-template-columns: minmax(0, 1fr); }
@@ -533,36 +579,192 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
     padding: 9px 14px;
   }
   .app-shell .project-name { min-width: 0; gap: 4px; overflow: hidden; }
-  .app-shell .project-name > b { font-size: 14px !important; }
-  .app-shell .project-name > span { min-width: 0; font-size: 12px !important; }
+  .app-shell .project-name > b { font-size: var(--font-caption) !important; }
+  .app-shell .project-name > span { min-width: 0; font-size: var(--font-label) !important; }
   .app-shell .project-score {
     width: auto;
     min-width: 0;
     flex-direction: row;
     gap: 6px;
     white-space: nowrap;
-    font-size: 12px !important;
+    font-size: var(--font-label) !important;
   }
   .app-shell .outcome-mark { width: 28px; height: 28px; }
-  .app-shell .project-score > span { font-size: 12px !important; }
+  .app-shell .project-score > span { font-size: var(--font-label) !important; }
   .app-shell .project-issues {
     width: auto;
     min-width: 0;
     gap: 4px;
     white-space: nowrap;
-    font-size: 12px !important;
+    font-size: var(--font-label) !important;
   }
-  .app-shell .project-issues > * { font-size: 12px !important; }
+  .app-shell .project-issues > * { font-size: var(--font-label) !important; }
   .app-shell .status-cell { width: auto; min-width: 0; }
   .app-shell .status-pill {
     gap: 6px;
     padding: 6px 9px;
     white-space: nowrap;
-    font-size: 12px !important;
+    font-size: var(--font-label) !important;
   }
   .app-shell .issue-copy > span { line-height: 1.45; }
 }
 
 @media (max-width: 390px) {
   .app-shell .project-score { display: none; }
+}
+
+@media (min-width: 701px) {
+  .app-shell { --feature-sidebar-width: clamp(208px, calc(16vw + 40px), 282px); }
+  .app-shell .sidebar { width: var(--feature-sidebar-width); }
+  .app-shell .main-area {
+    width: calc(100% - 64px - var(--feature-sidebar-width));
+    margin-left: calc(64px + var(--feature-sidebar-width));
+  }
+  .app-shell.product-rail-collapsed .main-area {
+    width: calc(100% - var(--feature-sidebar-width));
+    margin-left: var(--feature-sidebar-width);
+  }
+  .app-shell.feature-rail-collapsed .sidebar { width: 84px; }
+  .app-shell.feature-rail-collapsed .main-area {
+    width: calc(100% - 148px);
+    margin-left: 148px;
+  }
+  .app-shell.product-rail-collapsed.feature-rail-collapsed .main-area {
+    width: calc(100% - 84px);
+    margin-left: 84px;
+  }
+  .app-shell.dashboard-home-shell .main-area {
+    width: calc(100% - 64px);
+    margin-left: 64px;
+  }
+  .app-shell.dashboard-home-shell.product-rail-collapsed .main-area {
+    width: 100%;
+    margin-left: 0;
+  }
+  .app-shell .content-wrap {
+    width: 100%;
+    min-width: 0;
+    padding: clamp(26px, 2.5vw, 36px) clamp(20px, calc(2vw + 4px), 42px) clamp(20px, 1.8vw, 28px);
+  }
+  .app-shell.dashboard-home-shell .content-wrap { padding-top: clamp(42px, 5vw, 68px); }
+  .app-shell .welcome-row { gap: clamp(12px, 1.6vw, 22px); }
+  .app-shell .qa-flow { padding: clamp(17px, 1.8vw, 23px); }
+  .app-shell .qa-flow-steps { column-gap: 0; }
+  .app-shell .work-grid { min-width: 0; gap: clamp(12px, 1.1vw, 16px); }
+  .app-shell .projects-panel,
+  .app-shell .insight-column,
+  .app-shell .review-panel,
+  .app-shell .founder-panel,
+  .app-shell .founder-summary-card { min-width: 0; }
+  .app-shell .founder-summary {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr));
+  }
+  .app-shell .founder-priority > div { min-width: 0; overflow-wrap: anywhere; }
+  .app-shell .detail-modal {
+    width: min(760px, calc(100vw - 48px));
+    max-height: calc(100dvh - 40px);
+    padding: clamp(18px, 2.2vw, 28px);
+  }
+  .app-shell .detail-modal > h2 { font-size: var(--font-title) !important; }
+  .app-shell .detail-language,
+  .app-shell .detail-explain,
+  .app-shell .verdict-card p,
+  .app-shell .detail-issue p,
+  .app-shell .finding-phrases,
+  .app-shell .no-timestamps,
+  .app-shell .segment-row b { font-size: var(--font-caption) !important; }
+  .app-shell .verdict-card h3 { font-size: var(--font-heading) !important; }
+  .app-shell .detail-section-title,
+  .app-shell .detail-issue small,
+  .app-shell .finding-time-links button,
+  .app-shell .audio-review-grid label > b { font-size: var(--font-label) !important; }
+  .app-shell .create-modal {
+    max-height: calc(100dvh - 40px);
+    padding: clamp(18px, 2.2vw, 28px);
+  }
+}
+
+@media (min-width: 701px) and (max-width: 1100px) {
+  .app-shell .qa-flow-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 14px;
+  }
+  .app-shell .qa-flow-steps li:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .app-shell .qa-flow-steps li:nth-child(n + 3) { padding-top: 14px; border-top: 1px solid #e9eae6; }
+  .app-shell .dashboard-product-grid { gap: clamp(12px, 1.5vw, 18px); }
+  .app-shell .dashboard-product-card { padding: clamp(14px, 1.8vw, 20px); }
+}
+
+@media (min-width: 701px) and (max-width: 960px) {
+  .app-shell .project-toolbar {
+    position: relative;
+    align-items: stretch;
+    gap: 8px;
+    padding: 8px 14px 12px;
+  }
+  .app-shell .tabs {
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    gap: clamp(10px, 1.6vw, 16px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .app-shell .tabs::-webkit-scrollbar { display: none; }
+  .app-shell .project-tools {
+    position: static;
+    width: 100%;
+    justify-content: flex-start;
+    gap: 8px;
+    margin-top: 0;
+  }
+  .app-shell .search-box { width: auto; min-width: 0; flex: 1; }
+  .app-shell .project-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) max-content max-content;
+    grid-template-rows: repeat(2, minmax(26px, auto));
+    gap: 4px 9px;
+    padding: 10px 12px;
+  }
+  .app-shell .project-thumb {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+    width: 40px;
+    height: 40px;
+  }
+  .app-shell .project-name {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-width: 0;
+    align-content: center;
+    overflow: hidden;
+  }
+  .app-shell .project-score { grid-column: 3; grid-row: 1; }
+  .app-shell .project-issues { grid-column: 3; grid-row: 2; }
+  .app-shell .status-cell { grid-column: 4; grid-row: 1 / span 2; align-self: center; }
+  .app-shell .row-more { display: none; }
+  .app-shell .founder-lower-grid { grid-template-columns: 1fr; }
+  .app-shell .founder-priority {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px 0;
+  }
+  .app-shell .founder-status { grid-column: 2; }
+}
+
+@media (min-width: 701px) and (max-width: 820px) {
+  .app-shell .project-row {
+    grid-template-columns: 36px minmax(0, 1fr) max-content max-content;
+    gap: 4px 8px;
+  }
+  .app-shell .project-thumb { width: 36px; height: 36px; }
+  .app-shell .project-issues { display: none; }
+  .app-shell .status-cell { grid-column: 4; }
+  .app-shell .founder-summary { grid-template-columns: 1fr; }
+  .app-shell .founder-summary-card { min-height: auto; }
+}
+
+@media (min-width: 701px) and (max-width: 900px) {
+  .app-shell .audio-review-grid { grid-template-columns: 1fr; }
 }
