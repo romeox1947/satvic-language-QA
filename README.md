@@ -43,10 +43,29 @@ The dashboard requires Google sign-in. Supabase stores each user's job metadata 
 2. In the Supabase SQL editor, run [`supabase/schema.sql`](supabase/schema.sql) to create the `profiles` table for each user's name and role, the private `qa_jobs` table, and their row-level security policies. Re-run it if the project was set up before profile onboarding was added.
 3. In **Authentication → Providers → Google**, enable Google. Create a Google OAuth web client in Google Cloud. Add your app origin (`http://localhost:3000` for local development) to the Google authorized JavaScript origins. Add the callback URL shown by Supabase (usually `https://<project-ref>.supabase.co/auth/v1/callback`) to Google authorized redirect URIs, then paste the Google client ID and secret into Supabase.
 4. In Supabase **Authentication → URL Configuration**, set the local Site URL to `http://localhost:3000` and add `http://localhost:3000/auth/callback` to allowed redirect URLs. For production, add your Vercel app origin and `https://<your-domain>/auth/callback`, then update `NEXT_PUBLIC_APP_URL` in Vercel.
-5. Restart `npm run dev` after adding local environment values. The public home page offers **Log in** and **Create account**. Both use Google sign-in; after Google confirms the account, Satvic Studio checks for a saved profile. Existing profiles go to the dashboard and their saved job history. New or older accounts without a profile are asked for a name and role once, then sent to the dashboard. Jobs and QA history load on any device where you sign in.
+5. Restart `npm run dev` after adding local environment values. The home page offers **Signup** and **Login**. Both use Google sign-in; after Google confirms the account, Satvic Studio creates a basic profile if needed and sends the user to `/dashboard`. The dashboard loads job and QA history for that account.
 6. Set `WORKFLOW_INTERNAL_TOKEN` to a long random secret locally and in Vercel. The background workflow uses it to call the protected QA API after Sarvam finishes.
 
 Supabase's Google provider setup and redirect allow-list must match the app callback URLs exactly. See the official [Google sign-in setup](https://supabase.com/docs/guides/auth/social-sign-in/auth-google) and [redirect URL configuration](https://supabase.com/docs/guides/auth/redirect-urls).
+
+## Application structure
+
+- `app/` contains route entry points and API route handlers. Route groups `(auth)` and `(studio)` organize login, signup, onboarding, callback, and dashboard routes without changing their URLs.
+- `features/` contains product UI and behavior, split by feature. Client components live in `client/`; server actions live in `server/`.
+- `lib/` contains shared Supabase, storage, and email integrations used by server routes and actions.
+- `services/` contains background workflow and worker code.
+- `public/` contains static assets such as the Satvic Studio fonts.
+
+## Routes
+
+| URL | Purpose | Access |
+| --- | --- | --- |
+| `/` | Satvic Studio home page | Public |
+| `/signup` | Create an account with Google | Public |
+| `/login` | Sign in with Google | Public |
+| `/auth/callback` | Complete the Supabase OAuth exchange and send the user to the dashboard | Auth callback |
+| `/dashboard` | Dubbing QA workspace | Signed in |
+| `/onboarding` | Complete a missing profile for legacy accounts | Signed in |
 
 To use local Whisper for transcription, install and run the worker in a second terminal:
 

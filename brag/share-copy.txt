@@ -1,3 +1,0 @@
-Satvic Studio helps teams review dubbed videos when they do not speak the target language. It compares source and dub audio, surfaces moments to inspect, and gives a fluent speaker a focused place to confirm. AI findings are review signals, not a guarantee of correctness.
-
-Music: "Happy Beats Business Moves Vol. 1" by Sascha Ende (ende.app), licensed under CC BY 4.0.
