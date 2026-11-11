@@ -81,12 +81,7 @@ export default function ProductDashboardShell({
   };
   const openProductRail = () => {
     clearProductHoverTimer();
-    try {
-      const closedUntil = Number(sessionStorage.getItem('satvic-product-rail-closed-until') || 0);
-      if (Date.now() < closedUntil) return;
-      sessionStorage.removeItem('satvic-product-rail-closed-until');
-    } catch { /* Storage may be unavailable; hover still works normally. */ }
-    productHoverTimer.current = setTimeout(() => setProductMenuOpen(true), 150);
+    setProductMenuOpen(true);
   };
   const closeProductRail = () => {
     clearProductHoverTimer();
@@ -105,7 +100,6 @@ export default function ProductDashboardShell({
   const navigateToProduct = (href: string) => {
     clearProductHoverTimer();
     setProductMenuOpen(false);
-    try { sessionStorage.setItem('satvic-product-rail-closed-until', String(Date.now() + 700)); } catch { /* Storage may be unavailable. */ }
     router.push(href);
   };
 
