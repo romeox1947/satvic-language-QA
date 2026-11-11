@@ -23,6 +23,7 @@ async function completedResponse(job: Record<string, any>, runId: string) {
   }
   return Response.json({ runId, status: 'completed', stage: 'Analysis complete', report: {
     ...report,
+    project: job.project_name || report.project,
     originalVideoUrl: job.original_b2_key
       ? `/api/jobs/${encodeURIComponent(runId)}/b2/media?track=source`
       : job.original_blob_url ? `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(job.original_blob_url)}` : null,
@@ -54,7 +55,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in to view this job.' }, { status: 401 });
-    const jobLookup = supabase.from('qa_jobs').select('id,run_id,status,report_blob_url,error_message,original_blob_url,dubbed_blob_url,original_b2_key,dubbed_b2_key,report_b2_key').eq('user_id', user.id);
+    const jobLookup = supabase.from('qa_jobs').select('id,run_id,project_name,status,report_blob_url,error_message,original_blob_url,dubbed_blob_url,original_b2_key,dubbed_b2_key,report_b2_key').eq('user_id', user.id);
     const { data: job, error: jobError } = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId)
       ? await jobLookup.eq('id', runId).maybeSingle()
       : await jobLookup.eq('run_id', runId).maybeSingle();
@@ -83,6 +84,32 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     }
     const completedJob = { ...job, report_blob_url: job.report_blob_url || result?.reportBlobUrl };
     return await completedResponse(completedJob, runId);
+  } catch (error) {
+    return Response.json({ error: errorMessage(error) }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ runId: string }> }) {
+  try {
+    const { runId } = await params;
+    if (!/^[\w-]{8,160}$/.test(runId)) return Response.json({ error: 'Invalid background job ID.' }, { status: 400 });
+    const body = await request.json().catch(() => null) as { projectName?: unknown } | null;
+    if (typeof body?.projectName !== 'string') return Response.json({ error: 'A project name is required.' }, { status: 400 });
+    const projectName = body.projectName.trim();
+    if (!projectName) return Response.json({ error: 'Project names cannot be empty.' }, { status: 400 });
+    if (projectName.length > 120) return Response.json({ error: 'Project names must be 120 characters or fewer.' }, { status: 400 });
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return Response.json({ error: 'Sign in to rename this project.' }, { status: 401 });
+
+    const update = supabase.from('qa_jobs').update({ project_name: projectName }).eq('user_id', user.id);
+    const { data: job, error } = await (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId)
+      ? update.eq('id', runId)
+      : update.eq('run_id', runId)).select('project_name').maybeSingle();
+    if (error) throw error;
+    if (!job) return Response.json({ error: 'This project does not belong to your account.' }, { status: 404 });
+    return Response.json({ projectName: job.project_name });
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
   }

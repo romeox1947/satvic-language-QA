@@ -319,6 +319,14 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .archive-dropdown { border-color: #e5e6e2; box-shadow: 0 12px 32px #20211f16; }
 .app-shell .archive-dropdown button, .app-shell .archive-dropdown a { color: #454741; }
 .app-shell .archive-dropdown button:hover, .app-shell .archive-dropdown a:hover { background: #f1f2ef; color: #252622; }
+.app-shell .rename-project-form { display: grid; gap: 10px; margin: 12px 0; padding: 13px; border: 1px solid #e8e9e6; border-radius: 12px; background: #fafbf9; }
+.app-shell .rename-project-form label { display: grid; gap: 6px; color: #666962; font-size: 12px; }
+.app-shell .rename-project-form input { width: 100%; min-width: 0; height: 40px; padding: 0 11px; border: 1px solid #dfe1dc; border-radius: 8px; outline: none; background: #fff; color: #30322e; font: 400 14px/1 "Matter"; }
+.app-shell .rename-project-form input:focus { border-color: #8a8d84; box-shadow: 0 0 0 3px #85878018; }
+.app-shell .rename-project-form > div { display: flex; justify-content: flex-end; gap: 8px; }
+.app-shell .rename-project-form button { min-height: 34px; padding: 0 12px; border: 1px solid #dfe1dc; border-radius: 8px; background: #fff; color: #4a4c46; font: 500 12px/1 "Matter"; cursor: pointer; }
+.app-shell .rename-project-form button[type="submit"] { border-color: #555751; background: #555751; color: #fff; }
+.app-shell .rename-project-form button:disabled { opacity: .6; cursor: wait; }
 .app-shell .archive-output-link { border-color: #e5e6e2; background: #f8f9f7; color: #454741; }
 .app-shell .archive-output-link > span { color: #555751; }
 .app-shell .auth-screen, .app-shell .auth-card { font-family: "Matter"; }
