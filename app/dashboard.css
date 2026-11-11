@@ -65,11 +65,10 @@ body:has(.app-shell) { background: #f2f3f1; }
   box-shadow: none;
   backdrop-filter: none;
 }
-.workspace-heading { display: flex; min-height: 61px; align-items: flex-start; justify-content: space-between; padding: 0 9px 17px; border-bottom: 1px solid #f0f0ed; }
+.workspace-heading { display: flex; min-height: 46px; align-items: center; justify-content: space-between; padding: 0 9px 8px; border: 0; }
 .workspace-heading-actions { display: flex; align-items: center; gap: 4px; }
 .app-shell .sidebar-shrink { display: grid; width: 32px; height: 32px; border-radius: 8px; }
-.workspace-product { color: #171815; font: 400 30px/1.05 "Season Mix"; letter-spacing: -.035em; }
-.workspace-caption { margin-top: 5px; color: #858780; font: 400 12px/1.3 "Matter"; }
+.workspace-product { color: #171815; font: 400 25px/1.05 "Season Mix"; letter-spacing: -.035em; }
 .app-shell .workspace-switch { width: 100%; margin: 17px 0 24px; padding: 10px 9px; border: 1px solid #ecece9; border-radius: 12px; background: #fff; box-shadow: none; color: #30312e; text-align: left; cursor: default; }
 .app-shell .workspace-avatar { width: 34px; height: 34px; border-radius: 10px; background: #f0f1ee; color: #474943; font: 500 14px "Matter"; }
 .app-shell .workspace-label b { color: #30312e; font-size: 12px; font-weight: 500; }
@@ -85,9 +84,6 @@ body:has(.app-shell) { background: #f2f3f1; }
 .app-shell .nav-item.active > svg { color: #30322d; }
 .app-shell .nav-count { color: #777a74; font-size: 11px; }
 .app-shell .nav-badge { background: #f0f1ee; color: #4e504b; font-size: 10px; }
-.app-shell .sidebar-help { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: center; margin: 0 1px 3px; padding: 12px 10px; border: 1px solid #ededeb; border-radius: 12px; color: #4d4f49; font-size: 11px; line-height: 1.4; }
-.app-shell .sidebar-help > svg { color: #666962; }
-.app-shell .sidebar-help button { grid-column: 2; display: inline-flex; align-items: center; gap: 5px; width: max-content; padding: 0; border: 0; background: none; color: #555751; font-size: 11px; cursor: pointer; }
 .app-shell .account-trigger { display: flex; width: 100%; min-height: 49px; align-items: center; gap: 10px; margin-top: 13px; padding: 7px 9px; border: 0; border-radius: 12px; background: #f4f5f3; color: #30312e; text-align: left; cursor: pointer; }
 .account-trigger-avatar { display: grid; width: 34px; height: 34px; flex: none; place-items: center; border-radius: 50%; background: #6979bd; color: #fff; font: 500 14px/1 "Matter"; }
 .account-trigger-name { flex: 1; overflow: hidden; color: #343631; font: 400 13px/1.3 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
@@ -115,7 +111,7 @@ body:has(.app-shell) { background: #f2f3f1; }
 .app-shell .eyebrow, .app-shell .section-kicker { color: #777a74; font: 500 10px/1.35 "Matter"; letter-spacing: .12em; }
 .app-shell .eyebrow-line { background: #92958e; }
 .app-shell .welcome-row { align-items: center; margin-bottom: 27px; gap: 20px; }
-.app-shell .welcome-row h1 { color: #20211f; font: 500 30px/1.2 "Matter"; letter-spacing: -.035em; }
+.app-shell .welcome-row h1 { color: #20211f; font: 500 26px/1.2 "Matter"; letter-spacing: -.035em; }
 .app-shell .wave { color: #747770; }
 .app-shell .welcome-subtitle { color: #777a74; font: 400 14px/1.5 "Matter"; }
 .app-shell .primary-btn { border: 1px solid #20211f; border-radius: 999px; background: #20211f; color: white; box-shadow: none; font: 500 13px/1 "Matter"; }
@@ -192,10 +188,6 @@ body:has(.app-shell) { background: #f2f3f1; }
 .app-shell .tip-content h4 { color: #343631; font: 500 16px/1.3 "Matter"; }
 .app-shell .tip-content p { color: #777a74; font: 400 10px/1.5 "Matter"; }
 .app-shell .tip-content button { color: #4e504b; font: 500 10px/1.3 "Matter"; }
-.app-shell .next-action { min-height: 145px; padding: 16px; border-color: #e9eae6; border-radius: 14px; background: #f8f9f7; }
-.app-shell .next-action h4 { margin: 10px 0 6px; color: #30312e; font: 500 16px/1.3 "Matter"; }
-.app-shell .next-action p { margin: 0 0 12px; color: #777a74; font: 400 11px/1.55 "Matter"; }
-.app-shell .next-action button { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: #454741; font: 500 11px/1.3 "Matter"; cursor: pointer; }
 .app-shell .workflow-strip { border-color: #e9eae6; border-radius: 14px; background: #fff; }
 .app-shell .workflow-icon, .app-shell .step-number { border-color: #e8e9e6; background: #f1f2ef; color: #555751; }
 .app-shell .workflow-title b, .app-shell .workflow-step b { color: #42443e; font: 500 10px/1.3 "Matter"; }
@@ -249,6 +241,22 @@ body:has(.app-shell) { background: #f2f3f1; }
 .app-shell .qa-flow-steps p { margin: 0; color: #777a74; font: 400 11px/1.5 "Matter"; }
 .app-shell .qa-flow-action { display: inline-flex; min-height: 38px; align-items: center; gap: 8px; padding: 0 13px; border: 1px solid #e3e4e0; border-radius: 999px; background: #f7f8f6; color: #31332e; font: 500 11px/1 "Matter"; cursor: pointer; }
 .app-shell .qa-flow-action:hover { background: #eeefec; }
+.app-shell .work-grid { align-items: stretch; }
+.app-shell .insight-column { grid-template-columns: 1fr; grid-template-rows: 1fr; align-self: stretch; }
+.app-shell .review-panel { display: flex; height: 100%; flex-direction: column; padding: 20px; }
+.app-shell .review-panel .review-heading { align-items: center; }
+.app-shell .review-panel .review-heading h3 { margin-top: 7px; font-size: 19px; }
+.app-shell .review-panel .review-sub { margin-top: 12px; padding: 0 0 16px; border-bottom: 1px solid #ededeb; color: #656761; font: 400 13px/1.55 "Matter"; }
+.app-shell .review-checklist { display: grid; }
+.app-shell .review-checklist article { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 14px 0; border-bottom: 1px solid #ededeb; }
+.app-shell .review-checklist article > span { color: #858780; font: 400 11px/1.4 "Matter"; }
+.app-shell .review-checklist article b { color: #343631; font: 500 13px/1.35 "Matter"; }
+.app-shell .review-checklist article p { margin: 4px 0 0; color: #777a74; font: 400 11px/1.5 "Matter"; }
+.app-shell .review-latest { margin-top: 16px; }
+.app-shell .review-latest .issue-row { padding: 12px 0; }
+.app-shell .review-empty { display: grid; gap: 5px; margin: auto 0; padding: 18px 0; color: #777a74; font: 400 11px/1.5 "Matter"; }
+.app-shell .review-empty b { color: #454741; font: 500 13px/1.35 "Matter"; }
+.app-shell .review-panel .queue-link { min-height: 38px; margin-top: auto; border-top: 1px solid #ededeb; }
 .app-shell .founder-welcome { margin-bottom: 20px; }
 .app-shell .founder-sample-note { display: flex; align-items: center; gap: 9px; margin: 0 0 18px; padding: 11px 13px; border: 1px solid #e8e9e5; border-radius: 11px; background: #f8f9f7; color: #686a64; font: 400 11px/1.45 "Matter"; }
 .app-shell .founder-sample-note svg { flex: none; color: #696c65; }

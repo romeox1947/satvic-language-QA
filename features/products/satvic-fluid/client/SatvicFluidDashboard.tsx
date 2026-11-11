@@ -91,6 +91,34 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
   const [analysisProgress, setAnalysisProgress] = useState({ stage: '', percent: 0, status: 'idle' as 'idle' | 'processing' | 'complete' | 'error', startedAt: 0 });
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [estimatedRange, setEstimatedRange] = useState<{ min: number; max: number } | null>(null);
+  const [activeWorkflow, setActiveWorkflow] = useState<'generate-sarvam' | 'start-review'>('generate-sarvam');
+  const isSarvamWorkflow = activeWorkflow === 'generate-sarvam';
+  const workflow = isSarvamWorkflow ? {
+    eyebrow: 'GENERATE WITH SARVAM',
+    title: 'Generate, review, and export',
+    steps: [
+      ['Upload the source video', 'Choose the original audio and its language.'],
+      ['Generate the dubbed version', 'Sarvam creates speech in your target language.'],
+      ['Review the translation', 'Compare both tracks and inspect flagged timestamps.'],
+      ['Export the QA report', 'Keep the dub and the completed review together.'],
+    ],
+    action: 'Generate with Sarvam',
+  } : {
+    eyebrow: 'START A REVIEW',
+    title: 'Review a dub you already have',
+    steps: [
+      ['Upload the original video', 'Choose the source audio and its language.'],
+      ['Upload your existing dub', 'Add the dubbed audio or video to compare.'],
+      ['Review flagged moments', 'Listen to both tracks at each timestamp.'],
+      ['Export the QA report', 'Save the findings and reviewed outcome.'],
+    ],
+    action: 'Start a review',
+  };
+  const openActiveWorkflow = () => {
+    setGenerationMode(isSarvamWorkflow ? 'sarvam' : 'existing');
+    setPreflight(null);
+    setModal(true);
+  };
 
   useEffect(() => {
     let active = true;
@@ -360,34 +388,27 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
       productId="satvic-fluid"
       accountEmail={accountEmail}
       onNotice={setNotice}
-      onCreate={() => {setPreflight(null);setModal(true)}}
-      onFeatureSelect={(featureId) => {
-        if (featureId === 'recent-projects') setActiveTab('All projects');
-        if (featureId === 'review-queue') setActiveTab('Needs review');
-        if (featureId === 'languages') setNotice('Language coverage: Hindi, Tamil, Telugu, Gujarati, Kannada, Bengali, Marathi and more.');
-        if (featureId === 'term-library') setNotice('Terminology library is ready for your preferred translations and words to preserve.');
-        if (featureId === 'qa-settings') setNotice('Quality settings are being prepared for this local workspace.');
-      }}
+      initialFeatureId="generate-sarvam"
+      onFeatureSelect={(featureId) => setActiveWorkflow(featureId as 'generate-sarvam' | 'start-review')}
     >
-      <section className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-line" /> SATVIC FLUID · LANGUAGE QA</div><h1>Review a dubbed video</h1><p className="welcome-subtitle">Follow each step from source upload to a timestamped QA report.</p></div><button className="primary-btn" onClick={() => {setPreflight(null);setModal(true)}}><Plus size={17} /> Start a review</button></section>
+      <section className="welcome-row"><div><h1>{isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{isSarvamWorkflow ? 'Create a dubbed version, then review it against the source.' : 'Upload the source and a dub you already have to review them together.'}</p></div><button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <WandSparkles size={16}/> : <Plus size={17}/>} {workflow.action}</button></section>
 
 
 
-          <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div><div className="section-kicker">REVIEW WORKFLOW</div><h2 id="qa-flow-title">One project, four clear steps</h2></div><span className="qa-flow-time"><Clock3 size={15}/> 4-step process</span></div><ol className="qa-flow-steps"><li><span className="qa-step-number">01</span><div><b>Upload both videos</b><p>Add the original and dubbed versions.</p></div></li><li><span className="qa-step-number">02</span><div><b>Compare speech</b><p>Check meaning, omissions, and timing.</p></div></li><li><span className="qa-step-number">03</span><div><b>Review flagged moments</b><p>Open each finding at its timestamp.</p></div></li><li><span className="qa-step-number">04</span><div><b>Export the report</b><p>Save the reviewed QA outcome.</p></div></li></ol><button className="qa-flow-action" onClick={() => {setPreflight(null);setModal(true)}}><Upload size={16}/> Create a QA project <ArrowRight size={15}/></button></section>
+      <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div><div className="section-kicker">{workflow.eyebrow}</div><h2 id="qa-flow-title">{workflow.title}</h2></div><span className="qa-flow-time"><Clock3 size={15}/> 4 steps</span></div><ol className="qa-flow-steps">{workflow.steps.map(([title,description],index)=><li key={title}><span className="qa-step-number">0{index+1}</span><div><b>{title}</b><p>{description}</p></div></li>)}</ol><button className="qa-flow-action" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <WandSparkles size={16}/> : <Upload size={16}/>} {workflow.action} <ArrowRight size={15}/></button></section>
 
           <section className="work-grid"><div className="projects-panel panel"><div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>Recent projects <span className="heading-count">{projects.length}</span></h3></div><button className="text-action" onClick={() => setActiveTab('All projects')}>View all <ArrowRight size={14} /></button></div><div className="project-toolbar"><div className="tabs">{['All projects','Needs review','In progress','Ready'].map(tab => <button key={tab} className={cx('tab', activeTab===tab && 'tab-active')} onClick={() => setActiveTab(tab)}>{tab}{tab==='Needs review' && <i className="tab-dot"/>}</button>)}</div><div className="project-tools"><label className="search-box"><Search size={15}/><input placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)} /></label><button className="filter-btn" onClick={() => setNotice('Showing the latest dubbing QA projects.')}><Filter size={14}/><span>Filter</span></button></div></div><div className="project-list">{visibleProjects.length ? visibleProjects.map((p,index)=><button className="project-row" key={`${p.title}-${index}`} onClick={()=>setDetails(p)}><div className={`project-thumb ${p.color}`}><span>{p.initials}</span><div className="thumb-play"><Play size={10} fill="currentColor"/></div></div><div className="project-name"><b>{p.title}</b><span>{p.source} <ArrowRight size={11}/> {p.target}<span className="project-dot">·</span>{p.date}</span></div><div className="project-score"><div className="outcome-mark"><Headphones size={15}/></div><span>Dub QA</span></div><div className="project-issues">{p.issues>0 ? <><span className={cx('issue-count',p.status==='Needs review'&&'issue-hot')}>{p.issues}</span><span>{p.issues===1?'flag':'flags'}</span></> : <><CheckCheck size={15}/><span>No flags</span></>}</div><div className="status-cell"><span className={cx('status-pill',p.status.toLowerCase().replace(' ','-'))}><i/>{p.status}</span></div><MoreHorizontal className="row-more" size={18}/></button>) : <div className="empty-state"><Search size={19}/><b>No matching projects</b><span>Try another search or choose a different view.</span></div>}</div><button className="list-footer" onClick={()=>setNotice('You’re viewing the latest projects in this workspace.')}>Showing {visibleProjects.length} of {projects.length} projects <ArrowDown size={13}/></button></div>
 
-          <aside className="insight-column"><div className="review-panel panel"><div className="review-heading"><div><div className="section-kicker">AI AUDIO REVIEW</div><h3>Review queue <span className="queue-count">{projects.filter(p=>p.status==='Needs review').length}</span></h3></div><button className="icon-btn small" onClick={()=>setNotice('The queue is calculated from analyses run in this workspace.')} aria-label="Review options"><MoreHorizontal size={17}/></button></div><div className="review-sub">{projects.length ? 'AI detected possible issues in this dub. Open a finding to play its time range.' : 'Run an analysis to see real findings here.'}</div><div className="issue-list">{report?.findings.slice(0,3).map((issue,index)=><button key={`${issue.title}-${index}`} className="issue-row" onClick={()=>setDetails(projects[0] ?? null)}><div className={cx('severity-mark',issue.severity)}>{issue.severity==='critical'?<Zap size={14}/>:<Activity size={14}/>}</div><div className="issue-copy"><b>{issue.title}</b><span>{issue.detail}</span><small><Languages size={11}/> {report.targetLanguage} dub</small></div><ArrowRight className="issue-arrow" size={14}/></button>)}</div><button className="queue-link" onClick={()=>projects.length ? setDetails(projects[0]) : setModal(true)}>{projects.length ? 'Open latest report' : 'Start your first analysis'} <ArrowRight size={14}/></button></div>
-          <div className="next-action panel"><div className="section-kicker">NEXT STEP</div><h4>{projects.length ? 'Review the latest findings' : 'Create your first QA project'}</h4><p>{projects.length ? 'Open a project to check its flagged timestamps and finish the review.' : 'Upload the source and dubbed videos to start the four-step review.'}</p><button onClick={()=>projects.length ? setDetails(projects[0]) : setModal(true)}>{projects.length ? 'Open latest project' : 'Start a review'} <ArrowRight size={14}/></button></div></aside></section>
+          <aside className="insight-column"><section className="review-panel panel"><div className="review-heading"><div><div className="section-kicker">AI AUDIO REVIEW</div><h3>What the review checks</h3></div><span className="queue-count">{projects.filter(p=>p.status==='Needs review').length}</span></div><p className="review-sub">Satvic Fluid compares the original and dubbed audio, then points you to moments that need a human check.</p><div className="review-checklist"><article><span>01</span><div><b>Meaning and completeness</b><p>Catch changed claims, missing phrases, and mistranslated details.</p></div></article><article><span>02</span><div><b>Health terminology</b><p>Pay attention to names, quantities, and safety-critical wording.</p></div></article><article><span>03</span><div><b>Timing and delivery</b><p>Open source and dub clips at their matching timestamps.</p></div></article></div>{report?.findings.length ? <div className="review-latest"><div className="section-kicker">LATEST FINDINGS</div>{report.findings.slice(0,3).map((issue,index)=><button key={`${issue.title}-${index}`} className="issue-row" onClick={()=>setDetails(projects[0] ?? null)}><span className={cx('severity-mark',issue.severity)}>{issue.severity==='critical'?<Zap size={14}/>:<Activity size={14}/>}</span><span className="issue-copy"><b>{issue.title}</b><span>{issue.detail}</span><small><Languages size={11}/> {report.targetLanguage} dub</small></span><ArrowRight className="issue-arrow" size={14}/></button>)}</div> : <div className="review-empty"><b>No findings yet</b><span>Start either workflow to create a report here.</span></div>}<button className="queue-link" onClick={()=>projects.length ? setDetails(projects[0]) : openActiveWorkflow()}>{projects.length ? 'Open latest report' : 'Start this workflow'} <ArrowRight size={14}/></button></section></aside></section>
 
 
 
       {notice && <div className="toast"><Check size={16}/><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss"><X size={15}/></button></div>}
 
       {modal && <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy){setModal(false);setOriginalFile(null);setDubbedFile(null);setPreflight(null)}}}><form className="create-modal" onSubmit={runAnalysis}>
-        <button type="button" className="modal-close icon-btn" onClick={()=>{if(!busy){setModal(false);setOriginalFile(null);setDubbedFile(null);setPreflight(null)}}} aria-label="Close"><X size={18}/></button><div className="modal-icon"><Sparkles size={20}/></div><div className="section-kicker">SARVAM DUBBING + AI QUALITY REVIEW</div><h2>Analyze a dub</h2>
-        <p className="modal-intro">Choose whether Sarvam should create the dub from your original or review a dub you already have.</p>
-        <div className="workflow-choice"><button type="button" className={cx('workflow-option',generationMode==='sarvam'&&'workflow-option-active')} onClick={()=>{setGenerationMode('sarvam');setPreflight(null)}}><span className="workflow-option-icon"><WandSparkles size={16}/></span><span><b>Generate with Sarvam</b><small>Original → Sarvam dub → QA report</small></span><span className="workflow-radio"/></button><button type="button" className={cx('workflow-option',generationMode==='existing'&&'workflow-option-active')} onClick={()=>{setGenerationMode('existing');setPreflight(null)}}><span className="workflow-option-icon"><FileAudio size={16}/></span><span><b>I already have a dub</b><small>Upload both tracks → QA report</small></span><span className="workflow-radio"/></button></div>
+        <button type="button" className="modal-close icon-btn" onClick={()=>{if(!busy){setModal(false);setOriginalFile(null);setDubbedFile(null);setPreflight(null)}}} aria-label="Close"><X size={18}/></button><div className="modal-icon"><Sparkles size={20}/></div><div className="section-kicker">SARVAM DUBBING + AI QUALITY REVIEW</div><h2>{generationMode === 'sarvam' ? 'Generate a dub with Sarvam' : 'Review an existing dub'}</h2>
+        <p className="modal-intro">{generationMode === 'sarvam' ? 'Upload your source video and choose the language for the Sarvam dub.' : 'Upload the original video and the dubbed version you want to review.'}</p>
+
         <label className="field-label">Project name <span>OPTIONAL</span><input className="text-input" value={projectName} onChange={e=>setProjectName(e.target.value)} placeholder="e.g. Mindful eating — Tamil dub" /></label>
         <div className="language-fields"><label className="field-label">Source language<select value={source} onChange={e=>setSource(e.target.value)}>{['Hindi','English','Marathi','Bengali','Gujarati','Tamil','Telugu','Kannada','Punjabi','Malayalam','Odia','Assamese','Urdu','Sanskrit','Nepali'].map(language=><option key={language}>{language}</option>)}</select></label><label className="field-label">Target language<select value={target} onChange={e=>setTarget(e.target.value)}>{languages.map(language=><option key={language}>{language}</option>)}</select></label></div>
         <div className="video-upload-grid"><label className="upload-box"><input type="file" accept="video/*,audio/*" onChange={e=>{setOriginalFile(e.target.files?.[0] ?? null);setPreflight(null)}}/><span className="upload-icon"><Upload size={19}/></span><b>{originalFile?.name || 'Choose original video'}</b><small>{originalFile ? `${(originalFile.size/1024/1024).toFixed(1)} MB · ready` : 'Source language audio/video'}</small><span className="upload-formats"><FileAudio size={12}/> MP4, MOV, MP3, WAV</span></label>

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   AudioLines, BookOpen, Building2, Check, CheckCheck, ChevronDown, CircleHelp,
   FileText, Globe2, LayoutDashboard, ListChecks, LogOut, Menu, PanelLeftClose,
-  PanelLeftOpen, Plus, Settings, Settings2, Sparkles, X, type LucideIcon,
+  PanelLeftOpen, Plus, Settings, Settings2, X, type LucideIcon,
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
 import { getProduct, products, type ProductFeature, type ProductId } from '@/features/products/registry';
@@ -31,7 +31,6 @@ type ProductDashboardShellProps = {
   onNotice: (message: string) => void;
   onFeatureSelect?: (featureId: string) => void;
   initialFeatureId?: string;
-  onCreate?: () => void;
   children: ReactNode;
 };
 
@@ -41,7 +40,6 @@ export default function ProductDashboardShell({
   onNotice,
   onFeatureSelect,
   initialFeatureId,
-  onCreate,
   children,
 }: ProductDashboardShellProps) {
   const router = useRouter();
@@ -69,8 +67,7 @@ export default function ProductDashboardShell({
 
   const chooseFeature = (feature: ProductFeature) => {
     setActiveFeatureId(feature.id);
-    if (feature.action === 'create') onCreate?.();
-    else onFeatureSelect?.(feature.id);
+    onFeatureSelect?.(feature.id);
     setNavOpen(false);
   };
 
@@ -90,10 +87,9 @@ export default function ProductDashboardShell({
       </nav>
 
       <aside className={`sidebar${navOpen ? ' sidebar-open' : ''}`}>
-        <div className="workspace-heading"><div><div className="workspace-product">{product.name}</div><div className="workspace-caption">{product.description}</div></div><div className="workspace-heading-actions"><button className="sidebar-shrink icon-btn" onClick={() => setSidebarCollapsed(true)} aria-label="Collapse product navigation" title="Collapse navigation"><PanelLeftClose size={18} /></button><button className="icon-btn mobile-close" onClick={() => setNavOpen(false)} aria-label="Close navigation"><X size={18} /></button></div></div>
-        {product.groups.map(group => <div className="product-nav-group" key={group.label}><div className={`nav-label${group.label === product.groups[0].label ? '' : ' nav-label-spaced'}`}>{group.label}</div><nav className="main-nav">{group.features.map(feature => {const Icon = featureIcons[feature.icon];return <button key={feature.id} className={`nav-item${activeFeatureId === feature.id ? ' active' : ''}`} onClick={() => chooseFeature(feature)}><Icon size={18} /><span>{feature.label}</span></button>})}</nav></div>)}
+        <div className="workspace-heading"><div className="workspace-product">{product.name}</div><div className="workspace-heading-actions"><button className="sidebar-shrink icon-btn" onClick={() => setSidebarCollapsed(true)} aria-label="Collapse product navigation" title="Collapse navigation"><PanelLeftClose size={18} /></button><button className="icon-btn mobile-close" onClick={() => setNavOpen(false)} aria-label="Close navigation"><X size={18} /></button></div></div>
+        {product.groups.map(group => <div className="product-nav-group" key={group.label || product.id}>{group.label && <div className="nav-label nav-label-spaced">{group.label}</div>}<nav className="main-nav">{group.features.map(feature => {const Icon = featureIcons[feature.icon];return <button key={feature.id} className={`nav-item${activeFeatureId === feature.id ? ' active' : ''}`} onClick={() => chooseFeature(feature)}><Icon size={18} /><span>{feature.label}</span></button>})}</nav></div>)}
         <div className="sidebar-spacer" />
-        <div className="sidebar-help"><Sparkles size={15} /><span>{productId === 'satvic-fluid' ? 'AI-assisted language review' : 'Founder priorities and decisions'}</span><button onClick={() => onNotice(productId === 'satvic-fluid' ? 'AI compares both audio tracks and highlights moments for your review.' : 'Founder Office keeps priorities, decisions, meeting notes, and plans together.')}>How it works <ChevronDown size={13} /></button></div>
         <button type="button" className="account-trigger" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)}><span className="account-trigger-avatar">{(accountEmail.slice(0, 1) || 'U').toUpperCase()}</span><span className="account-trigger-name">{accountEmail || 'Account'}</span><ChevronDown size={17} /></button>
       </aside>
 
