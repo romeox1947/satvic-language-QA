@@ -491,12 +491,11 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
   .app-shell .project-issues, .app-shell .row-more { display: none; }
 }
 
-/* Keep dashboard content readable on a consistent 21/17/15px type scale. */
-.app-shell .content-wrap > :not(.modal-backdrop) * { font-size: max(15px, 1em) !important; }
+/* Keep dashboard content readable on a consistent 21/17/14px type scale. */
+.app-shell .content-wrap > :not(.modal-backdrop) * { font-size: max(14px, 1em) !important; }
 .app-shell .content-wrap > :not(.modal-backdrop) h1 { font-size: 21px !important; }
 .app-shell .content-wrap > :not(.modal-backdrop) h2,
 .app-shell .content-wrap > :not(.modal-backdrop) h3,
 .app-shell .content-wrap > :not(.modal-backdrop) h4 { font-size: 17px !important; }
 .app-shell .content-wrap > :not(.modal-backdrop) .metric-number,
 .app-shell .content-wrap > :not(.modal-backdrop) .founder-summary-card > b { font-size: 21px !important; }
-.app-shell .content-wrap .welcome-row > .primary-btn { font-size: 0 !important; }
