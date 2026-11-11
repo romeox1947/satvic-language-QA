@@ -358,24 +358,32 @@ export default function Home() {
 
   return (
     <main className="app-shell">
+      <nav className="product-rail" aria-label="Satvic products">
+        <div className="rail-brand" aria-label="Satvic"><div className="brand-mark"><span /><span /><span /></div></div>
+        <button className="rail-product active" aria-label="Satvic Fluid" title="Satvic Fluid"><AudioLines size={19} /></button>
+        <div className="rail-spacer" />
+        <form action={signOut} className="rail-account">
+          <button type="submit" className="profile-avatar" aria-label={`Sign out ${accountEmail || 'account'}`} title={accountEmail || 'Account'}>{(accountEmail.slice(0, 1) || 'U').toUpperCase()}</button>
+        </form>
+      </nav>
       <aside className={cx('sidebar', navOpen && 'sidebar-open')}>
-        <div className="brand"><div className="brand-mark"><span /><span /><span /></div><div><strong>satvic<span className="brand-dot">.</span></strong><small>CONTENT STUDIO</small></div><button className="icon-btn mobile-close" onClick={() => setNavOpen(false)} aria-label="Close navigation"><X size={18} /></button></div>
-        <div className="workspace-switch"><div className="workspace-avatar">S</div><div className="workspace-label"><b>Satvic Movement</b><span>Team workspace</span></div><ChevronDown size={15} /></div>
-        <div className="nav-label">WORKSPACE</div>
+        <div className="workspace-heading"><div><div className="workspace-product">Satvic Fluid</div><div className="workspace-caption">Language QA workspace</div></div><button className="icon-btn mobile-close" onClick={() => setNavOpen(false)} aria-label="Close navigation"><X size={18} /></button></div>
+        <div className="workspace-switch"><div className="workspace-avatar">S</div><div className="workspace-label"><b>My workspace</b><span>Satvic Fluid</span></div><ChevronDown size={15} /></div>
+        <div className="nav-label">YOUR WORKSPACE</div>
         <nav className="main-nav">
+          <button className="nav-item" onClick={() => {setPreflight(null);setModal(true)}}><Plus size={18} /><span>New QA project</span></button>
           <button className="nav-item active"><LayoutDashboard size={18} /><span>Overview</span></button>
           <button className="nav-item" onClick={() => setActiveTab('All projects')}><FileText size={18} /><span>All projects</span><span className="nav-count">{projects.length}</span></button>
           <button className="nav-item" onClick={() => setActiveTab('Needs review')}><ListChecks size={18} /><span>Review queue</span><span className="nav-badge">{projects.filter(p=>p.status==='Needs review').length}</span></button>
-          <button className="nav-item" onClick={() => setNotice('Language coverage: Hindi, Tamil, Telugu, Gujarati, Kannada, Bengali, Marathi and more.')}><Globe2 size={18} /><span>Languages</span></button>
         </nav>
         <div className="nav-label nav-label-spaced">TOOLS</div>
         <nav className="main-nav">
-          <button className="nav-item" onClick={() => setNotice('Terminology library is ready for your preferred translations and words to preserve.')}><BookOpen size={18} /><span>Term library</span><span className="tiny-new">NEW</span></button>
+          <button className="nav-item" onClick={() => setNotice('Language coverage: Hindi, Tamil, Telugu, Gujarati, Kannada, Bengali, Marathi and more.')}><Globe2 size={18} /><span>Languages</span></button>
+          <button className="nav-item" onClick={() => setNotice('Terminology library is ready for your preferred translations and words to preserve.')}><BookOpen size={18} /><span>Term library</span></button>
           <button className="nav-item" onClick={() => setNotice('Quality settings are being prepared for this local workspace.')}><Settings2 size={18} /><span>QA settings</span></button>
         </nav>
         <div className="sidebar-spacer" />
-        <div className="plan-card"><div className="plan-icon"><Sparkles size={16} /></div><strong>AI dubbing review</strong><p>AI compares both spoken tracks and marks suspected issues with times.</p><button onClick={() => setNotice('Your local workspace keeps this review workflow on your device.')}>How it works <ArrowRight size={13} /></button><div className="plan-glow" /></div>
-        <form action={signOut} className="profile-row"><div className="profile-avatar">{(accountEmail.slice(0, 1) || 'U').toUpperCase()}</div><div className="profile-copy"><b>{accountEmail || 'Signed in'}</b><span>Personal QA workspace</span></div><button type="submit" className="profile-signout">Sign out</button></form>
+        <div className="sidebar-help"><Sparkles size={15} /><span>AI-assisted language review</span><button onClick={() => setNotice('AI compares both audio tracks and highlights moments for your review.')}>How it works <ArrowRight size={13} /></button></div>
       </aside>
 
       <section className="main-area">
