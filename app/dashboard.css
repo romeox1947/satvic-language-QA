@@ -507,11 +507,11 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
   .app-shell .insight-column { grid-template-columns: minmax(0, 1fr); }
   .app-shell .project-row {
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr) max-content max-content max-content 18px;
+    grid-template-columns: 44px minmax(0, 1fr) max-content max-content max-content 18px;
     column-gap: 10px;
     padding: 9px 14px;
   }
-  .app-shell .project-name { min-width: 0; gap: 4px; }
+  .app-shell .project-name { min-width: 0; gap: 4px; overflow: hidden; }
   .app-shell .project-name > b { font-size: 14px !important; }
   .app-shell .project-name > span { min-width: 0; font-size: 12px !important; }
   .app-shell .project-score {
