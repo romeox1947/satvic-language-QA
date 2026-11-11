@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import SatvicStudioHome from '@/features/marketing/SatvicStudioHome';
+import SatvicStudioHome from '@/features/website/SatvicStudioHome';
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ code?: string }> }) {
   const { code } = await searchParams;

@@ -51,7 +51,7 @@ Supabase's Google provider setup and redirect allow-list must match the app call
 ## Application structure
 
 - `app/` contains route entry points and API route handlers. Route groups `(auth)` and `(studio)` organize login, signup, onboarding, callback, and dashboard routes without changing their URLs.
-- `features/` contains product UI and behavior, split by feature. Client components live in `client/`; server actions live in `server/`.
+- `features/` contains product UI and behavior, split by feature. The public website is in `features/website`; client components live in `client/`; server actions live in `server/`.
 - `lib/` contains shared Supabase, storage, and email integrations used by server routes and actions.
 - `services/` contains background workflow and worker code.
 - `public/` contains static assets such as the Satvic Studio fonts.
