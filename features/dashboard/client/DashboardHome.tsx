@@ -14,7 +14,14 @@ export default function DashboardHome({ accountEmail }: { accountEmail: string }
     <section className="dashboard-home">
       <div className="dashboard-home-intro"><div className="section-kicker">SATVIC WORKSPACE</div><h1>Choose a product</h1><p>Open a workspace to continue where your team works.</p></div>
       <div className="dashboard-product-grid">
-        {products.map(product => <button key={product.id} className="dashboard-product-card" onClick={() => router.push(product.href)}>
+        {products.map(product => <button key={product.id} className="dashboard-product-card" onPointerMove={event => {
+          const bounds = event.currentTarget.getBoundingClientRect();
+          event.currentTarget.style.setProperty('--pointer-x', `${event.clientX - bounds.left}px`);
+          event.currentTarget.style.setProperty('--pointer-y', `${event.clientY - bounds.top}px`);
+        }} onPointerLeave={event => {
+          event.currentTarget.style.removeProperty('--pointer-x');
+          event.currentTarget.style.removeProperty('--pointer-y');
+        }} onClick={() => router.push(product.href)}>
           <span className="dashboard-product-card-icon">{product.id === 'satvic-fluid' ? <AudioLines size={22} /> : <Building2 size={22} />}</span>
           <span className="dashboard-product-card-copy"><b>{product.name}</b><small>{product.description}</small></span>
           <ArrowRight className="dashboard-product-arrow" size={18} />
