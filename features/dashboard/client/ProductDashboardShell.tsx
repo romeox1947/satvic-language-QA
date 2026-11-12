@@ -120,7 +120,7 @@ export default function ProductDashboardShell({
         clearProductHoverTimer();
         setProductMenuOpen(true);
       }}>
-        <button type="button" className={`rail-workspace${hideFeatureNavigation ? ' active' : ''}`} aria-label="Satvic Organization workspace" onClick={() => navigateToProduct('/dashboard')} title="Satvic Organization">
+        <button type="button" className={`rail-workspace${hideFeatureNavigation ? ' active' : ''}`} aria-label="Satvic Organisation workspace" onClick={() => navigateToProduct('/dashboard')} title="Satvic Organisation">
           <span className="rail-workspace-mark"><span className="brand-mark"><img className="satvic-org-mark" src="https://satvicmovement.org/images/favicon.png" alt="" aria-hidden="true" /></span></span>
         </button>
         <div className="rail-product-list" aria-label="Products">
@@ -132,10 +132,10 @@ export default function ProductDashboardShell({
         <button type="button" className="rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onMouseEnter={() => { clearProductHoverTimer(); setProductMenuOpen(false); }} onClick={() => { clearProductHoverTimer(); setProductMenuOpen(false); setAccountMenuOpen(open => !open); }} title={accountName}>
           <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span>
         </button>
-        <section className="product-drawer" aria-label="Organization and product switcher">
+        <section className="product-drawer" aria-label="Organisation and product switcher">
           <button type="button" className={`drawer-workspace${hideFeatureNavigation ? ' active' : ''}`} onClick={() => navigateToProduct('/dashboard')}>
             <span className="rail-workspace-mark"><span className="brand-mark"><img className="satvic-org-mark" src="https://satvicmovement.org/images/favicon.png" alt="" aria-hidden="true" /></span></span>
-            <span><b>Satvic Organization</b><small>{workspaceName}</small></span><ChevronDown size={15}/>
+            <span><b>Satvic Organisation</b><small>{workspaceName}</small></span><ChevronDown size={15}/>
           </button>
           <div className="drawer-product-list" aria-label="Products">
             {products.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`drawer-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)}>
