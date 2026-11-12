@@ -301,8 +301,16 @@ function numberValues(text: string) {
 
 function findings(source: string, backTranslation: string) {
   const result: AudioFinding[] = [];
-  const sourceNumbers = numberValues(source); const returnedNumbers = numberValues(backTranslation);
-  if (sourceNumbers.join(',') !== returnedNumbers.join(',')) result.push({ severity: 'review', title: 'Numbers or quantities differ', category: 'Numbers/names', detail: `Source values: ${sourceNumbers.join(', ') || 'none'} · Back-translation values: ${returnedNumbers.join(', ') || 'none'}` });
+  // Compare distinct values rather than occurrence counts: ASR and translation
+  // can repeat or omit a repeated mention without changing the claimed amount.
+  const sourceNumbers = [...new Set(numberValues(source))].sort((a, b) => a - b);
+  const returnedNumbers = [...new Set(numberValues(backTranslation))].sort((a, b) => a - b);
+  const missingNumbers = sourceNumbers.filter(value => !returnedNumbers.includes(value));
+  const addedNumbers = returnedNumbers.filter(value => !sourceNumbers.includes(value));
+  if (missingNumbers.length || addedNumbers.length) result.push({
+    severity: 'review', title: 'Possible quantity mismatch', category: 'Numbers/names',
+    detail: `${missingNumbers.length ? `Values found only in the source: ${missingNumbers.join(', ')}.` : ''}${missingNumbers.length && addedNumbers.length ? ' ' : ''}${addedNumbers.length ? `Values found only in the dub back-translation: ${addedNumbers.join(', ')}.` : ''} This is a transcript check; verify the specific spoken passage before treating it as an error.`,
+  });
   const negation = /\b(no|not|never|don't|do not|isn't|cannot|without|avoid|नहीं|मत|बिना|இல்லை|வேண்டாம்|కాదు|వద్దు|નહીં|નથી|ಬೇಡ|ಅಲ್ಲ|না|নয়)\b/giu;
   const sourceNegations = [...source.matchAll(negation)].length;
   const backNegations = [...backTranslation.matchAll(negation)].length;
