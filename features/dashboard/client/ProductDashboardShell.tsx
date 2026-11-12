@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Archive, AudioLines, BookOpen, Brain, Building2, CalendarDays, Check, CheckCheck, ChevronDown, CircleHelp,
+  Archive, ArrowRight, AudioLines, Bell, BookOpen, Brain, Building2, CalendarDays, Check, CheckCheck, ChevronDown, CircleHelp,
   FileText, Globe2, LayoutDashboard, Lightbulb, ListChecks, LogOut, Menu, MessageSquare,
   PanelLeftClose,
   PanelLeftOpen, Plus, Settings, Settings2, X, type LucideIcon,
@@ -43,6 +43,8 @@ type ProductDashboardShellProps = {
   children: ReactNode;
 };
 
+type DashboardNotification = { id: string; title: string; description: string; kind: string; createdAt: string; href: string };
+
 export default function ProductDashboardShell({
   productId,
   accountEmail,
@@ -53,6 +55,7 @@ export default function ProductDashboardShell({
   children,
 }: ProductDashboardShellProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const product = getProduct(productId)!;
   const [navOpen, setNavOpen] = useState(false);
   const [productRailCollapsed, setProductRailCollapsed] = useState(false);
@@ -60,7 +63,19 @@ export default function ProductDashboardShell({
   const [productMenuOpen, setProductMenuOpen] = useState(false);
   const productHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationError, setNotificationError] = useState('');
   const [activeFeatureId, setActiveFeatureId] = useState(initialFeatureId ?? product.groups[0].features[1]?.id ?? product.groups[0].features[0].id);
+
+  useEffect(() => {
+    const requested = searchParams.get('feature') || (productId === 'satvic-fluid' && searchParams.has('qaRunId') ? 'start-review' : null);
+    if (requested && product.groups.some(group => group.features.some(feature => feature.id === requested))) {
+      setActiveFeatureId(requested);
+      onFeatureSelect?.(requested);
+    }
+  }, [onFeatureSelect, product.groups, productId, searchParams]);
 
   useEffect(() => {
     if (!accountMenuOpen) return;
@@ -78,6 +93,7 @@ export default function ProductDashboardShell({
   }, [accountMenuOpen]);
 
   const chooseFeature = (feature: ProductFeature) => {
+    setNotificationOpen(false);
     setActiveFeatureId(feature.id);
     onFeatureSelect?.(feature.id);
     setNavOpen(false);
@@ -88,7 +104,7 @@ export default function ProductDashboardShell({
     productHoverTimer.current = null;
   };
   const openProductRail = (event: MouseEvent<HTMLElement>) => {
-    if (event.target instanceof Element && event.target.closest('.rail-account')) return;
+    if (event.target instanceof Element && event.target.closest('.rail-account, .rail-notifications')) return;
     clearProductHoverTimer();
     setProductMenuOpen(true);
   };
@@ -108,6 +124,7 @@ export default function ProductDashboardShell({
 
   const navigateToProduct = (href: string) => {
     clearProductHoverTimer();
+    setNotificationOpen(false);
     setProductMenuOpen(false);
     router.push(href);
   };
@@ -117,10 +134,47 @@ export default function ProductDashboardShell({
     : 'Account';
   const workspaceName = accountName === 'Account' ? 'Satvic Workspace' : `${accountName}'s Workspace`;
 
+  const loadNotifications = useCallback(async () => {
+    setNotificationsLoading(true);
+    try {
+      const response = await fetch('/api/notifications', { cache: 'no-store' });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Could not load notifications.');
+      setNotifications(Array.isArray(body.notifications) ? body.notifications : []);
+      setNotificationError('');
+    } catch (error) {
+      setNotificationError(error instanceof Error ? error.message : 'Could not load notifications.');
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNotifications();
+    const timer = window.setInterval(() => { void loadNotifications(); }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [loadNotifications]);
+
+  async function followNotification(item: DashboardNotification) {
+    setNotificationError('');
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not remove this notification.');
+      setNotifications(current => current.filter(notification => notification.id !== item.id));
+      setNotificationOpen(false);
+      router.push(item.href);
+    } catch (error) {
+      setNotificationError(error instanceof Error ? error.message : 'Could not remove this notification.');
+    }
+  }
+
   return (
     <main className={`app-shell${productRailCollapsed ? ' product-rail-collapsed' : ''}${featureRailCollapsed ? ' feature-rail-collapsed' : ''}${hideFeatureNavigation ? ' dashboard-home-shell' : ''}`}>
       <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products" onMouseEnter={openProductRail} onMouseLeave={closeProductRail} onFocusCapture={event => {
-        if (event.target instanceof Element && event.target.closest('.rail-account')) {
+        if (event.target instanceof Element && event.target.closest('.rail-account, .rail-notifications')) {
           clearProductHoverTimer();
           setProductMenuOpen(false);
           return;
@@ -137,6 +191,9 @@ export default function ProductDashboardShell({
           </button>)}
         </div>
         <div className="rail-spacer" />
+        <button type="button" className="rail-notifications" aria-label={`Notifications, ${notifications.length} items`} aria-expanded={notificationOpen} title="Notifications" onMouseEnter={() => { clearProductHoverTimer(); setProductMenuOpen(false); }} onClick={() => { clearProductHoverTimer(); setProductMenuOpen(false); setAccountMenuOpen(false); setNotificationOpen(true); void loadNotifications(); }}>
+          <Bell size={19}/>{notifications.length > 0 && <span>{notifications.length > 9 ? '9+' : notifications.length}</span>}
+        </button>
         <button type="button" className="rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onMouseEnter={() => { clearProductHoverTimer(); setProductMenuOpen(false); }} onClick={() => { clearProductHoverTimer(); setProductMenuOpen(false); setAccountMenuOpen(open => !open); }} title={accountName}>
           <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span>
         </button>
@@ -169,7 +226,14 @@ export default function ProductDashboardShell({
 
       <section className="main-area">
         <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button></header>
-        <div className="content-wrap">{children}</div>
+        <div className="content-wrap">{notificationOpen ? <section className="notification-dashboard">
+          <header className="notification-dashboard-header"><div><span className="section-kicker">SATVIC ORGANISATION</span><h1>Notifications</h1><p>Deadlines, completed reviews, and work that needs your attention.</p></div><button type="button" className="icon-btn" aria-label="Close notifications" onClick={() => setNotificationOpen(false)}><X size={18}/></button></header>
+          {notificationError && <div className="notification-error"><span>{notificationError}</span><button type="button" onClick={() => void loadNotifications()}>Retry</button></div>}
+          {notificationsLoading && notifications.length === 0 ? <div className="notification-empty">Loading notifications...</div> : notifications.length === 0 ? <div className="notification-empty"><Bell size={22}/><b>You are all caught up</b><span>New deadlines and completed video reviews will appear here.</span></div> : <div className="notification-list">{notifications.map(item => <article className="notification-card" key={item.id}>
+            <div className="notification-card-copy"><div className="notification-card-meta"><span>{item.kind}</span><time>{new Date(item.createdAt).toLocaleString()}</time></div><h2>{item.title}</h2><p>{item.description}</p></div>
+            <button type="button" className="notification-open" aria-label={`Open ${item.title}`} title="Open and remove notification" onClick={() => void followNotification(item)}><ArrowRight size={19}/></button>
+          </article>)}</div>}
+        </section> : children}</div>
       </section>
     </main>
   );

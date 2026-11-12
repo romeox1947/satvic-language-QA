@@ -1,6 +1,7 @@
 'use client';
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { uploadPresigned } from '@vercel/blob/client';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
 import {
@@ -71,6 +72,7 @@ function readMediaDuration(file: File): Promise<number> {
 }
 
 export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { initialAccountEmail?: string }) {
+  const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
   const [accountEmail, setAccountEmail] = useState(initialAccountEmail);
   const [activeTab, setActiveTab] = useState('All projects');
@@ -162,6 +164,16 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
     const timer = window.setInterval(refreshJobs, 20_000);
     return () => { active = false; window.clearInterval(timer); };
   }, []);
+
+  useEffect(() => {
+    const runId = new URLSearchParams(window.location.search).get('qaRunId');
+    if (!runId) return;
+    const project = projects.find(item => item.jobId === runId);
+    if (!project) return;
+    setActiveWorkflow('start-review');
+    setDetails(project);
+    router.replace('/dashboard/satvic-fluid', { scroll: false });
+  }, [projects, router]);
 
   useEffect(() => {
     if (!details?.jobId) return;

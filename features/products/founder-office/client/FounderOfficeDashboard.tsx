@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowRight, Brain, Check, ChevronRight, Plus, Send, Trash2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowRight, Brain, Check, ChevronRight, MoreHorizontal, Plus, Send, Trash2, X } from 'lucide-react';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
 import FounderPromptBar from './FounderPromptBar';
 import ThoughtLine from './ThoughtLine';
@@ -61,11 +62,13 @@ function makeJob(text: string, feature: FeatureId, due = 'Unscheduled'): Job {
 }
 
 export default function FounderOfficeDashboard({ accountEmail = '' }: { accountEmail?: string }) {
+  const router = useRouter();
   const [activeFeature, setActiveFeature] = useState<FeatureId>('overview');
   const [jobs, setJobs] = useState<Job[]>(demoJobs);
   const [chatMessages, setChatMessages] = useState<FounderMessage[]>([]);
   const [chatSessions, setChatSessions] = useState<FounderChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [openChatMenuId, setOpenChatMenuId] = useState<string | null>(null);
   const [chatSessionKey, setChatSessionKey] = useState(0);
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [workspaceStatus, setWorkspaceStatus] = useState<'loading' | 'saving' | 'saved' | 'error'>('loading');
@@ -155,6 +158,23 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [workspaceLoaded, jobs, chatMessages, chatSessions, activeChatId, emailDrafts, voicePanels, voiceDrafts]);
 
+  useEffect(() => {
+    if (!workspaceLoaded) return;
+    const params = new URLSearchParams(window.location.search);
+    const feature = params.get('feature');
+    const jobId = params.get('jobId');
+    if (!feature && !jobId) return;
+    if (feature && feature in featureInfo) {
+      setActiveFeature(feature as FeatureId);
+      onFeatureSelect?.(feature);
+    }
+    if (jobId) {
+      const job = jobs.find(item => item.id === jobId);
+      if (job) setSelectedJobId(job.id);
+    }
+    router.replace('/dashboard/founder-office', { scroll: false });
+  }, [workspaceLoaded, jobs, router, onFeatureSelect]);
+
   function addJob(text: string, destination: FeatureId, due = 'Unscheduled', options: { title?: string; plan?: string[]; openDetails?: boolean } = {}) {
     const baseJob = makeJob(text, destination, due);
     const job = { ...baseJob, title: options.title || baseJob.title, plan: options.plan?.length ? options.plan : baseJob.plan };
@@ -193,6 +213,17 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
     setChatMessages([]);
     setActiveChatId(null);
     setChatSessionKey(key => key + 1);
+  }
+
+  function deleteChatSession(sessionId: string) {
+    setChatSessions(items => items.filter(item => item.id !== sessionId));
+    setOpenChatMenuId(null);
+    if (activeChatId === sessionId) {
+      setChatMessages([]);
+      setActiveChatId(null);
+      setShowThoughtLine(false);
+      setChatSessionKey(key => key + 1);
+    }
   }
 
   async function sendMindInput(text: string, files: File[]) {
@@ -285,7 +316,11 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
   return <ProductDashboardShell productId="founder-office" accountEmail={accountEmail} onNotice={() => {}} initialFeatureId="overview" onFeatureSelect={id => { if (id in featureInfo) setActiveFeature(id as FeatureId); }}>
     <section className="welcome-row founder-welcome"><div><h1>{current.title}</h1><p className="welcome-subtitle">{current.description}</p><span className={`founder-data-status ${workspaceStatus}`}>{workspaceStatus === 'loading' ? 'Loading saved data...' : workspaceStatus === 'saving' ? 'Saving...' : workspaceStatus === 'saved' ? 'Saved privately - 30 days' : 'Could not sync saved data'}</span>{workspaceStatus === 'error' && <button type="button" className="founder-data-retry" onClick={() => { setWorkspaceLoaded(false); setWorkspaceLoadAttempt(value => value + 1); }}>Retry</button>}</div><button type="button" className="primary-btn founder-new-job-trigger" onClick={() => { setJobFeature(activeFeature === 'overview' || activeFeature === 'founder-mind' ? 'projects' : activeFeature); setShowNewJob(true); }}><Plus size={16}/> New job</button></section>
 
-    {activeFeature === 'founder-mind' && <section className="founder-mind-workspace"><div className="founder-mind-history"><button type="button" className="founder-new-chat" onClick={startNewChat}><Plus size={15}/> New chat</button><span className="section-kicker">CHAT HISTORY</span>{chatSessions.map(session => <button type="button" className={`founder-chat-history-item${session.id === activeChatId ? ' active' : ''}`} key={session.id} onClick={() => { setActiveChatId(session.id); setChatMessages(session.messages); setShowThoughtLine(false); setChatSessionKey(key => key + 1); }}><span>{session.title || 'New chat'}</span><small>{new Date(session.updatedAt).toLocaleDateString()}</small></button>)}<span className="section-kicker">RECENT JOBS</span>{jobs.slice(0, 5).map(job => <button type="button" key={job.id} onClick={() => setSelectedJobId(job.id)}><span>{job.title}</span><small>{featureInfo[job.feature].title}</small></button>)}</div><div className="founder-mind-main"><div className="founder-mind-conversation">{chatMessages.length === 0 ? <div className="founder-mind-empty"><span className="founder-ai-mark"><Brain size={24}/></span><h2>What are you thinking about?</h2><p>Ask a question, explore an idea, or describe work you want to start. I will answer normally and only create a job when you clearly ask for one.</p></div> : <div className="founder-chat-thread" ref={chatThreadRef} aria-live="polite">{chatMessages.map(message => <article className={`founder-chat-turn ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'You' : 'Founder Mind'}</span><p>{message.text}</p>{message.job && <button type="button" className="founder-chat-job-link" onClick={() => { setActiveFeature(message.job!.feature); setSelectedJobId(message.job!.id); }}>Open job in {featureInfo[message.job.feature].title} <ArrowRight size={14}/></button>}</article>)}</div>}{showThoughtLine && <ThoughtLine working={isStreaming} steps={['Reading your message', 'Thinking through a response', 'Preparing a reply']} label="Thinking..." doneLabel="Thought for" glyph="sparkle" fontSize={13} breathPeriod={1.6} breathDepth={0.45} settleDuration={350} settleBlur={0} collapsible collapseOnSettle showTimer/>}</div><FounderPromptBar key={chatSessionKey} busy={isStreaming} onSend={sendMindInput} onStop={stopMindInput}/></div></section>}
+    {activeFeature === 'founder-mind' && <section className="founder-mind-workspace"><div className="founder-mind-history"><button type="button" className="founder-new-chat" onClick={startNewChat}><Plus size={15}/> New chat</button><span className="section-kicker">CHAT HISTORY</span>{chatSessions.map(session => <div className="founder-chat-history-entry" key={session.id}>
+          <button type="button" className={`founder-chat-history-item${session.id === activeChatId ? ' active' : ''}`} onClick={() => { setActiveChatId(session.id); setChatMessages(session.messages); setShowThoughtLine(false); setChatSessionKey(key => key + 1); setOpenChatMenuId(null); }}><span>{session.title || 'New chat'}</span><small>{new Date(session.updatedAt).toLocaleDateString()}</small></button>
+          <button type="button" className="founder-chat-menu-trigger" aria-label={`More options for ${session.title || 'chat'}`} aria-haspopup="menu" aria-expanded={openChatMenuId === session.id} onClick={event => { event.stopPropagation(); setOpenChatMenuId(openChatMenuId === session.id ? null : session.id); }}><MoreHorizontal size={17}/></button>
+          {openChatMenuId === session.id && <div className="founder-chat-context-menu" role="menu"><button type="button" role="menuitem" onClick={() => deleteChatSession(session.id)}><Trash2 size={14}/> Delete chat</button></div>}
+        </div>)}<span className="section-kicker">RECENT JOBS</span>{jobs.slice(0, 5).map(job => <button type="button" key={job.id} onClick={() => setSelectedJobId(job.id)}><span>{job.title}</span><small>{featureInfo[job.feature].title}</small></button>)}</div><div className="founder-mind-main"><div className="founder-mind-conversation">{chatMessages.length === 0 ? <div className="founder-mind-empty"><span className="founder-ai-mark"><Brain size={24}/></span><h2>What are you thinking about?</h2><p>Ask a question, explore an idea, or describe work you want to start. I will answer normally and only create a job when you clearly ask for one.</p></div> : <div className="founder-chat-thread" ref={chatThreadRef} aria-live="polite">{chatMessages.map(message => <article className={`founder-chat-turn ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'You' : 'Founder Mind'}</span><p>{message.text}</p>{message.job && <button type="button" className="founder-chat-job-link" onClick={() => { setActiveFeature(message.job!.feature); setSelectedJobId(message.job!.id); }}>Open job in {featureInfo[message.job.feature].title} <ArrowRight size={14}/></button>}</article>)}</div>}{showThoughtLine && <ThoughtLine working={isStreaming} steps={['Reading your message', 'Thinking through a response', 'Preparing a reply']} label="Thinking..." doneLabel="Thought for" glyph="sparkle" fontSize={13} breathPeriod={1.6} breathDepth={0.45} settleDuration={350} settleBlur={0} collapsible collapseOnSettle showTimer/>}</div><FounderPromptBar key={chatSessionKey} busy={isStreaming} onSend={sendMindInput} onStop={stopMindInput}/></div></section>}
 
     {activeFeature === 'voice' && <div className="founder-voice-page">
       {jobPipeline}
