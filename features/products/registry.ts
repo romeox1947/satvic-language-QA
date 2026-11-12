@@ -3,7 +3,7 @@ export type ProductId = 'satvic-fluid' | 'founder-office';
 export type ProductFeature = {
   id: string;
   label: string;
-  icon: 'plus' | 'workflow' | 'projects' | 'review' | 'languages' | 'book' | 'settings' | 'home' | 'focus' | 'decisions' | 'notes' | 'roadmap';
+  icon: 'plus' | 'workflow' | 'projects' | 'review' | 'languages' | 'book' | 'settings' | 'home' | 'focus' | 'decisions' | 'notes' | 'roadmap' | 'brain' | 'voice' | 'meeting' | 'people' | 'idea' | 'memory';
 };
 
 export type ProductDefinition = {
@@ -35,13 +35,13 @@ export const products: ProductDefinition[] = [
     groups: [
       { label: '', features: [
         { id: 'overview', label: 'Overview', icon: 'home' },
-        { id: 'founder-mind', label: 'Founder Mind', icon: 'focus' },
-        { id: 'voice', label: 'Founder Voice', icon: 'notes' },
-        { id: 'meetings', label: 'Meetings & Discussions', icon: 'decisions' },
-        { id: 'people', label: 'People & Resources', icon: 'projects' },
-        { id: 'ideas', label: 'Ideas & Opportunities', icon: 'plus' },
+        { id: 'founder-mind', label: 'Founder Mind', icon: 'brain' },
+        { id: 'voice', label: 'Founder Voice', icon: 'voice' },
+        { id: 'meetings', label: 'Meetings & Discussions', icon: 'meeting' },
+        { id: 'people', label: 'People & Resources', icon: 'people' },
+        { id: 'ideas', label: 'Ideas & Opportunities', icon: 'idea' },
         { id: 'projects', label: 'Project Execution', icon: 'workflow' },
-        { id: 'memory', label: 'Organisational Memory', icon: 'roadmap' },
+        { id: 'memory', label: 'Organisational Memory', icon: 'memory' },
       ] },
     ],
   },

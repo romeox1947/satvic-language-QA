@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { ArrowRight, Plus } from 'lucide-react';
+import { ArrowRight, Brain, Plus, Send } from 'lucide-react';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
 
 const modules = {
@@ -20,33 +20,29 @@ type ModuleId = keyof typeof modules;
 export default function FounderOfficeDashboard({ accountEmail = '' }: { accountEmail?: string }) {
   const [activeFeature, setActiveFeature] = useState<ModuleId>('overview');
   const [thought, setThought] = useState('');
-  const [savedThoughts, setSavedThoughts] = useState<string[]>([]);
+  const [messages, setMessages] = useState<{ role: 'founder' | 'assistant'; text: string }[]>([]);
   const current = modules[activeFeature];
 
-  function saveThought(event: FormEvent<HTMLFormElement>) {
+  function sendThought(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = thought.trim();
     if (!value) return;
-    setSavedThoughts(items => [value, ...items]);
+    setMessages(items => [...items, { role: 'founder', text: value }, { role: 'assistant', text: 'Captured for this conversation. You can choose to explore it, keep it as a thought, or turn it into a project.' }]);
     setThought('');
   }
 
   return (
     <ProductDashboardShell productId="founder-office" accountEmail={accountEmail} onNotice={() => {}}
       initialFeatureId="overview" onFeatureSelect={id => { if (id in modules) setActiveFeature(id as ModuleId); }}>
-      <section className="welcome-row founder-welcome">
-        <div><h1>{current.title}</h1><p className="welcome-subtitle">{current.description}</p></div>
-      </section>
-      {activeFeature === 'founder-mind' && <form className="founder-capture panel" onSubmit={saveThought}>
-        <label htmlFor="founder-thought">What’s on your mind?</label>
-        <p>An idea, problem, or something you want the team to explore.</p>
-        <textarea id="founder-thought" value={thought} onChange={event => setThought(event.target.value)} placeholder="Capture a thought…" rows={3} />
-        <button className="primary-btn" type="submit"><Plus size={16} /> Capture thought</button>
-      </form>}
-      {savedThoughts.length > 0 && activeFeature === 'founder-mind' && <section className="founder-panel panel"><div className="panel-heading"><h3>Captured thoughts</h3></div>{savedThoughts.map((item, index) => <article className="founder-priority" key={`${index}-${item}`}><div><b>{item}</b><small>New thought · Needs your review</small></div><span className="founder-status">Saved</span></article>)}</section>}
-      <section className="founder-module-grid" aria-label={`${current.title} capabilities`}>
+      {activeFeature === 'founder-mind' ? <section className="founder-mind-stage" aria-label="Founder Mind chat">
+        <aside className="founder-chat-history"><button type="button" className="founder-new-chat" onClick={() => setMessages([])}><Plus size={16} /> New chat</button><span className="section-kicker">HISTORY</span>{messages.filter(message => message.role === 'founder').map((message, index) => <div className="founder-history-item" key={`${index}-${message.text}`}>{message.text}</div>)}</aside>
+        <div className="founder-chat-main"><header className="founder-chat-heading"><div><h1>Founder Mind</h1><p>{current.description}</p></div></header>
+          <div className="founder-chat-messages">{messages.length === 0 ? <div className="founder-chat-empty"><span className="founder-chat-mark"><Brain size={22} /></span><h2>Think it through.</h2><p>Share an idea, a problem, or a note from a meeting. You choose what happens to it next.</p></div> : messages.map((message, index) => <article className={`founder-chat-message ${message.role}`} key={`${index}-${message.text}`}><span>{message.role === 'founder' ? 'You' : 'Founder Mind'}</span><p>{message.text}</p></article>)}</div>
+          <form className="founder-chat-composer" onSubmit={sendThought}><textarea aria-label="Message Founder Mind" value={thought} onChange={event => setThought(event.target.value)} placeholder="Share a thought, idea, or problem…" rows={1} /><div className="founder-composer-footer"><span>Your ideas stay yours. Nothing becomes a project without your approval.</span><button type="submit" aria-label="Send message" disabled={!thought.trim()}><Send size={17} /></button></div></form>
+        </div>
+      </section> : <><section className="welcome-row founder-welcome"><div><h1>{current.title}</h1><p className="welcome-subtitle">{current.description}</p></div></section><section className="founder-module-grid" aria-label={`${current.title} capabilities`}>
         {current.cards.map(([title, description]) => <article className="founder-module-card panel" key={title}><span className="section-kicker">{current.title.toUpperCase()}</span><h3>{title}</h3><p>{description}</p><span className="founder-module-link">Part of one connected workflow <ArrowRight size={14} /></span></article>)}
-      </section>
+      </section></>}
     </ProductDashboardShell>
   );
 }

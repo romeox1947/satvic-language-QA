@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  AudioLines, BookOpen, Building2, Check, CheckCheck, ChevronDown, CircleHelp,
-  FileText, Globe2, LayoutDashboard, ListChecks, LogOut, Menu, PanelLeftClose,
+  Archive, AudioLines, BookOpen, Brain, Building2, CalendarDays, Check, CheckCheck, ChevronDown, CircleHelp,
+  FileText, Globe2, LayoutDashboard, Lightbulb, ListChecks, LogOut, Menu, MessageSquare,
+  PanelLeftClose,
   PanelLeftOpen, Plus, Settings, Settings2, X, type LucideIcon,
+  Users,
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
 import { getProduct, products, type ProductFeature, type ProductId } from '@/features/products/registry';
@@ -23,6 +25,12 @@ const featureIcons: Record<ProductFeature['icon'], LucideIcon> = {
   decisions: CheckCheck,
   notes: FileText,
   roadmap: ListChecks,
+  brain: Brain,
+  voice: MessageSquare,
+  meeting: CalendarDays,
+  people: Users,
+  idea: Lightbulb,
+  memory: Archive,
 };
 
 type ProductDashboardShellProps = {
