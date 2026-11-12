@@ -12,7 +12,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   if (!user) redirect('/login');
   const { data: profile, error: profileError } = await supabase.from('profiles').select('user_id').eq('user_id', user.id).maybeSingle();
   if (profileError) redirect('/login?setup=profile-table');
-  if (profile) redirect('/dashboard');
+  if (profile) redirect('/dashboard/satvic-fluid');
   return (
     <main className="auth-screen">
       <Link href="/" className="auth-back"><span>✳</span> SATVIC STUDIO</Link>

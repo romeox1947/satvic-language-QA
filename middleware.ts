@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
   });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user && !isPublicPage && !isAuthCallback) return NextResponse.redirect(new URL('/login', request.url));
-  if (user && isAuthPage) return NextResponse.redirect(new URL('/dashboard', request.url));
+  if (user && isAuthPage) return NextResponse.redirect(new URL('/dashboard/satvic-fluid', request.url));
   return response;
 }
 

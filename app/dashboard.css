@@ -1,4 +1,4 @@
-/* Satvic Flute dashboard: quiet neutrals, Matter UI, and a two-level product nav. */
+/* Satvic Fluid dashboard: quiet neutrals, Matter UI, and a two-level product nav. */
 .app-shell {
   --ink: #20211f;
   --muted: #777a75;
@@ -40,6 +40,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-rail-collapsed .product-rail { width: 0; padding-right: 0; padding-left: 0; overflow: hidden; transform: translateX(-100%); border-right-color: transparent; box-shadow: none; }
 .rail-workspace { display: flex; width: 100%; min-height: 52px; align-items: center; gap: 10px; padding: 4px 7px; border: 0; border-radius: 11px; background: transparent; color: #30322e; text-align: left; cursor: pointer; }
 .rail-workspace:hover { background: #f5f6f4; }
+.rail-workspace-static, .rail-workspace-static:hover { background: transparent; cursor: default; }
 .rail-workspace.active { background: #efefed; }
 .rail-workspace-mark { display: grid; width: 40px; height: 40px; flex: none; place-items: center; }
 .rail-workspace-mark .brand-mark { width: 36px; height: 36px; overflow: hidden; border: 0; border-radius: 50%; background: transparent; }
@@ -87,6 +88,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .product-rail-expanded .drawer-product:nth-child(2) { transition-delay: .22s; }
 .product-rail-expanded .drawer-account { transition-delay: .28s; }
 .drawer-workspace:hover, .drawer-workspace.active { background: #f0f1ee; }
+.drawer-workspace-static, .drawer-workspace-static:hover { background: transparent; cursor: default; }
 .drawer-workspace > span:nth-child(2) { display: grid; min-width: 0; flex: 1; gap: 3px; }
 .drawer-workspace b, .drawer-product b { overflow: hidden; color: #292a27; font: 500 13px/1.3 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
 .drawer-workspace small, .drawer-product small { color: #858780; font: 400 11px/1.3 "Matter"; }
@@ -165,6 +167,12 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .account-menu.account-menu-rail { left: 76px; }
 .account-menu > button, .account-menu form > button { display: flex; width: 100%; min-height: 44px; align-items: center; gap: 11px; padding: 0 10px; border: 0; border-radius: 9px; background: #fff; color: #31332e; text-align: left; font: 400 14px/1.3 "Matter"; cursor: pointer; }
 .account-menu > button:hover, .account-menu form > button:hover { background: #f4f5f3; }
+.account-menu > .account-product-toggle { position: relative; }
+.account-menu > .account-product-toggle > span { flex: 1; }
+.account-menu .account-toggle-track { display: flex; width: 31px; height: 18px; align-items: center; padding: 2px; border-radius: 99px; background: #d9dad6; transition: background .18s ease; }
+.account-menu .account-toggle-track.enabled { background: #5950cc; }
+.account-menu .account-toggle-track > i { width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px #0002; transition: transform .18s ease; }
+.account-menu .account-toggle-track.enabled > i { transform: translateX(13px); }
 .account-menu svg { color: #60635c; stroke-width: 1.8; }
 .account-menu form { margin: 5px 0 0; padding-top: 5px; border-top: 1px solid #ededeb; }
 .account-menu .account-logout, .account-menu .account-logout svg { color: #bd3935; }
@@ -254,6 +262,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
   white-space: nowrap;
 }
 .app-shell .project-score > span { white-space: nowrap; }
+.app-shell .project-score > span { max-width: 145px; overflow: hidden; text-overflow: ellipsis; }
 .app-shell .outcome-mark { flex: 0 0 28px; }
 .app-shell .score-ring { background: conic-gradient(#70746c var(--score), #eceeea 0); }
 .app-shell .issue-count, .app-shell .issue-count.issue-hot { color: #6c6e68; }
@@ -1050,7 +1059,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .founder-chat-context-menu { position: absolute; z-index: 30; top: calc(100% - 3px); right: 4px; min-width: 142px; padding: 4px; border: 1px solid #e7e7e3; border-radius: 9px; background: #fff; box-shadow: 0 8px 24px #20241d1c; }
 .app-shell .founder-chat-context-menu button { display: flex; width: 100%; align-items: center; gap: 8px; padding: 8px 9px; border: 0; border-radius: 6px; background: transparent; color: #a2423e; font: 400 11px/1.2 "Matter"; text-align: left; cursor: pointer; }
 .app-shell .founder-chat-context-menu button:hover { background: #f9eeee; }
-.rail-notifications { position: relative; display: grid; width: 42px; min-height: 42px; flex: none; place-items: center; border: 0; border-radius: 11px; background: transparent; color: #666962; cursor: pointer; transition: background .18s ease, color .18s ease; }
+.rail-notifications { position: relative; z-index: 2; display: grid; width: 42px; min-height: 42px; flex: none; place-items: center; border: 0; border-radius: 11px; background: transparent; color: #666962; cursor: pointer; transition: background .18s ease, color .18s ease; }
 .rail-notifications:hover,.rail-notifications[aria-expanded="true"] { background: #eff0ee; color: #343631; }
 .rail-notifications > span { position: absolute; top: 1px; right: 0; display: grid; min-width: 16px; height: 16px; place-items: center; padding: 0 4px; border: 2px solid #fff; border-radius: 99px; background: #5950cc; color: #fff; font: 500 8px/1 "Matter"; }
 .product-rail:not(.product-rail-expanded) .rail-notifications { width: 42px; min-height: 42px; }
@@ -1074,3 +1083,64 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .notification-empty span { font: 400 12px/1.4 "Matter"; }
 .app-shell .notification-error { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 15px; padding: 12px 14px; border: 1px solid #ead8d7; border-radius: 10px; background: #fff8f7; color: #924d49; font: 400 12px/1.4 "Matter"; }
 .app-shell .notification-error button { border: 0; background: transparent; color: inherit; font: 500 12px/1.4 "Matter"; cursor: pointer; }
+
+/* Satvic Fluid: quiet sage, lilac signals, and a few frosted surfaces. */
+.app-shell.product-satvic-fluid .main-area { background: radial-gradient(ellipse at 46% 4%, #eaf3ed88 0, transparent 36%), linear-gradient(145deg, #fbfcfa 0%, #f7faf7 52%, #fff 100%); }
+.app-shell.product-satvic-fluid .topbar { background: #ffffffb8; -webkit-backdrop-filter: blur(16px) saturate(120%); backdrop-filter: blur(16px) saturate(120%); }
+.app-shell.product-satvic-fluid .nav-item.active { background: #edf4ef; color: #355544; }
+.app-shell.product-satvic-fluid .nav-item.active > svg { color: #577d65; }
+.app-shell.product-satvic-fluid .rail-product.active { background: #edf4ef; color: #3f614c; }
+.app-shell.product-satvic-fluid .rail-product.active .rail-product-icon { color: #557c62; }
+.app-shell.product-satvic-fluid .welcome-row h1 { color: #273c30; }
+.app-shell.product-satvic-fluid .primary-btn { border-color: #42634e; background: #42634e; box-shadow: 0 5px 14px #42634e20; }
+.app-shell.product-satvic-fluid .primary-btn:hover { background: #355442; box-shadow: 0 7px 18px #42634e2b; }
+.app-shell.product-satvic-fluid .hero-panel { border-color: #ffffffc9; background: linear-gradient(115deg, #eef6f0 0%, #e2f0e8 56%, #f3f6ef 100%); box-shadow: 0 14px 36px #567a6417, inset 0 1px #ffffffed; -webkit-backdrop-filter: blur(18px) saturate(120%); backdrop-filter: blur(18px) saturate(120%); }
+.app-shell.product-satvic-fluid .hero-panel:before { background: radial-gradient(circle, #a8cbb65c, transparent 70%); }
+.app-shell.product-satvic-fluid .hero-kicker { color: #5c7b66; }
+.app-shell.product-satvic-fluid .hero-text h2 { color: #244132; }
+.app-shell.product-satvic-fluid .hero-text h2 em { color: #7167a1; }
+.app-shell.product-satvic-fluid .hero-text > p { color: #53665a; }
+.app-shell.product-satvic-fluid .hero-button { border-color: #42634e; background: #42634e; box-shadow: 0 5px 14px #42634e1c; }
+.app-shell.product-satvic-fluid .hero-button:hover { background: #355442; }
+.app-shell.product-satvic-fluid .hero-footnote svg,
+.app-shell.product-satvic-fluid .chip-source > svg { color: #578267; }
+.app-shell.product-satvic-fluid .chip-target > svg { color: #766bad; }
+.app-shell.product-satvic-fluid .orbit { border-color: #77978155; }
+.app-shell.product-satvic-fluid .orbit-core { border-color: #ffffffd9; background: #ffffff9c; box-shadow: 0 8px 25px #547a6217, inset 0 1px #fff; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.app-shell.product-satvic-fluid .orbit-logo { border-color: #ffffffd9; background: #ffffffb8; color: #587862; }
+.app-shell.product-satvic-fluid .metric-card,
+.app-shell.product-satvic-fluid .projects-panel,
+.app-shell.product-satvic-fluid .review-panel,
+.app-shell.product-satvic-fluid .qa-flow { border-color: #ffffffd6; background: #ffffffd9; box-shadow: 0 8px 26px #506b5810, inset 0 1px #fff; -webkit-backdrop-filter: blur(16px) saturate(115%); backdrop-filter: blur(16px) saturate(115%); }
+.app-shell.product-satvic-fluid .metric-card { border-color: #e8eee9; }
+.app-shell.product-satvic-fluid .metric-icon.icon-violet { background: #f0edfa; color: #7669aa; }
+.app-shell.product-satvic-fluid .metric-icon.icon-green { background: #eaf4ed; color: #5a8767; }
+.app-shell.product-satvic-fluid .metric-icon.icon-blue { background: #edf2f8; color: #6b83a2; }
+.app-shell.product-satvic-fluid .metric-icon.icon-coral { background: #f8efec; color: #b67d6d; }
+.app-shell.product-satvic-fluid .metric-card:nth-child(1) .sparkline i { background: #9dbba6; }
+.app-shell.product-satvic-fluid .metric-card:nth-child(2) .sparkline i { background: #b0a6d1; }
+.app-shell.product-satvic-fluid .metric-card:nth-child(3) .sparkline i { background: #a1b8ca; }
+.app-shell.product-satvic-fluid .metric-card:nth-child(4) .sparkline i { background: #c7a18e; }
+.app-shell.product-satvic-fluid .metric-progress span { background: linear-gradient(90deg, #72977d, #9dbda6); }
+.app-shell.product-satvic-fluid .qa-flow { background: linear-gradient(125deg, #ffffffed, #f3f7f3e8); }
+.app-shell.product-satvic-fluid .qa-step-number { border-color: #dce9df; background: #edf5ef; color: #567860; }
+.app-shell.product-satvic-fluid .qa-flow-time svg { color: #668a70; }
+.app-shell.product-satvic-fluid .qa-flow-action { border-color: #d9e6dc; background: #edf5ef; color: #3e6149; }
+.app-shell.product-satvic-fluid .qa-flow-action:hover { background: #e2eee5; }
+.app-shell.product-satvic-fluid .project-row { transition: background .2s ease, box-shadow .2s ease; }
+.app-shell.product-satvic-fluid .project-row:hover { background: #f5faf6; box-shadow: inset 3px 0 #8eaf96; }
+.app-shell.product-satvic-fluid .project-thumb.lilac { background: linear-gradient(145deg, #f0ecfa, #ddd5ef); color: #70649f; }
+.app-shell.product-satvic-fluid .project-thumb.mint { background: linear-gradient(145deg, #edf6ef, #d8e9dc); color: #557b60; }
+.app-shell.product-satvic-fluid .project-thumb.peach { background: linear-gradient(145deg, #faf0eb, #f0ddd3); color: #a87868; }
+.app-shell.product-satvic-fluid .project-thumb.blue { background: linear-gradient(145deg, #eef3f8, #dce6ef); color: #637e9c; }
+.app-shell.product-satvic-fluid .outcome-mark { background: #edf4ef; color: #5c8066; }
+.app-shell.product-satvic-fluid .review-panel .queue-link { color: #5d7864; }
+.app-shell.product-satvic-fluid .severity-mark.critical { background: #faefec; color: #b77567; }
+.app-shell.product-satvic-fluid .severity-mark.review { background: #f0efff; color: #5950cc; }
+.app-shell.product-satvic-fluid .severity-mark.info { background: #edf2f8; color: #6b83a2; }
+.app-shell.product-satvic-fluid .tip-card { border-color: #dce8df; background: linear-gradient(125deg, #edf5ef 0%, #f4f2fa 100%); box-shadow: inset 0 1px #ffffff; }
+.app-shell.product-satvic-fluid .tip-decoration { border-color: #a9c2ae66; }
+.app-shell.product-satvic-fluid .tip-decoration div { border-color: #a9c2ae55; }
+.app-shell.product-satvic-fluid .tip-decoration div:nth-child(3) { background: #e2e0f359; }
+.app-shell.product-satvic-fluid .tip-kicker { color: #66856d; }
+.app-shell.product-satvic-fluid .tip-content button { color: #5d7864; }

@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { createClient, hasSupabaseConfig } from '@/lib/supabase/server';
-import DashboardHome from '@/features/dashboard/client/DashboardHome';
 
 export default async function DashboardPage() {
   if (!hasSupabaseConfig()) redirect('/login?setup=missing');
@@ -10,5 +9,5 @@ export default async function DashboardPage() {
   const { data: profile, error } = await supabase.from('profiles').select('user_id').eq('user_id', user.id).maybeSingle();
   if (error) redirect('/login?setup=profile-table');
   if (!profile) redirect('/onboarding');
-  return <DashboardHome accountEmail={user.email ?? ''} />;
+  redirect('/dashboard/satvic-fluid');
 }

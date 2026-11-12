@@ -14,5 +14,5 @@ export async function completeProfile(formData: FormData) {
   if (!user) redirect('/login');
   const { error } = await supabase.from('profiles').upsert({ user_id: user.id, full_name: fullName, role }, { onConflict: 'user_id' });
   if (error) redirect('/onboarding?error=save');
-  redirect('/dashboard');
+  redirect('/dashboard/satvic-fluid');
 }
