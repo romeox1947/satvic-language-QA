@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
-import { ArrowRight, Check, ChevronRight, Plus, Send, X } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { ArrowRight, Brain, Check, ChevronRight, Plus, Send, X } from 'lucide-react';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
+import FounderPromptBar from './FounderPromptBar';
+import ThoughtLine from './ThoughtLine';
 
 const featureInfo = {
   overview: { title: 'Overview', description: 'A connected view of ideas, decisions, and work moving across Founder Office.' },
@@ -59,6 +61,8 @@ function makeJob(text: string, feature: FeatureId, due = 'Unscheduled'): Job {
 export default function FounderOfficeDashboard({ accountEmail = '' }: { accountEmail?: string }) {
   const [activeFeature, setActiveFeature] = useState<FeatureId>('overview');
   const [jobs, setJobs] = useState<Job[]>(demoJobs);
+  const [draggingJobId, setDraggingJobId] = useState<string | null>(null);
+  const [dropTargetStatus, setDropTargetStatus] = useState<JobStatus | null>(null);
   const [jobTitle, setJobTitle] = useState('');
   const [jobDetails, setJobDetails] = useState('');
   const [jobDue, setJobDue] = useState('');
@@ -66,7 +70,10 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
   const [showNewJob, setShowNewJob] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [dockedJobId, setDockedJobId] = useState<string | null>(null);
-  const [mindInput, setMindInput] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [showThoughtLine, setShowThoughtLine] = useState(false);
+  const processingTimer = useRef<number | null>(null);
+  const processingController = useRef<AbortController | null>(null);
   const current = featureInfo[activeFeature];
   const selectedJob = jobs.find(job => job.id === selectedJobId) ?? null;
   const dockedJob = jobs.find(job => job.id === dockedJobId) ?? null;
@@ -86,13 +93,30 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
     if (text) addJob(text, jobFeature, jobDue || 'Unscheduled');
   }
 
-  function sendMindInput(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const text = mindInput.trim();
-    if (!text) return;
-    const feature = routeFromText(text);
-    addJob(text, feature, /30 days|in a month/i.test(text) ? '30 days' : 'Unscheduled');
-    setMindInput('');
+  useEffect(() => () => { if (processingTimer.current) window.clearTimeout(processingTimer.current); processingController.current?.abort(); }, []);
+
+  function stopMindInput() {
+    processingController.current?.abort();
+    if (processingTimer.current) window.clearTimeout(processingTimer.current);
+    processingTimer.current = null;
+    setIsStreaming(false);
+  }
+
+  function sendMindInput(text: string, files: File[]) {
+    if (isStreaming) return;
+    const prompt = [text, files.length ? `Attachments: ${files.map(file => file.name).join(', ')}` : ''].filter(Boolean).join('\n');
+    if (!prompt) return;
+    const feature = routeFromText(prompt);
+    const controller = new AbortController();
+    processingController.current = controller;
+    setIsStreaming(true);
+    setShowThoughtLine(true);
+    const due = /30 days|in a month/i.test(prompt) ? '30 days' : 'Unscheduled';
+    processingTimer.current = window.setTimeout(() => {
+      if (controller.signal.aborted) return;
+      addJob(prompt, feature, due);
+      setIsStreaming(false);
+    }, 1400);
   }
 
   function updateStatus(jobId: string, status: JobStatus) {
@@ -102,10 +126,10 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
   return <ProductDashboardShell productId="founder-office" accountEmail={accountEmail} onNotice={() => {}} initialFeatureId="overview" onFeatureSelect={id => { if (id in featureInfo) setActiveFeature(id as FeatureId); }}>
     <section className="welcome-row founder-welcome"><div><h1>{current.title}</h1><p className="welcome-subtitle">{current.description}</p></div><button type="button" className="primary-btn founder-new-job-trigger" onClick={() => { setJobFeature(activeFeature === 'overview' || activeFeature === 'founder-mind' ? 'projects' : activeFeature); setShowNewJob(true); }}><Plus size={16}/> New job</button></section>
 
-    {activeFeature === 'founder-mind' && <section className="founder-mind-workspace"><div className="founder-mind-history"><span className="section-kicker">RECENT JOBS</span>{jobs.slice(0, 5).map(job => <button type="button" key={job.id} onClick={() => setSelectedJobId(job.id)}><span>{job.title}</span><small>{featureInfo[job.feature].title}</small></button>)}</div><div className="founder-mind-main"><div className="founder-mind-empty"><span className="founder-ai-mark">✳</span><h2>What are you thinking about?</h2><p>Share a goal or a problem. Founder Office will suggest a place for it in your workflow. You approve every next step.</p></div><form className="founder-ai-composer" onSubmit={sendMindInput}><textarea rows={1} value={mindInput} onChange={event => setMindInput(event.target.value)} onInput={event => { event.currentTarget.style.height = 'auto'; event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 160)}px`; }} placeholder="Describe a goal, idea, or problem…" aria-label="Describe a job for Founder Mind"/><div><span>For example: “Build a community guide in 30 days”</span><button type="submit" aria-label="Create job" disabled={!mindInput.trim()}><Send size={16}/></button></div></form></div></section>}
+    {activeFeature === 'founder-mind' && <section className="founder-mind-workspace"><div className="founder-mind-history"><span className="section-kicker">RECENT JOBS</span>{jobs.slice(0, 5).map(job => <button type="button" key={job.id} onClick={() => setSelectedJobId(job.id)}><span>{job.title}</span><small>{featureInfo[job.feature].title}</small></button>)}</div><div className="founder-mind-main"><div className="founder-mind-empty"><span className="founder-ai-mark"><Brain size={24}/></span><h2>What are you thinking about?</h2><p>Share a goal or a problem. Founder Office will suggest a place for it in your workflow. You approve every next step.</p>{showThoughtLine && <ThoughtLine working={isStreaming} steps={['Reading the goal', 'Choosing the right feature', 'Preparing a job plan']} label="Thinking…" doneLabel="Thought for" glyph="sparkle" fontSize={13} breathPeriod={1.6} breathDepth={0.45} settleDuration={350} settleBlur={2} collapsible collapseOnSettle showTimer/>}</div><FounderPromptBar busy={isStreaming} onSend={sendMindInput} onStop={stopMindInput}/></div></section>}
 
     {activeFeature !== 'founder-mind' && <>{activeFeature === 'overview' && <div className="founder-pipeline-intro"><b>One workflow, from thought to outcome</b><span>Captured → understood → approved for work → completed</span></div>}<section className="founder-job-board" aria-label={`${current.title} jobs`}>
-      {stages.map(stage => <div className="founder-job-column" key={stage.id}><header><span>{stage.label}</span><b>{jobs.filter(job => job.status === stage.id && (activeFeature === 'overview' || job.feature === activeFeature)).length}</b></header>{jobs.filter(job => job.status === stage.id && (activeFeature === 'overview' || job.feature === activeFeature)).map(job => <article className="founder-job-card" key={job.id}><span className="founder-job-feature">{featureInfo[job.feature].title}</span><h3>{job.title}</h3><p>{job.due === 'Unscheduled' ? 'No deadline set' : job.due === '30 days' ? 'Due in 30 days' : `Due ${job.due}`}</p><button type="button" onClick={() => setSelectedJobId(job.id)}>{stage.id === 'captured' ? 'Understand' : 'Open job'} <ArrowRight size={14}/></button></article>)}{jobs.filter(job => job.status === stage.id && (activeFeature === 'overview' || job.feature === activeFeature)).length === 0 && <p className="founder-column-empty">No jobs here yet</p>}</div>)}
+      {stages.map(stage => { const stageJobs = jobs.filter(job => job.status === stage.id && (activeFeature === 'overview' || job.feature === activeFeature)); return <div className={`founder-job-column${dropTargetStatus === stage.id ? ' drop-target' : ''}`} key={stage.id} onDragOver={event => { event.preventDefault(); setDropTargetStatus(stage.id); }} onDragEnter={() => setDropTargetStatus(stage.id)} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropTargetStatus(null); }} onDrop={event => { event.preventDefault(); const id = event.dataTransfer.getData('text/plain') || draggingJobId; if (id) updateStatus(id, stage.id); setDraggingJobId(null); setDropTargetStatus(null); }}><header><span>{stage.label}</span><b>{stageJobs.length}</b></header>{stageJobs.map(job => <article className={`founder-job-card${draggingJobId === job.id ? ' dragging' : ''}`} key={job.id} draggable onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', job.id); setDraggingJobId(job.id); }} onDragEnd={() => { setDraggingJobId(null); setDropTargetStatus(null); }}><span className="founder-job-feature">{featureInfo[job.feature].title}</span><h3>{job.title}</h3><p>{job.due === 'Unscheduled' ? 'No deadline set' : job.due === '30 days' ? 'Due in 30 days' : `Due ${job.due}`}</p><button type="button" draggable={false} onClick={() => setSelectedJobId(job.id)}>{stage.id === 'captured' ? 'Understand' : 'Open job'} <ArrowRight size={14}/></button></article>)}{stageJobs.length === 0 && <p className="founder-column-empty">Drop a job here</p>}</div>})}
     </section>{activeFeature === 'overview' && <div className="founder-workflow-note">New thoughts are sorted into the relevant feature, then reviewed here. Nothing is assigned, funded, or started without approval.</div>}</>}
 
     {showNewJob && <div className="founder-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setShowNewJob(false); }}><form className="founder-new-job-modal" onSubmit={submitNewJob}><button type="button" className="founder-modal-close" aria-label="Close" onClick={() => setShowNewJob(false)}><X size={18}/></button><span className="section-kicker">MANUAL JOB</span><h2>Create a job</h2><p>Choose where it belongs. You can review the plan before work starts.</p><label>Job title<input required autoFocus value={jobTitle} onChange={event => setJobTitle(event.target.value)} placeholder="e.g. Launch a community guide"/></label><label>Context or desired outcome<textarea value={jobDetails} onChange={event => setJobDetails(event.target.value)} placeholder="Add useful context, timing, or constraints…" rows={3}/></label><label>Due date<input type="date" value={jobDue} onChange={event => setJobDue(event.target.value)}/></label><label>Send to<select value={jobFeature} onChange={event => setJobFeature(event.target.value as FeatureId)}>{Object.entries(featureInfo).filter(([id]) => id !== 'overview' && id !== 'founder-mind').map(([id, feature]) => <option key={id} value={id}>{feature.title}</option>)}</select></label><button type="submit" className="primary-btn"><Plus size={16}/> Create job</button></form></div>}
