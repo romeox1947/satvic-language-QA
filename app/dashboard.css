@@ -1144,3 +1144,72 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-satvic-fluid .tip-decoration div:nth-child(3) { background: #e2e0f359; }
 .app-shell.product-satvic-fluid .tip-kicker { color: #66856d; }
 .app-shell.product-satvic-fluid .tip-content button { color: #5d7864; }
+
+/* QA report: readable hierarchy and a wider, contained review surface. */
+.app-shell.product-satvic-fluid .detail-modal { border-color: #e5ebe6; border-radius: 20px; background: linear-gradient(145deg, #fff, #fbfcfa); box-shadow: 0 28px 90px #202a2330, inset 0 1px #fff; }
+.app-shell.product-satvic-fluid .detail-modal .detail-topline { min-height: 38px; color: #708177; font-size: 10px; letter-spacing: .13em; }
+.app-shell.product-satvic-fluid .detail-modal > h2 { margin: 15px 0 7px; color: #243c30; font: 500 30px/1.15 "Matter"; letter-spacing: -.04em; }
+.app-shell.product-satvic-fluid .detail-language { margin: 8px 0 18px; color: #737c74; font-size: 13px; }
+.app-shell.product-satvic-fluid .detail-modal .verdict-card { margin: 16px 0 12px; padding: 18px 20px; border-color: #dce9df; border-radius: 15px; background: linear-gradient(120deg, #eef6f0, #f5f3fa); }
+.app-shell.product-satvic-fluid .verdict-icon { width: 42px; height: 42px; border-radius: 12px; background: #e1eee4; color: #547a61; }
+.app-shell.product-satvic-fluid .verdict-card .section-kicker { color: #6b856f; font-size: 10px; }
+.app-shell.product-satvic-fluid .verdict-card h3 { margin: 6px 0; color: #294735; font: 500 20px/1.25 "Matter"; }
+.app-shell.product-satvic-fluid .verdict-card p { color: #5e6d62; font: 400 13px/1.5 "Matter"; }
+.app-shell.product-satvic-fluid .detail-explain { display: flex; min-height: 43px; align-items: center; gap: 10px; margin: 14px 0 4px; padding: 10px 13px; border-left: 3px solid #87a68e; border-radius: 0 9px 9px 0; background: #f3f7f3; color: #53675a; font: 400 12px/1.45 "Matter"; }
+.app-shell.product-satvic-fluid .detail-explain svg { color: #5e8668; }
+.app-shell.product-satvic-fluid .detail-section-title { margin: 22px 0 8px; color: #2e3e32; font: 500 15px/1.3 "Matter"; }
+.app-shell.product-satvic-fluid .detail-section-title span { color: #748176; font: 400 11px/1.3 "Matter"; }
+.app-shell.product-satvic-fluid .detail-issue { gap: 13px; padding: 15px 2px; border-color: #e9eee9; }
+.app-shell.product-satvic-fluid .detail-issue b { color: #303b32; font: 500 14px/1.35 "Matter"; }
+.app-shell.product-satvic-fluid .detail-issue p { margin-top: 6px; color: #5f6961; font: 400 12px/1.55 "Matter"; }
+.app-shell.product-satvic-fluid .detail-issue small { color: #818981; font: 400 10px/1.45 "Matter"; }
+.app-shell.product-satvic-fluid .finding-phrases { gap: 8px; margin-top: 9px; }
+.app-shell.product-satvic-fluid .finding-phrases > span { padding: 9px 11px; border-color: #e5ebe6; border-radius: 9px; background: #f8faf8; color: #566259; font-size: 11px; line-height: 1.5; }
+.app-shell.product-satvic-fluid .audio-review-grid { gap: 14px; margin-top: 20px; }
+.app-shell.product-satvic-fluid .audio-review-grid label { gap: 8px; color: #536b5a; font-size: 12px; }
+.app-shell.product-satvic-fluid .audio-review-grid video { max-height: 290px; border: 1px solid #dce5de; border-radius: 12px; box-shadow: 0 5px 18px #26362a12; }
+.app-shell.product-satvic-fluid .segment-list { max-height: 310px; gap: 7px; padding: 2px 3px 3px 0; }
+.app-shell.product-satvic-fluid .segment-row { grid-template-columns: 52px minmax(0,1fr) 18px; gap: 11px; padding: 12px 13px; border-color: #e6ece7; border-radius: 10px; background: #fff; }
+.app-shell.product-satvic-fluid .segment-row:hover { border-color: #c6d9ca; background: #f7faf7; }
+.app-shell.product-satvic-fluid .segment-row > span { color: #6d8a72; font-size: 11px; }
+.app-shell.product-satvic-fluid .segment-row > b { color: #39463c; font: 400 13px/1.6 "Matter"; }
+.app-shell.product-satvic-fluid .segment-row > svg { color: #6d8a72; }
+.app-shell.product-satvic-fluid .transcript-details { margin-top: 15px; border-color: #e4ebe5; border-radius: 11px; background: #fafcfb; }
+.app-shell.product-satvic-fluid .transcript-details summary { color: #5d7864; font-size: 12px; }
+.app-shell.product-satvic-fluid .transcript-results > div { border-color: #e4ebe5; border-radius: 10px; background: #fff; }
+.app-shell.product-satvic-fluid .transcript-results b { color: #4d6d55; font-size: 12px; }
+.app-shell.product-satvic-fluid .transcript-results p { max-height: 170px; color: #566159; font-size: 12px; line-height: 1.6; }
+.app-shell.product-satvic-fluid .report-disclaimer { margin-top: 15px; color: #838b84; font: 400 11px/1.45 "Matter"; }
+.app-shell.product-satvic-fluid .detail-actions { flex-wrap: wrap; gap: 9px; margin-top: 18px; padding-top: 15px; border-top: 1px solid #e9eee9; }
+.app-shell.product-satvic-fluid .detail-actions .secondary-btn { min-height: 41px; border-color: #dfe8e1; border-radius: 10px; background: #fff; color: #53675a; font: 500 11px/1.2 "Matter"; }
+.app-shell.product-satvic-fluid .detail-actions .secondary-btn:hover { background: #f2f7f3; }
+.app-shell.product-satvic-fluid .detail-actions .primary-btn { min-height: 41px; padding: 0 18px; border-radius: 10px; background: #42634e; }
+@media (min-width: 701px) {
+  .app-shell.product-satvic-fluid .detail-modal { width: min(1040px, calc(100vw - 72px)); max-height: calc(100dvh - 64px); padding: 30px 34px 26px; }
+}
+@media (max-width: 700px) {
+  .app-shell.product-satvic-fluid .detail-modal { width: calc(100vw - 24px); max-height: calc(100dvh - 28px); padding: 22px 18px 18px; }
+  .app-shell.product-satvic-fluid .detail-modal > h2 { font-size: 24px; }
+  .app-shell.product-satvic-fluid .verdict-card { padding: 14px; }
+  .app-shell.product-satvic-fluid .verdict-card h3 { font-size: 17px; }
+  .app-shell.product-satvic-fluid .detail-actions { justify-content: stretch; }
+}
+
+/* Keep interactive controls charcoal; reserve color for supporting cues. */
+.app-shell.product-satvic-fluid .nav-item.active,
+.app-shell.product-satvic-fluid .rail-product.active { background: #efefed; color: #242521; }
+.app-shell.product-satvic-fluid .nav-item.active > svg,
+.app-shell.product-satvic-fluid .rail-product.active .rail-product-icon { color: #30322d; }
+.app-shell.product-satvic-fluid .primary-btn,
+.app-shell.product-satvic-fluid .hero-button,
+.app-shell.product-satvic-fluid .detail-actions .primary-btn { border-color: #20211f; background: #20211f; color: #fff; box-shadow: none; }
+.app-shell.product-satvic-fluid .primary-btn:hover,
+.app-shell.product-satvic-fluid .hero-button:hover,
+.app-shell.product-satvic-fluid .detail-actions .primary-btn:hover { background: #42443e; box-shadow: none; }
+.app-shell.product-satvic-fluid .qa-flow-action { border-color: #e3e4e0; background: #f7f8f6; color: #31332e; }
+.app-shell.product-satvic-fluid .qa-flow-action:hover { background: #eeefec; }
+.app-shell.product-satvic-fluid .qa-flow-title { display: flex; align-items: center; gap: 13px; }
+.app-shell.product-satvic-fluid .qa-flow-brand { display: grid; width: 42px; height: 42px; flex: none; place-items: center; border: 1px solid #e4e7e2; border-radius: 12px; background: #f3f4f1; color: #4d514b; }
+.app-shell.product-satvic-fluid .qa-flow-brand.sarvam { background: #f1f2ef; }
+.app-shell.product-satvic-fluid .qa-flow-brand .sarvam-mark-wrap { width: 25px; height: 25px; border: 1px solid #e4e7e2; border-radius: 7px; }
+.app-shell.product-satvic-fluid .qa-flow-brand .sarvam-mark { width: 20px; height: 20px; }
