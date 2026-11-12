@@ -7,7 +7,7 @@ import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardS
 import {
   Activity, AlertCircle, ArrowDown, ArrowDownToLine, ArrowRight, Check, CheckCheck,
   Clock3, FileAudio, Filter, ExternalLink, Headphones, Languages,
-  MoreHorizontal, Pause, Pencil, Play, Plus, Search, ShieldCheck,
+  MoreHorizontal, Pause, Pencil, Play, Plus, Search, ShieldCheck, Trash2,
   Upload, X, Zap,
 } from 'lucide-react';
 
@@ -97,6 +97,9 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
   const [accountEmail, setAccountEmail] = useState(initialAccountEmail);
   const [activeTab, setActiveTab] = useState('All projects');
   const [query, setQuery] = useState('');
+  const [projectMenuId, setProjectMenuId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [modal, setModal] = useState(false);
   const [details, setDetails] = useState<Project | null>(null);
   const [notice, setNotice] = useState('');
@@ -422,6 +425,25 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
     }
   }
 
+  async function deleteProject(project: Project) {
+    if (!project.jobId) { setNotice('This project cannot be deleted because its job ID is unavailable.'); return; }
+    setDeletingProjectId(project.jobId);
+    try {
+      const response = await fetch(`/api/jobs/${encodeURIComponent(project.jobId)}`, { method: 'DELETE' });
+      const body = await readApiJson(response);
+      if (!response.ok) throw new Error(body.error || 'Could not delete this project.');
+      setProjects(current => current.filter(item => item.jobId !== project.jobId));
+      setDetails(current => current?.jobId === project.jobId ? null : current);
+      setProjectMenuId(null);
+      setDeleteConfirmId(null);
+      setNotice(`Deleted “${project.title}”.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not delete this project.');
+    } finally {
+      setDeletingProjectId(null);
+    }
+  }
+
   function playSegment(videoId: string, seconds: number, endSeconds?: number, includeContext = false) {
     const video = document.getElementById(videoId) as HTMLVideoElement | null;
     if (!video) return;
@@ -463,15 +485,20 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
         }
         if (video.dataset.reviewRequest !== requestId) return;
         const target = Math.max(0, Math.min(playbackStart, Number.isFinite(video.duration) ? Math.max(0, video.duration - 0.05) : playbackStart));
+        let seeked: Promise<void> = Promise.resolve();
         if (Math.abs(video.currentTime - target) > 0.08) {
-          const seeked = new Promise<void>(resolve => {
-            const timeout = window.setTimeout(() => { video.removeEventListener('seeked', onSeeked); resolve(); }, 3000);
-            const onSeeked = () => { window.clearTimeout(timeout); resolve(); };
+          seeked = new Promise<void>((resolve, reject) => {
+            const cleanup = () => { window.clearTimeout(timeout); video.removeEventListener('seeked', onSeeked); };
+            const timeout = window.setTimeout(() => {
+              cleanup();
+              Math.abs(video.currentTime - target) <= 0.75
+                ? resolve()
+                : reject(new Error('The video did not seek to the selected finding.'));
+            }, 5000);
+            const onSeeked = () => { cleanup(); resolve(); };
             video.addEventListener('seeked', onSeeked, { once: true });
           });
           video.currentTime = target;
-          await seeked;
-          if (Math.abs(video.currentTime - target) > 0.75) throw new Error('The video could not seek to the selected finding.');
         }
         if (video.dataset.reviewRequest !== requestId) return;
         const stopAt = playbackEnd === undefined ? undefined : Math.min(playbackEnd, Number.isFinite(video.duration) ? Math.max(target, video.duration - 0.05) : playbackEnd);
@@ -484,11 +511,18 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
             }
           };
         }
-        await video.play();
-      } catch {
+        // Call play in the click gesture before awaiting the seek, so browser
+        // autoplay policies do not reject playback after the asynchronous seek.
+        await Promise.all([seeked, video.play()]);
+        if (video.dataset.reviewRequest !== requestId) return;
+        if (Math.abs(video.currentTime - target) > 0.75) throw new Error('The video did not reach the selected finding time.');
+      } catch (error) {
+        if (video.dataset.reviewRequest !== requestId) return;
+        video.pause();
         video.ontimeupdate = null;
         setPlayingClip(null);
-        setNotice('Could not play this clip. Use the video controls to start playback, or wait for the video to finish loading.');
+        const reason = error instanceof Error ? error.message : 'Unknown playback error.';
+        setNotice(`Could not play this clip: ${reason}`);
       }
     };
     void startPlayback();
@@ -508,7 +542,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
 
       <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div className="qa-flow-title"><span className={`qa-flow-brand${isSarvamWorkflow ? ' sarvam' : ' review'}`}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={19}/>}</span><div><div className="section-kicker">{workflow.eyebrow}</div><h2 id="qa-flow-title">{workflow.title}</h2></div></div><span className="qa-flow-time"><Clock3 size={15}/> 4 steps</span></div><ol className="qa-flow-steps">{workflow.steps.map(([title,description],index)=>{const StepIcon=workflowStepIcons[index];return <li key={title}><span className="qa-step-number">0{index+1}</span><span className="qa-step-icon" aria-hidden="true"><StepIcon size={15}/></span><div><b>{title}</b><p>{description}</p></div></li>})}</ol><button className="qa-flow-action" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={16}/>} Open upload <ArrowRight size={15}/></button></section>
 
-          <section className="work-grid"><div className="projects-panel panel"><div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>Recent projects <span className="heading-count">{projects.length}</span></h3></div><button className="text-action" onClick={() => setActiveTab('All projects')}>View all <ArrowRight size={14} /></button></div><div className="project-toolbar"><div className="tabs">{['All projects','Needs review','In progress','Ready','Failed'].map(tab => <button key={tab} className={cx('tab', activeTab===tab && 'tab-active')} onClick={() => setActiveTab(tab)}>{tab}{tab==='Needs review' && <i className="tab-dot"/>}</button>)}</div><div className="project-tools"><label className="search-box"><Search size={15}/><input placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)} /></label><button className="filter-btn" onClick={() => setNotice('Showing the latest dubbing QA projects.')}><Filter size={14}/><span>Filter</span></button></div></div><div className="project-list">{visibleProjects.length ? visibleProjects.map((p,index)=><button className="project-row" key={`${p.title}-${index}`} onClick={()=>setDetails(p)}><div className={`project-thumb ${p.color}`}><span>{p.initials}</span><div className="thumb-play"><Play size={10} fill="currentColor"/></div></div><div className="project-name"><b>{p.title}</b><span>{p.source} <ArrowRight size={11}/> {p.target}<span className="project-dot">·</span>{p.date}</span></div><div className="project-score"><div className={cx("outcome-mark",p.status==='Failed'&&'failed')}>{p.status==='Failed'?<AlertCircle size={15}/>:<Clock3 size={15}/>}</div><span>{p.completedSeconds !== undefined ? `Completed in ${formatDuration(p.completedSeconds)}` : p.status === 'Failed' ? 'Dubbing failed' : p.status === 'In progress' ? 'Processing' : 'Time unavailable'}</span></div><div className={cx("project-issues",p.status==='Failed'&&'failed')}>{p.status==='Failed' ? <><AlertCircle size={14}/><span>Failed</span></> : p.issues>0 ? <><span className={cx('issue-count',p.status==='Needs review'&&'issue-hot')}>{p.issues}</span><span>{p.issues===1?'flag':'flags'}</span></> : <><CheckCheck size={15}/><span>No flags</span></>}</div><div className="status-cell"><span className={cx('status-pill',p.status.toLowerCase().replace(' ','-'))}><i/>{p.status}</span></div><MoreHorizontal className="row-more" size={18}/></button>) : <div className="empty-state"><Search size={19}/><b>No matching projects</b><span>Try another search or choose a different view.</span></div>}</div><button className="list-footer" onClick={()=>setNotice('You’re viewing the latest projects in this workspace.')}>Showing {visibleProjects.length} of {projects.length} projects <ArrowDown size={13}/></button></div>
+          <section className="work-grid"><div className="projects-panel panel"><div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>Recent projects <span className="heading-count">{projects.length}</span></h3></div><button className="text-action" onClick={() => setActiveTab('All projects')}>View all <ArrowRight size={14} /></button></div><div className="project-toolbar"><div className="tabs">{['All projects','Needs review','In progress','Ready','Failed'].map(tab => <button key={tab} className={cx('tab', activeTab===tab && 'tab-active')} onClick={() => setActiveTab(tab)}>{tab}{tab==='Needs review' && <i className="tab-dot"/>}</button>)}</div><div className="project-tools"><label className="search-box"><Search size={15}/><input placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)} /></label><button className="filter-btn" onClick={() => setNotice('Showing the latest dubbing QA projects.')}><Filter size={14}/><span>Filter</span></button></div></div><div className="project-list">{visibleProjects.length ? visibleProjects.map((p,index)=><div className="project-row" key={`${p.title}-${index}`} role="group" aria-label={`Project ${p.title}`} onClick={()=>{setProjectMenuId(null);setDetails(p)}}><div className={`project-thumb ${p.color}`}><span>{p.initials}</span><div className="thumb-play"><Play size={10} fill="currentColor"/></div></div><div className="project-name"><button type="button" className="project-open" onClick={event=>{event.stopPropagation();setProjectMenuId(null);setDetails(p)}}><b>{p.title}</b></button><span>{p.source} <ArrowRight size={11}/> {p.target}<span className="project-dot">·</span>{p.date}</span></div><div className="project-score"><div className={cx("outcome-mark",p.status==='Failed'&&'failed')}>{p.status==='Failed'?<AlertCircle size={15}/>:<Clock3 size={15}/>}</div><span>{p.completedSeconds !== undefined ? `Completed in ${formatDuration(p.completedSeconds)}` : p.status === 'Failed' ? 'Dubbing failed' : p.status === 'In progress' ? 'Processing' : 'Time unavailable'}</span></div><div className={cx("project-issues",p.status==='Failed'&&'failed')}>{p.status==='Failed' ? <><AlertCircle size={14}/><span>Failed</span></> : p.issues>0 ? <><span className={cx('issue-count',p.status==='Needs review'&&'issue-hot')}>{p.issues}</span><span>{p.issues===1?'flag':'flags'}</span></> : <><CheckCheck size={15}/><span>No flags</span></>}</div><div className="status-cell"><span className={cx('status-pill',p.status.toLowerCase().replace(' ','-'))}><i/>{p.status}</span></div><div className="project-actions" onClick={event=>event.stopPropagation()}><button type="button" className="row-more" aria-label={`Actions for ${p.title}`} aria-expanded={projectMenuId===p.jobId} onClick={()=>{setProjectMenuId(projectMenuId===p.jobId?null:p.jobId??null);setDeleteConfirmId(null)}}><MoreHorizontal size={18}/></button>{projectMenuId===p.jobId && <div className="project-actions-menu">{deleteConfirmId===p.jobId ? <><p>Delete this project and its stored files?</p><button type="button" className="project-delete-confirm" disabled={deletingProjectId===p.jobId} onClick={()=>void deleteProject(p)}>{deletingProjectId===p.jobId?'Deleting...':'Confirm delete'}</button><button type="button" onClick={()=>{setDeleteConfirmId(null);setProjectMenuId(null)}}>Cancel</button></> : <button type="button" className="project-delete-option" onClick={()=>setDeleteConfirmId(p.jobId??null)}><Trash2 size={14}/>Delete project</button>}</div>}</div></div>) : <div className="empty-state"><Search size={19}/><b>No matching projects</b><span>Try another search or choose a different view.</span></div>}</div><button className="list-footer" onClick={()=>setNotice('You’re viewing the latest projects in this workspace.')}>Showing {visibleProjects.length} of {projects.length} projects <ArrowDown size={13}/></button></div>
 
           <aside className="insight-column"><section className="review-panel panel"><div className="review-heading"><div className="section-kicker">LATEST FINDINGS</div><span className="queue-count">{latestReport?.findings.length || latestFindingProject?.issues || 0}</span></div>{latestReport?.findings.length ? <div className="review-latest">{latestReport.findings.slice(0,3).map((issue,index)=><button key={`${issue.title}-${index}`} className="issue-row" onClick={()=>setDetails(latestFindingProject)}><span className={cx('severity-mark',issue.severity)}>{issue.severity==='critical'?<Zap size={14}/>:<Activity size={14}/>}</span><span className="issue-copy"><b>{issue.title}</b><span>{issue.detail}</span><small><Languages size={11}/> {latestReport.targetLanguage} dub</small></span><ArrowRight className="issue-arrow" size={14}/></button>)}</div> : latestFindingProject ? <div className="review-empty"><b>{latestFindingProject.issues} flagged {latestFindingProject.issues === 1 ? 'finding' : 'findings'}</b><span>Open the latest report to see the flagged moments.</span></div> : <div className="review-empty"><b>No findings yet</b><span>Start either workflow to create a report here.</span></div>}<button className="queue-link" onClick={()=>latestFindingProject ? setDetails(latestFindingProject) : projects.length ? setDetails(projects[0]) : openActiveWorkflow()}>{latestFindingProject || projects.length ? 'Open latest report' : 'Start this workflow'} <ArrowRight size={14}/></button></section></aside></section>
 

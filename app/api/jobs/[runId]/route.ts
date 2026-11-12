@@ -1,6 +1,6 @@
 import { getRun } from 'workflow/api';
-import { get } from '@vercel/blob';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { del, get } from '@vercel/blob';
+import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { createClient } from '../../../../lib/supabase/server';
 import { getB2Client, getB2Config } from '../../../../lib/b2/client';
 
@@ -86,6 +86,41 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     return await completedResponse(completedJob, runId);
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ runId: string }> }) {
+  try {
+    const { runId } = await params;
+    if (!/^[\w-]{8,160}$/.test(runId)) return Response.json({ error: 'Invalid project ID.' }, { status: 400 });
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return Response.json({ error: 'Sign in to delete this project.' }, { status: 401 });
+    const lookup = supabase.from('qa_jobs').select('id,status,original_blob_url,dubbed_blob_url,report_blob_url,original_b2_key,dubbed_b2_key,report_b2_key').eq('user_id', user.id);
+    const { data: job, error: lookupError } = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId)
+      ? await lookup.eq('id', runId).maybeSingle()
+      : await lookup.eq('run_id', runId).maybeSingle();
+    if (lookupError) throw lookupError;
+    if (!job) return Response.json({ error: 'This project was not found in your account.' }, { status: 404 });
+    if (job.status === 'queued' || job.status === 'running') return Response.json({ error: 'This project is still processing. Wait for it to finish before deleting it.' }, { status: 409 });
+
+    const blobUrls = [job.original_blob_url, job.dubbed_blob_url, job.report_blob_url].filter((value): value is string => Boolean(value));
+    if (blobUrls.length && !process.env.BLOB_READ_WRITE_TOKEN) return Response.json({ error: 'Vercel Blob is not configured, so this project’s stored files cannot be deleted safely.' }, { status: 503 });
+    if (blobUrls.length) await del([...new Set(blobUrls)]);
+
+    const b2Keys = [job.original_b2_key, job.dubbed_b2_key, job.report_b2_key].filter((value): value is string => Boolean(value));
+    if (b2Keys.length) {
+      const config = getB2Config();
+      await Promise.all(b2Keys.map(Key => getB2Client().send(new DeleteObjectCommand({ Bucket: config.bucket, Key }))));
+    }
+
+    const { error: deleteError } = await supabase.from('qa_jobs').delete().eq('id', job.id).eq('user_id', user.id);
+    if (deleteError) throw deleteError;
+    return Response.json({ deleted: true }, { headers: { 'cache-control': 'no-store' } });
+  } catch (error) {
+    const message = errorMessage(error);
+    console.error(`[api/jobs/delete] ${message}`);
+    return Response.json({ error: message }, { status: 500 });
   }
 }
 

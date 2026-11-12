@@ -250,7 +250,8 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .project-row { border-color: #ededeb; background: #fff; }
 .app-shell .project-row:hover { background: #f8f9f7; }
 .app-shell .project-thumb, .app-shell .project-thumb.lilac, .app-shell .project-thumb.mint, .app-shell .project-thumb.peach, .app-shell .project-thumb.blue { background: #f0f1ee; color: #555751; }
-.app-shell .project-name > b { color: #3b3d38; font: 500 11px/1.3 "Matter"; }
+.app-shell .project-name > b,
+.app-shell .project-open > b { color: #3b3d38; font: 500 11px/1.3 "Matter"; }
 .app-shell .project-name > span, .app-shell .project-score, .app-shell .project-issues { color: #858780; font-family: "Matter"; }
 .app-shell .project-score {
   width: auto;
@@ -1128,7 +1129,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-satvic-fluid .qa-flow-action { border-color: #d9e6dc; background: #edf5ef; color: #3e6149; }
 .app-shell.product-satvic-fluid .qa-flow-action:hover { background: #e2eee5; }
 .app-shell.product-satvic-fluid .project-row { transition: background .2s ease, box-shadow .2s ease; }
-.app-shell.product-satvic-fluid .project-row:hover { background: #f5faf6; box-shadow: inset 3px 0 #8eaf96; }
+.app-shell.product-satvic-fluid .project-row:hover { background: #f7f7f6; box-shadow: none; }
 .app-shell.product-satvic-fluid .project-thumb.lilac { background: linear-gradient(145deg, #f0ecfa, #ddd5ef); color: #70649f; }
 .app-shell.product-satvic-fluid .project-thumb.mint { background: linear-gradient(145deg, #edf6ef, #d8e9dc); color: #557b60; }
 .app-shell.product-satvic-fluid .project-thumb.peach { background: linear-gradient(145deg, #faf0eb, #f0ddd3); color: #a87868; }
@@ -1270,11 +1271,37 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-satvic-fluid .analysis-progress small { color: #686963 !important; }
 .app-shell.product-satvic-fluid .analysis-progress .progress-track > span { background: #5950cc !important; }
 .app-shell.product-satvic-fluid .project-score .outcome-mark { background: #f1f1ef !important; color: #20211f !important; }
-.app-shell.product-satvic-fluid .outcome-mark.failed { background: #f0efff; color: #5950cc; }
-.app-shell.product-satvic-fluid .status-pill.failed { background: #f0efff; color: #5950cc; }
-.app-shell.product-satvic-fluid .status-pill.failed i { background: #5950cc; }
-.app-shell.product-satvic-fluid .project-issues.failed { color: #5950cc; }
-.app-shell.product-satvic-fluid .job-failure { display: flex; align-items: flex-start; gap: 11px; margin: 10px 0 16px; padding: 14px 16px; border: 1px solid #e5e2fa; border-radius: 12px; background: #f8f7ff; color: #5950cc; }
+.app-shell.product-satvic-fluid .outcome-mark.failed { background: #fcefee; color: #b94b4b; }
+.app-shell.product-satvic-fluid .status-pill.failed { background: #fcefee; color: #b94b4b; }
+.app-shell.product-satvic-fluid .status-pill.failed i { background: #b94b4b; }
+.app-shell.product-satvic-fluid .project-issues.failed { color: #b94b4b; }
+.app-shell.product-satvic-fluid .job-failure { display: flex; align-items: flex-start; gap: 11px; margin: 10px 0 16px; padding: 14px 16px; border: 1px solid #f0d9d7; border-radius: 12px; background: #fdf6f5; color: #b94b4b; }
 .app-shell.product-satvic-fluid .job-failure > div { min-width: 0; }
 .app-shell.product-satvic-fluid .job-failure b { color: #30312e; font: 500 13px/1.4 "Matter"; }
 .app-shell.product-satvic-fluid .job-failure p { margin: 4px 0 0; color: #686963; font: 400 12px/1.5 "Matter"; overflow-wrap: anywhere; }
+.app-shell.product-satvic-fluid .project-row { position: relative; cursor: pointer; }
+.app-shell.product-satvic-fluid .project-open { display: block; width: max-content; max-width: 100%; min-width: 0; overflow: hidden; padding: 0; border: 0; background: transparent; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.app-shell.product-satvic-fluid .project-actions { position: relative; z-index: 5; display: flex; flex: none; margin-left: auto; }
+.app-shell.product-satvic-fluid .project-actions .row-more { display: grid !important; width: 30px; height: 30px; place-items: center; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #777872; cursor: pointer; }
+.app-shell.product-satvic-fluid .project-actions .row-more:hover,
+.app-shell.product-satvic-fluid .project-actions .row-more[aria-expanded="true"] { background: #f1f1ef; color: #252622; }
+.app-shell.product-satvic-fluid .project-actions-menu { position: absolute; z-index: 20; top: calc(100% + 3px); right: 0; display: grid; width: 205px; gap: 3px; padding: 6px; border: 1px solid #e4e4e0; border-radius: 11px; background: #fff; box-shadow: 0 10px 28px #20211f1c; }
+.app-shell.product-satvic-fluid .project-actions-menu button { display: flex; min-height: 34px; align-items: center; gap: 8px; padding: 0 9px; border: 0; border-radius: 7px; background: transparent; color: #454640; text-align: left; font: 400 12px/1.3 "Matter"; cursor: pointer; }
+.app-shell.product-satvic-fluid .project-actions-menu button:hover { background: #f4f4f2; }
+.app-shell.product-satvic-fluid .project-actions-menu p { margin: 4px 7px 5px; color: #555650; font: 400 11px/1.45 "Matter"; }
+.app-shell.product-satvic-fluid .project-actions-menu .project-delete-option { color: #5950cc; }
+.app-shell.product-satvic-fluid .project-actions-menu .project-delete-confirm { background: #5950cc; color: #fff; }
+.app-shell.product-satvic-fluid .project-actions-menu .project-delete-confirm:hover { background: #4940b6; }
+@media (min-width: 701px) and (max-width: 960px) {
+  .app-shell.product-satvic-fluid .project-row { grid-template-columns: 40px minmax(0,1fr) max-content 88px 32px; }
+  .app-shell.product-satvic-fluid .status-cell { grid-column: 4; }
+  .app-shell.product-satvic-fluid .project-actions { grid-column: 5; grid-row: 1 / span 2; align-self: center; }
+}
+@media (min-width: 701px) and (max-width: 820px) {
+  .app-shell.product-satvic-fluid .project-row { grid-template-columns: 36px minmax(0,1fr) max-content 78px 32px; }
+}
+@media (max-width: 700px) {
+  .app-shell.product-satvic-fluid .project-row { padding-right: 8px; }
+  .app-shell.product-satvic-fluid .project-actions { margin-left: 0; }
+  .app-shell.product-satvic-fluid .project-actions .row-more { width: 27px; }
+}
