@@ -164,16 +164,12 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
     const feature = params.get('feature');
     const jobId = params.get('jobId');
     if (!feature && !jobId) return;
-    if (feature && feature in featureInfo) {
-      setActiveFeature(feature as FeatureId);
-      onFeatureSelect?.(feature);
-    }
     if (jobId) {
       const job = jobs.find(item => item.id === jobId);
       if (job) setSelectedJobId(job.id);
     }
     router.replace('/dashboard/founder-office', { scroll: false });
-  }, [workspaceLoaded, jobs, router, onFeatureSelect]);
+  }, [workspaceLoaded, jobs, router]);
 
   function addJob(text: string, destination: FeatureId, due = 'Unscheduled', options: { title?: string; plan?: string[]; openDetails?: boolean } = {}) {
     const baseJob = makeJob(text, destination, due);
