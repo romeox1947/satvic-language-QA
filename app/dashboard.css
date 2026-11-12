@@ -1260,7 +1260,21 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-satvic-fluid .transcript-results p::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 10px; background: #a5a59f; background-clip: content-box; }
 
 /* Satvic Fluid workflow steps use clear icons and neutral timing accents. */
-.app-shell.product-satvic-fluid .qa-step-number { border-color: #e3e3df; background: #f4f4f2; color: #41423d; }
+.app-shell.product-satvic-fluid .qa-step-number { display: none; }
 .app-shell.product-satvic-fluid .qa-step-icon { display: grid; width: 27px; height: 27px; flex: none; place-items: center; border: 1px solid #e8e8e4; border-radius: 8px; background: #fff; color: #595a54; }
 .app-shell.product-satvic-fluid .qa-flow-time,
 .app-shell.product-satvic-fluid .qa-flow-time svg { color: #30312e; }
+.app-shell.product-satvic-fluid .analysis-progress .progress-meta b,
+.app-shell.product-satvic-fluid .analysis-progress .progress-heading b { color: #20211f !important; }
+.app-shell.product-satvic-fluid .analysis-progress .progress-meta span,
+.app-shell.product-satvic-fluid .analysis-progress small { color: #686963 !important; }
+.app-shell.product-satvic-fluid .analysis-progress .progress-track > span { background: #5950cc !important; }
+.app-shell.product-satvic-fluid .project-score .outcome-mark { background: #f1f1ef !important; color: #20211f !important; }
+.app-shell.product-satvic-fluid .outcome-mark.failed { background: #f0efff; color: #5950cc; }
+.app-shell.product-satvic-fluid .status-pill.failed { background: #f0efff; color: #5950cc; }
+.app-shell.product-satvic-fluid .status-pill.failed i { background: #5950cc; }
+.app-shell.product-satvic-fluid .project-issues.failed { color: #5950cc; }
+.app-shell.product-satvic-fluid .job-failure { display: flex; align-items: flex-start; gap: 11px; margin: 10px 0 16px; padding: 14px 16px; border: 1px solid #e5e2fa; border-radius: 12px; background: #f8f7ff; color: #5950cc; }
+.app-shell.product-satvic-fluid .job-failure > div { min-width: 0; }
+.app-shell.product-satvic-fluid .job-failure b { color: #30312e; font: 500 13px/1.4 "Matter"; }
+.app-shell.product-satvic-fluid .job-failure p { margin: 4px 0 0; color: #686963; font: 400 12px/1.5 "Matter"; overflow-wrap: anywhere; }
