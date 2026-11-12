@@ -48,15 +48,24 @@ export async function POST(request: NextRequest) {
     });
 
     if (!upstream.ok) {
-      const status = upstream.status === 401 ? 401 : upstream.status === 429 ? 429 : 502;
-      const error = status === 401 ? 'The Groq API key was rejected. Check GROQ_API_KEY.' : status === 429 ? 'Groq rate limit reached. Please try again shortly.' : 'Founder Mind could not reach Groq. Please try again.';
-      return Response.json({ error }, { status });
+      const providerError = await upstream.json().catch(() => null);
+      const providerMessage = typeof providerError?.error?.message === 'string'
+        ? providerError.error.message.replaceAll(apiKey, '[redacted]').slice(0, 240)
+        : '';
+      if (upstream.status === 401) return Response.json({ error: 'Groq rejected GROQ_API_KEY. Check that the value is current and has no extra quotes or spaces.' }, { status: 401 });
+      if (upstream.status === 429) return Response.json({ error: 'Groq rate limit or usage quota reached. Check Groq Console usage and try again.' }, { status: 429 });
+      if (upstream.status === 400 || upstream.status === 404) {
+        return Response.json({ error: `Groq rejected the model or request${providerMessage ? `: ${providerMessage}` : ` (HTTP ${upstream.status})`}` }, { status: 502 });
+      }
+      return Response.json({ error: `Groq returned HTTP ${upstream.status}${providerMessage ? `: ${providerMessage}` : '.'}` }, { status: 502 });
     }
 
-    const payload = await upstream.json();
+    const payload = await upstream.json().catch(() => null);
     const raw = payload?.choices?.[0]?.message?.content;
     if (typeof raw !== 'string') return Response.json({ error: 'Founder Mind returned an empty response.' }, { status: 502 });
-    const result = JSON.parse(raw) as Record<string, unknown>;
+    let result: Record<string, unknown>;
+    try { result = JSON.parse(raw) as Record<string, unknown>; }
+    catch { return Response.json({ error: 'Groq replied, but its response could not be read. Please send the message again.' }, { status: 502 }); }
     const answer = typeof result.answer === 'string' ? result.answer.slice(0, 5000) : '';
     if (result.type !== 'job') return Response.json({ type: 'chat', answer: answer || 'I’m here. What would you like to think through?' });
 
@@ -67,6 +76,6 @@ export async function POST(request: NextRequest) {
     return Response.json({ type: 'job', answer: answer || `I’ve added “${title}” to ${feature}.`, title, feature, due, plan });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') return new Response(null, { status: 499 });
-    return Response.json({ error: 'Founder Mind could not complete that reply. Please try again.' }, { status: 502 });
+    return Response.json({ error: 'The server could not connect to Groq. Check the Vercel Function logs and try again.' }, { status: 502 });
   }
 }

@@ -962,3 +962,5 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 @media (prefers-reduced-motion: reduce) {
   .app-shell .thought-line *, .app-shell .thought-line { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+.app-shell .founder-voice-page { display: grid; gap: 18px; }
