@@ -18,9 +18,26 @@ export async function GET(request: Request) {
       ? await jobLookup.eq('id', runId).maybeSingle()
       : await jobLookup.eq('run_id', runId).maybeSingle();
     if (!job || ![job.original_blob_url, job.dubbed_blob_url].includes(url)) return Response.json({ error: 'This media does not belong to your account.' }, { status: 404 });
-    const result = await get(url, { access: 'private' });
+    // Native video seeking uses byte-range requests. Forward the browser's
+    // Range header to Blob so seeking reads only the requested part of a file.
+    const range = request.headers.get('range');
+    const result = await get(url, {
+      access: 'private',
+      headers: range ? { range } : undefined,
+    });
     if (!result) return Response.json({ error: 'This video may have expired after the 24-hour media retention period.' }, { status: 404 });
-    return new Response(result.stream, { headers: { 'content-type': result.blob.contentType || 'application/octet-stream', 'cache-control': 'private, no-store' } });
+    const headers = new Headers({
+      'content-type': result.blob.contentType || 'application/octet-stream',
+      'cache-control': 'private, no-store',
+      'accept-ranges': result.headers.get('accept-ranges') || 'bytes',
+      'x-content-type-options': 'nosniff',
+    });
+    for (const name of ['content-length', 'content-range', 'etag', 'last-modified']) {
+      const value = result.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+    const isPartial = Boolean(range && result.headers.get('content-range'));
+    return new Response(result.stream, { status: isPartial ? 206 : 200, headers });
   } catch {
     return Response.json({ error: 'Could not read this private media file.' }, { status: 502 });
   }
