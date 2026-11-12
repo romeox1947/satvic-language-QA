@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-const MODEL = 'llama-3.3-70b-versatile';
+const MODEL = 'openai/gpt-oss-120b';
 const destinations = new Set(['voice', 'meetings', 'people', 'ideas', 'projects', 'memory']);
 
 type ChatTurn = { role: 'user' | 'assistant'; content: string };
