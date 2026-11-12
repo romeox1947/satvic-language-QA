@@ -405,6 +405,16 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .founder-detail-copy p { margin: 7px 0; color: #777a74; }
 .app-shell .founder-detail-copy ul { display: grid; gap: 8px; padding-left: 20px; color: #555751; }
 .app-shell .founder-roadmap-icon { color: #656761; }
+.app-shell .founder-capture { display: grid; gap: 8px; margin-bottom: 16px; padding: 18px; border: 1px solid #e8e9e5; border-radius: 14px; background: #fff; }
+.app-shell .founder-capture label { color: #272824; font: 500 16px/1.3 "Matter"; }
+.app-shell .founder-capture p { margin: 0; color: #777a74; font: 400 13px/1.5 "Matter"; }
+.app-shell .founder-capture textarea { width: 100%; resize: vertical; padding: 12px; border: 1px solid #e5e6e2; border-radius: 10px; color: #272824; background: #fff; font: 400 14px/1.5 "Matter"; }
+.app-shell .founder-capture .primary-btn { justify-self: start; }
+.app-shell .founder-module-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-top: 16px; }
+.app-shell .founder-module-card { min-height: 170px; padding: 18px; border: 1px solid #e8e9e5; border-radius: 14px; background: #fff; }
+.app-shell .founder-module-card h3 { margin: 14px 0 7px; color: #272824; font: 500 17px/1.3 "Matter"; }
+.app-shell .founder-module-card p { margin: 0; color: #777a74; font: 400 13px/1.55 "Matter"; }
+.app-shell .founder-module-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 18px; color: #5950cc; font: 500 11px/1.4 "Matter"; }
 /* Restrained purple is reserved for review attention and flagged work. */
 .app-shell .issue-count.issue-hot,
 .app-shell .status-pill.needs-review,

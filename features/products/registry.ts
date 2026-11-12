@@ -33,14 +33,15 @@ export const products: ProductDefinition[] = [
     description: 'Founder workspace',
     href: '/dashboard/founder-office',
     groups: [
-      { label: 'OFFICE', features: [
-        { id: 'founder-overview', label: 'Office overview', icon: 'home' },
-        { id: 'priorities', label: 'Priorities', icon: 'focus' },
-        { id: 'decisions', label: 'Decisions', icon: 'decisions' },
-        { id: 'meeting-notes', label: 'Meeting notes', icon: 'notes' },
-      ] },
-      { label: 'PLANNING', features: [
-        { id: 'roadmap', label: 'Roadmap', icon: 'roadmap' },
+      { label: '', features: [
+        { id: 'founder-mind', label: 'Founder Mind', icon: 'focus' },
+        { id: 'ideas', label: 'Ideas & Opportunities', icon: 'plus' },
+        { id: 'research', label: 'Research Intelligence', icon: 'book' },
+        { id: 'projects', label: 'Projects & Execution', icon: 'projects' },
+        { id: 'people', label: 'People & Resources', icon: 'home' },
+        { id: 'meetings', label: 'Meetings & Decisions', icon: 'decisions' },
+        { id: 'voice', label: 'Founder Voice', icon: 'notes' },
+        { id: 'memory', label: 'Organisational Memory', icon: 'roadmap' },
       ] },
     ],
   },

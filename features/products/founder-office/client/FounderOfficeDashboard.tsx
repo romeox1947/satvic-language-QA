@@ -1,63 +1,52 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowRight, CalendarDays, Check, CircleDot, Plus, Target } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { ArrowRight, Plus } from 'lucide-react';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
 
-const priorities = [
-  { title: 'Prepare the Satvic Flute pilot', owner: 'Piyush', due: 'This week', status: 'In progress' },
-  { title: 'Choose the first launch partners', owner: 'Partnerships', due: 'Nov 18', status: 'Needs a decision' },
-  { title: 'Review the product onboarding flow', owner: 'Product', due: 'Nov 21', status: 'Planned' },
-];
+const modules = {
+  'founder-mind': { title: 'Founder Mind', description: 'A second brain for ideas, problems, voice notes, documents, and links.', cards: [['Capture anything', 'Save a thought from a meeting or whenever it comes to mind.'], ['AI understanding', 'Organise captured thoughts by topic, objective, and what needs to be learned.'], ['You stay in control', 'Choose whether to explore, save, reject, or turn an idea into work.']] },
+  ideas: { title: 'Ideas & Opportunities', description: 'Shape an approved thought into a project the team can review.', cards: [['Problem & objective', 'Clarify the need, audience, scope, and intended outcome.'], ['Plan & resources', 'Draft milestones, timeline, owners, and budget for approval.'], ['Success measures', 'Agree on deliverables and how the result will be evaluated.']] },
+  research: { title: 'Research Intelligence', description: 'Build evidence-backed answers for important business questions.', cards: [['Explore the opportunity', 'Review market demand, trends, audience, and competitors.'], ['Check feasibility', 'Estimate costs, operational needs, risks, and assumptions.'], ['Make a decision', 'Compare options and present a sourced recommendation.']] },
+  projects: { title: 'Projects & Execution', description: 'Turn approved plans into milestones, owners, and trackable work.', cards: [['Active projects', 'Approved ideas and initiatives move here for execution.'], ['Milestones & tasks', 'Keep deliverables, dependencies, owners, and dates together.'], ['Blockers', 'Surface delays early and suggest practical next steps.']] },
+  people: { title: 'People & Resources', description: 'Find the right skills and capacity for each initiative.', cards: [['Team directory', 'Keep teams, skills, and areas of expertise discoverable.'], ['Project capacity', 'See current assignments and identify overloaded teams.'], ['Suggested collaborators', 'Get recommendations for review by the relevant manager.']] },
+  meetings: { title: 'Meetings & Decisions', description: 'Keep meeting outcomes connected to the work they affect.', cards: [['Meeting notes', 'Capture or import a discussion and its context.'], ['Decisions & actions', 'Record decisions, owners, deadlines, and open questions.'], ['Follow through', 'Connect agreed actions to existing projects for tracking.']] },
+  voice: { title: 'Founder Voice', description: 'Draft communications in a founder’s style for review before sending.', cards: [['Writing examples', 'Use approved emails, announcements, and messages as references.'], ['Draft a message', 'Prepare team updates, replies, and workshop or product copy.'], ['Review before sending', 'Every draft stays editable and requires founder approval.']] },
+  memory: { title: 'Organisational Memory', description: 'Keep the reasoning behind important decisions easy to find.', cards: [['Past decisions', 'Search what was discussed, decided, and when.'], ['Reasoning & sources', 'Preserve the evidence and context behind each decision.'], ['What changed?', 'Revisit earlier choices when new information becomes available.']] },
+} as const;
 
-const sections: Record<string, { title: string; description: string }> = {
-  priorities: { title: 'Priorities', description: 'The work the team is moving forward now.' },
-  decisions: { title: 'Decisions', description: 'Questions that need a clear owner and outcome.' },
-  'meeting-notes': { title: 'Meeting notes', description: 'A place to capture the context and next steps from conversations.' },
-  roadmap: { title: 'Roadmap', description: 'Milestones for the next stage of the company.' },
-};
+type ModuleId = keyof typeof modules;
 
 export default function FounderOfficeDashboard({ accountEmail = '' }: { accountEmail?: string }) {
-  const [activeFeature, setActiveFeature] = useState('founder-overview');
-  const [notice, setNotice] = useState('');
-  const isOverview = activeFeature === 'founder-overview';
-  const page = sections[activeFeature];
+  const [activeFeature, setActiveFeature] = useState<ModuleId>('founder-mind');
+  const [thought, setThought] = useState('');
+  const [savedThoughts, setSavedThoughts] = useState<string[]>([]);
+  const current = modules[activeFeature];
+
+  function saveThought(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = thought.trim();
+    if (!value) return;
+    setSavedThoughts(items => [value, ...items]);
+    setThought('');
+  }
 
   return (
-    <ProductDashboardShell
-      productId="founder-office"
-      accountEmail={accountEmail}
-      onNotice={setNotice}
-      initialFeatureId="founder-overview"
-      onFeatureSelect={setActiveFeature}
-    >
-      <section className="welcome-row founder-welcome"><div><div className="eyebrow"><span className="eyebrow-line" /> FOUNDER OFFICE · STARTER WORKSPACE</div><h1>{isOverview ? 'Founder Office' : page?.title}</h1><p className="welcome-subtitle">{isOverview ? 'A clear place for priorities, decisions, meeting notes, and plans.' : page?.description}</p></div><button className="primary-btn" onClick={() => setNotice('Priority creation is a starter action. Connect this workspace to your company data when ready.')}><Plus size={17} /> Add a priority</button></section>
-
-      <div className="founder-sample-note"><CircleDot size={15} /><span>Starter workspace with sample items. Replace these examples with your own operating plan.</span></div>
-
-      {isOverview ? <>
-        <section className="founder-summary" aria-label="Founder Office summary">
-          <article className="founder-summary-card"><span>ACTIVE PRIORITIES</span><b>03</b><small>Across product and launch</small></article>
-          <article className="founder-summary-card"><span>DECISIONS TO MAKE</span><b>02</b><small>Launch partners and pilot scope</small></article>
-          <article className="founder-summary-card"><span>NEXT CHECK-IN</span><b>Friday</b><small>Weekly operating review</small></article>
-        </section>
-        <section className="founder-panel panel">
-          <div className="panel-heading"><div><div className="section-kicker">THIS WEEK</div><h3>Current priorities</h3></div><button className="text-action" onClick={() => setActiveFeature('priorities')}>All priorities <ArrowRight size={14}/></button></div>
-          <div className="founder-priority-list">{priorities.map((item,index) => <article className="founder-priority" key={item.title}><span className="founder-priority-number">0{index+1}</span><div><b>{item.title}</b><small>{item.owner} <span>·</span> Due {item.due}</small></div><span className="founder-status"><i/>{item.status}</span></article>)}</div>
-        </section>
-        <section className="founder-lower-grid">
-          <article className="founder-panel panel"><div className="section-kicker">OPEN DECISION</div><h3>Which partners join the first pilot?</h3><p>Compare launch readiness, audience fit, and capacity before confirming the first group.</p><button className="founder-inline-action" onClick={() => setActiveFeature('decisions')}>Review decision <ArrowRight size={14}/></button></article>
-          <article className="founder-panel panel"><div className="section-kicker">UPCOMING MILESTONE</div><h3><CalendarDays size={17}/> Satvic Flute pilot</h3><p>Confirm partners, finish onboarding, and prepare the first language QA projects.</p><button className="founder-inline-action" onClick={() => setActiveFeature('roadmap')}>Open roadmap <ArrowRight size={14}/></button></article>
-        </section>
-      </> : <section className="founder-panel panel founder-detail-panel">
-        <div className="panel-heading"><div><div className="section-kicker">SAMPLE CONTENT</div><h3>{page?.title}</h3></div></div>
-        {activeFeature === 'priorities' && <div className="founder-priority-list">{priorities.map((item,index) => <article className="founder-priority" key={item.title}><span className="founder-priority-number">0{index+1}</span><div><b>{item.title}</b><small>{item.owner} <span>·</span> Due {item.due}</small></div><span className="founder-status"><i/>{item.status}</span></article>)}</div>}
-        {activeFeature === 'decisions' && <div className="founder-detail-copy"><h4>Which partners join the first pilot?</h4><p>Owner: Piyush · Target date: Nov 18</p><p>Compare launch readiness, audience fit, and capacity before confirming the first group.</p><button className="founder-inline-action" onClick={() => setNotice('Decision marked for the next weekly operating review.')}><Check size={15}/> Mark for review</button></div>}
-        {activeFeature === 'meeting-notes' && <div className="founder-detail-copy"><h4>Weekly operating review</h4><p>Sample note · Nov 11</p><ul><li>Finalize the first Satvic Flute pilot partners.</li><li>Walk through the onboarding and QA review flow.</li><li>Assign owners for launch readiness tasks.</li></ul><button className="founder-inline-action" onClick={() => setNotice('Meeting note creation is a starter action.')}><Plus size={15}/> Add a note</button></div>}
-        {activeFeature === 'roadmap' && <div className="founder-priority-list">{['Pilot onboarding', 'First partner launch', 'Review pilot feedback'].map((item,index) => <article className="founder-priority" key={item}><span className="founder-priority-number">0{index+1}</span><div><b>{item}</b><small>{index === 0 ? 'November' : index === 1 ? 'December' : 'After launch'}</small></div><Target size={17} className="founder-roadmap-icon"/></article>)}</div>}
-      </section>}
-
-      {notice && <div className="toast"><Check size={16}/><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Dismiss">×</button></div>}
+    <ProductDashboardShell productId="founder-office" accountEmail={accountEmail} onNotice={() => {}}
+      initialFeatureId="founder-mind" onFeatureSelect={id => { if (id in modules) setActiveFeature(id as ModuleId); }}>
+      <section className="welcome-row founder-welcome">
+        <div><div className="eyebrow">FOUNDER OFFICE</div><h1>{current.title}</h1><p className="welcome-subtitle">{current.description}</p></div>
+      </section>
+      {activeFeature === 'founder-mind' && <form className="founder-capture panel" onSubmit={saveThought}>
+        <label htmlFor="founder-thought">What’s on your mind?</label>
+        <p>An idea, problem, or something you want the team to explore.</p>
+        <textarea id="founder-thought" value={thought} onChange={event => setThought(event.target.value)} placeholder="Capture a thought…" rows={3} />
+        <button className="primary-btn" type="submit"><Plus size={16} /> Capture thought</button>
+      </form>}
+      {savedThoughts.length > 0 && activeFeature === 'founder-mind' && <section className="founder-panel panel"><div className="panel-heading"><h3>Captured thoughts</h3></div>{savedThoughts.map((item, index) => <article className="founder-priority" key={`${index}-${item}`}><div><b>{item}</b><small>New thought · Needs your review</small></div><span className="founder-status">Saved</span></article>)}</section>}
+      <section className="founder-module-grid" aria-label={`${current.title} capabilities`}>
+        {current.cards.map(([title, description]) => <article className="founder-module-card panel" key={title}><span className="section-kicker">{current.title.toUpperCase()}</span><h3>{title}</h3><p>{description}</p><span className="founder-module-link">Part of one connected workflow <ArrowRight size={14} /></span></article>)}
+      </section>
     </ProductDashboardShell>
   );
 }
