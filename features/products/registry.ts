@@ -34,13 +34,13 @@ export const products: ProductDefinition[] = [
     href: '/dashboard/founder-office',
     groups: [
       { label: '', features: [
+        { id: 'overview', label: 'Overview', icon: 'home' },
         { id: 'founder-mind', label: 'Founder Mind', icon: 'focus' },
-        { id: 'ideas', label: 'Ideas & Opportunities', icon: 'plus' },
-        { id: 'research', label: 'Research Intelligence', icon: 'book' },
-        { id: 'projects', label: 'Projects & Execution', icon: 'projects' },
-        { id: 'people', label: 'People & Resources', icon: 'home' },
-        { id: 'meetings', label: 'Meetings & Decisions', icon: 'decisions' },
         { id: 'voice', label: 'Founder Voice', icon: 'notes' },
+        { id: 'meetings', label: 'Meetings & Discussions', icon: 'decisions' },
+        { id: 'people', label: 'People & Resources', icon: 'projects' },
+        { id: 'ideas', label: 'Ideas & Opportunities', icon: 'plus' },
+        { id: 'projects', label: 'Project Execution', icon: 'workflow' },
         { id: 'memory', label: 'Organisational Memory', icon: 'roadmap' },
       ] },
     ],
