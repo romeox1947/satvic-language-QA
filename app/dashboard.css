@@ -1258,3 +1258,9 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-satvic-fluid .detail-modal::-webkit-scrollbar-thumb,
 .app-shell.product-satvic-fluid .transcript-results::-webkit-scrollbar-thumb,
 .app-shell.product-satvic-fluid .transcript-results p::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 10px; background: #a5a59f; background-clip: content-box; }
+
+/* Satvic Fluid workflow steps use clear icons and neutral timing accents. */
+.app-shell.product-satvic-fluid .qa-step-number { border-color: #e3e3df; background: #f4f4f2; color: #41423d; }
+.app-shell.product-satvic-fluid .qa-step-icon { display: grid; width: 27px; height: 27px; flex: none; place-items: center; border: 1px solid #e8e8e4; border-radius: 8px; background: #fff; color: #595a54; }
+.app-shell.product-satvic-fluid .qa-flow-time,
+.app-shell.product-satvic-fluid .qa-flow-time svg { color: #30312e; }

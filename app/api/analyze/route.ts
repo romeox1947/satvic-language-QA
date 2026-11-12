@@ -328,22 +328,17 @@ function phrasesSupportSameFinding(audio: AudioFinding, text: AudioFinding) {
 }
 
 function locatePhrase(segments: Segment[], phrase: string) {
-  const words = [...new Set(phrase.toLocaleLowerCase().match(/[\p{L}\p{N}]{2,}/gu) || [])];
+  const words = phrase.toLocaleLowerCase().match(/[\p{L}\p{M}]{2,}/gu) || [];
   if (!words.length || !segments.length) return { start: undefined, end: undefined };
-  let best = { score: 0, first: 0, last: 0 };
-  for (let first = 0; first < segments.length; first++) {
-    let text = '';
-    for (let last = first; last < Math.min(segments.length, first + 5); last++) {
-      text += ` ${segments[last].text.toLocaleLowerCase()}`;
-      const hits = words.filter(word => text.includes(word)).length;
-      const score = hits / words.length;
-      if (score > best.score) best = { score, first, last };
-      if (score === 1) break;
-    }
+  let best = { score: 0, index: 0 };
+  for (let index = 0; index < segments.length; index++) {
+    const text = segments[index].text.toLocaleLowerCase();
+    const hits = words.filter(word => text.includes(word)).length;
+    const score = hits / words.length;
+    if (score > best.score) best = { score, index };
   }
-  return best.score >= 0.4 ? { start: segments[best.first].start, end: segments[best.last].end } : { start: undefined, end: undefined };
+  return best.score >= 0.34 ? { start: segments[best.index].start, end: segments[best.index].end } : { start: undefined, end: undefined };
 }
-
 function formatSegments(segments: Segment[]) {
   return segments.map((segment, index) => `[${index}] ${segment.start.toFixed(1)}-${segment.end.toFixed(1)}s: ${segment.text}`).join('\n').slice(0, 14000);
 }
