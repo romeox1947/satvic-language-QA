@@ -415,9 +415,9 @@ async function geminiTranscriptReview(source: Transcript, dub: Transcript, sourc
     try {
       parsed = JSON.parse(output.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
     } catch {
-      throw new Error(`Gemini transcript cross-check returned incomplete or invalid JSON for passage ${chunk + 1}.`);
+      throw new Error(`Gemini transcript cross-check returned incomplete or invalid JSON for ${chunk.label}.`);
     }
-    if (!Array.isArray(parsed.findings)) throw new Error(`Gemini transcript cross-check returned invalid findings for passage ${chunk + 1}.`);
+    if (!Array.isArray(parsed.findings)) throw new Error(`Gemini transcript cross-check returned invalid findings for ${chunk.label}.`);
     for (const item of parsed.findings.filter((entry: Json) => entry?.title && entry?.detail && ['critical', 'review', 'info'].includes(entry.severity))) {
       const sourceQuote = String(item.sourceQuote || '').slice(0, 300);
       const dubQuote = String(item.dubQuote || '').slice(0, 300);
