@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/blob-cleanup",
       "schedule": "17 3 * * *"
+    },
+    {
+      "path": "/api/cron/founder-data-cleanup",
+      "schedule": "37 3 * * *"
     }
   ]
 }

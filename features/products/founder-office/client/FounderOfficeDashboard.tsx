@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowRight, Brain, Check, ChevronRight, Plus, Send, X } from 'lucide-react';
+import { ArrowRight, Brain, Check, ChevronRight, Plus, Send, Trash2, X } from 'lucide-react';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
 import FounderPromptBar from './FounderPromptBar';
 import ThoughtLine from './ThoughtLine';
@@ -20,6 +20,7 @@ type FeatureId = keyof typeof featureInfo;
 type JobStatus = 'captured' | 'understood' | 'in-progress' | 'done';
 type Job = { id: string; title: string; source: string; feature: FeatureId; status: JobStatus; due: string; plan: string[] };
 type FounderMessage = { id: string; role: 'user' | 'assistant'; text: string; job?: Job };
+type FounderChatSession = { id: string; title: string; updatedAt: string; messages: FounderMessage[] };
 type EmailDraft = { to: string; subject: string; body: string; status: 'Draft Done' | 'Ready for review' };
 type VoiceDraftEntry = { id: string; title: string; content: string; saved: boolean };
 type VoicePanelId = 'announcement' | 'workshop' | 'applicant' | 'product' | 'community' | 'internal';
@@ -63,7 +64,12 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
   const [activeFeature, setActiveFeature] = useState<FeatureId>('overview');
   const [jobs, setJobs] = useState<Job[]>(demoJobs);
   const [chatMessages, setChatMessages] = useState<FounderMessage[]>([]);
+  const [chatSessions, setChatSessions] = useState<FounderChatSession[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatSessionKey, setChatSessionKey] = useState(0);
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
+  const [workspaceStatus, setWorkspaceStatus] = useState<'loading' | 'saving' | 'saved' | 'error'>('loading');
+  const [workspaceLoadAttempt, setWorkspaceLoadAttempt] = useState(0);
   const [draggingJobId, setDraggingJobId] = useState<string | null>(null);
   const [dropTargetStatus, setDropTargetStatus] = useState<JobStatus | null>(null);
   const [jobTitle, setJobTitle] = useState('');
@@ -88,11 +94,66 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
   const [selectedVoiceDraft, setSelectedVoiceDraft] = useState<{ panel: VoicePanelId; id: string } | null>(null);
   const chatThreadRef = useRef<HTMLDivElement | null>(null);
   const processingController = useRef<AbortController | null>(null);
+  const workspaceSaveController = useRef<AbortController | null>(null);
   const current = featureInfo[activeFeature];
   const selectedJob = jobs.find(job => job.id === selectedJobId) ?? null;
   const dockedJob = jobs.find(job => job.id === dockedJobId) ?? null;
 
   useEffect(() => { const thread = chatThreadRef.current; if (thread) thread.scrollTo({ top: thread.scrollHeight, behavior: 'smooth' }); }, [chatMessages, isStreaming]);
+
+  useEffect(() => {
+    if (!activeChatId || chatMessages.length === 0) return;
+    const firstUserMessage = chatMessages.find(message => message.role === 'user')?.text ?? 'New chat';
+    const session: FounderChatSession = { id: activeChatId, title: firstUserMessage.slice(0, 56), updatedAt: new Date().toISOString(), messages: chatMessages };
+    setChatSessions(items => [session, ...items.filter(item => item.id !== activeChatId)].slice(0, 20));
+  }, [activeChatId, chatMessages]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let current = true;
+    setWorkspaceStatus('loading');
+    fetch('/api/founder/workspace', { cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not load saved Founder Office data.');
+        if (!current) return;
+        const data = result.data;
+        if (result.hasSavedData) {
+          if (Array.isArray(data.jobs)) setJobs(data.jobs as Job[]);
+          if (Array.isArray(data.chatMessages)) setChatMessages(data.chatMessages as FounderMessage[]);
+          if (Array.isArray(data.chatSessions)) setChatSessions(data.chatSessions as FounderChatSession[]);
+          if (typeof data.activeChatId === 'string') setActiveChatId(data.activeChatId);
+          if (Array.isArray(data.emailDrafts)) setEmailDrafts(data.emailDrafts as EmailDraft[]);
+          if (Array.isArray(data.voicePanels)) setVoicePanels(data.voicePanels as VoicePanelId[]);
+          if (data.voiceDrafts && typeof data.voiceDrafts === 'object') setVoiceDrafts(data.voiceDrafts as Record<VoicePanelId, VoiceDraftEntry[]>);
+        }
+        setWorkspaceLoaded(true);
+        setWorkspaceStatus('saving');
+      })
+      .catch(error => { if (current && !(error instanceof Error && error.name === 'AbortError')) setWorkspaceStatus('error'); });
+    return () => { current = false; controller.abort(); };
+  }, [workspaceLoadAttempt]);
+
+  useEffect(() => {
+    if (!workspaceLoaded) return;
+    const controller = new AbortController();
+    workspaceSaveController.current?.abort();
+    workspaceSaveController.current = controller;
+    const timer = window.setTimeout(async () => {
+      setWorkspaceStatus('saving');
+      try {
+        const response = await fetch('/api/founder/workspace', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+          body: JSON.stringify({ jobs, chatMessages, chatSessions: chatSessions.filter(session => session.id !== activeChatId), activeChatId, emailDrafts, voicePanels, voiceDrafts }),
+        });
+        if (!response.ok) throw new Error('Could not save');
+        if (!controller.signal.aborted) setWorkspaceStatus('saved');
+      } catch {
+        if (!controller.signal.aborted) setWorkspaceStatus('error');
+      }
+    }, 700);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [workspaceLoaded, jobs, chatMessages, chatSessions, activeChatId, emailDrafts, voicePanels, voiceDrafts]);
 
   function addJob(text: string, destination: FeatureId, due = 'Unscheduled', options: { title?: string; plan?: string[]; openDetails?: boolean } = {}) {
     const baseJob = makeJob(text, destination, due);
@@ -119,11 +180,18 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
   }
 
   function startNewChat() {
+    if (chatMessages.length > 0) {
+      const sessionId = activeChatId ?? `chat-${Date.now()}`;
+      const firstUserMessage = chatMessages.find(message => message.role === 'user')?.text ?? 'New chat';
+      const session: FounderChatSession = { id: sessionId, title: firstUserMessage.slice(0, 56), updatedAt: new Date().toISOString(), messages: chatMessages };
+      setChatSessions(items => [session, ...items.filter(item => item.id !== sessionId)].slice(0, 20));
+    }
     processingController.current?.abort();
     processingController.current = null;
     setIsStreaming(false);
     setShowThoughtLine(false);
     setChatMessages([]);
+    setActiveChatId(null);
     setChatSessionKey(key => key + 1);
   }
 
@@ -132,6 +200,7 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
     const prompt = [text, files.length ? `Attachments: ${files.map(file => file.name).join(', ')}` : ''].filter(Boolean).join('\n');
     if (!prompt) return;
     const controller = new AbortController();
+    if (!activeChatId) setActiveChatId(`chat-${Date.now()}`);
     processingController.current = controller;
     setIsStreaming(true);
     setShowThoughtLine(true);
@@ -198,10 +267,25 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
     setOpenVoiceEditor(panel);
   }
 
-  return <ProductDashboardShell productId="founder-office" accountEmail={accountEmail} onNotice={() => {}} initialFeatureId="overview" onFeatureSelect={id => { if (id in featureInfo) setActiveFeature(id as FeatureId); }}>
-    <section className="welcome-row founder-welcome"><div><h1>{current.title}</h1><p className="welcome-subtitle">{current.description}</p></div><button type="button" className="primary-btn founder-new-job-trigger" onClick={() => { setJobFeature(activeFeature === 'overview' || activeFeature === 'founder-mind' ? 'projects' : activeFeature); setShowNewJob(true); }}><Plus size={16}/> New job</button></section>
+  function addEmailDraft() {
+    const index = emailDrafts.length;
+    setEmailDrafts(items => [...items, { to: '', subject: '', body: '', status: 'Draft Done' }]);
+    setSelectedEmailDraft(index);
+    setOpenVoiceEditor('email');
+  }
 
-    {activeFeature === 'founder-mind' && <section className="founder-mind-workspace"><div className="founder-mind-history"><button type="button" className="founder-new-chat" onClick={startNewChat}><Plus size={15}/> New chat</button><span className="section-kicker">RECENT JOBS</span>{jobs.slice(0, 5).map(job => <button type="button" key={job.id} onClick={() => setSelectedJobId(job.id)}><span>{job.title}</span><small>{featureInfo[job.feature].title}</small></button>)}</div><div className="founder-mind-main"><div className="founder-mind-conversation">{chatMessages.length === 0 ? <div className="founder-mind-empty"><span className="founder-ai-mark"><Brain size={24}/></span><h2>What are you thinking about?</h2><p>Ask a question, explore an idea, or describe work you want to start. I will answer normally and only create a job when you clearly ask for one.</p></div> : <div className="founder-chat-thread" ref={chatThreadRef} aria-live="polite">{chatMessages.map(message => <article className={`founder-chat-turn ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'You' : 'Founder Mind'}</span><p>{message.text}</p>{message.job && <button type="button" className="founder-chat-job-link" onClick={() => { setActiveFeature(message.job!.feature); setSelectedJobId(message.job!.id); }}>Open job in {featureInfo[message.job.feature].title} <ArrowRight size={14}/></button>}</article>)}</div>}{showThoughtLine && <ThoughtLine working={isStreaming} steps={['Reading your message', 'Thinking through a response', 'Preparing a reply']} label="Thinking..." doneLabel="Thought for" glyph="sparkle" fontSize={13} breathPeriod={1.6} breathDepth={0.45} settleDuration={350} settleBlur={0} collapsible collapseOnSettle showTimer/>}</div><FounderPromptBar key={chatSessionKey} busy={isStreaming} onSend={sendMindInput} onStop={stopMindInput}/></div></section>}
+  function deleteVoiceDraft(panel: VoicePanelId, draftId: string) {
+    setVoiceDrafts(items => ({ ...items, [panel]: items[panel].filter(draft => draft.id !== draftId) }));
+    if (selectedVoiceDraft?.id === draftId) {
+      setSelectedVoiceDraft(null);
+      setOpenVoiceEditor(null);
+    }
+  }
+
+  return <ProductDashboardShell productId="founder-office" accountEmail={accountEmail} onNotice={() => {}} initialFeatureId="overview" onFeatureSelect={id => { if (id in featureInfo) setActiveFeature(id as FeatureId); }}>
+    <section className="welcome-row founder-welcome"><div><h1>{current.title}</h1><p className="welcome-subtitle">{current.description}</p><span className={`founder-data-status ${workspaceStatus}`}>{workspaceStatus === 'loading' ? 'Loading saved data...' : workspaceStatus === 'saving' ? 'Saving...' : workspaceStatus === 'saved' ? 'Saved privately - 30 days' : 'Could not sync saved data'}</span>{workspaceStatus === 'error' && <button type="button" className="founder-data-retry" onClick={() => { setWorkspaceLoaded(false); setWorkspaceLoadAttempt(value => value + 1); }}>Retry</button>}</div><button type="button" className="primary-btn founder-new-job-trigger" onClick={() => { setJobFeature(activeFeature === 'overview' || activeFeature === 'founder-mind' ? 'projects' : activeFeature); setShowNewJob(true); }}><Plus size={16}/> New job</button></section>
+
+    {activeFeature === 'founder-mind' && <section className="founder-mind-workspace"><div className="founder-mind-history"><button type="button" className="founder-new-chat" onClick={startNewChat}><Plus size={15}/> New chat</button><span className="section-kicker">CHAT HISTORY</span>{chatSessions.map(session => <button type="button" className={`founder-chat-history-item${session.id === activeChatId ? ' active' : ''}`} key={session.id} onClick={() => { setActiveChatId(session.id); setChatMessages(session.messages); setShowThoughtLine(false); setChatSessionKey(key => key + 1); }}><span>{session.title || 'New chat'}</span><small>{new Date(session.updatedAt).toLocaleDateString()}</small></button>)}<span className="section-kicker">RECENT JOBS</span>{jobs.slice(0, 5).map(job => <button type="button" key={job.id} onClick={() => setSelectedJobId(job.id)}><span>{job.title}</span><small>{featureInfo[job.feature].title}</small></button>)}</div><div className="founder-mind-main"><div className="founder-mind-conversation">{chatMessages.length === 0 ? <div className="founder-mind-empty"><span className="founder-ai-mark"><Brain size={24}/></span><h2>What are you thinking about?</h2><p>Ask a question, explore an idea, or describe work you want to start. I will answer normally and only create a job when you clearly ask for one.</p></div> : <div className="founder-chat-thread" ref={chatThreadRef} aria-live="polite">{chatMessages.map(message => <article className={`founder-chat-turn ${message.role}`} key={message.id}><span>{message.role === 'user' ? 'You' : 'Founder Mind'}</span><p>{message.text}</p>{message.job && <button type="button" className="founder-chat-job-link" onClick={() => { setActiveFeature(message.job!.feature); setSelectedJobId(message.job!.id); }}>Open job in {featureInfo[message.job.feature].title} <ArrowRight size={14}/></button>}</article>)}</div>}{showThoughtLine && <ThoughtLine working={isStreaming} steps={['Reading your message', 'Thinking through a response', 'Preparing a reply']} label="Thinking..." doneLabel="Thought for" glyph="sparkle" fontSize={13} breathPeriod={1.6} breathDepth={0.45} settleDuration={350} settleBlur={0} collapsible collapseOnSettle showTimer/>}</div><FounderPromptBar key={chatSessionKey} busy={isStreaming} onSend={sendMindInput} onStop={stopMindInput}/></div></section>}
 
     {activeFeature === 'voice' && <div className="founder-voice-page">
       {jobPipeline}
@@ -209,21 +293,23 @@ export default function FounderOfficeDashboard({ accountEmail = '' }: { accountE
         <article className={`founder-email-panel founder-communication-card${openVoiceEditor === 'email' ? ' is-open' : ''}`}>
           <header className="founder-draft-emails-heading"><span>Draft Emails</span><small>{emailDrafts.length} drafts</small></header>
           <div className="founder-email-list">{emailDrafts.map((draft, index) => <div className={`founder-email-row-wrap${selectedEmailDraft === index && openVoiceEditor === 'email' ? ' is-open' : ''}`} key={index}>
-            <button type="button" className="founder-email-row" aria-expanded={selectedEmailDraft === index && openVoiceEditor === 'email'} onClick={() => { setSelectedEmailDraft(index); setOpenVoiceEditor(openVoiceEditor === 'email' && selectedEmailDraft === index ? null : 'email'); }}>
-              <span className="founder-email-row-copy"><span>{draft.to ? `to ${draft.to.toLowerCase()}` : 'To'}</span><strong>{draft.subject || 'Email subject'}</strong></span>
-              <span className="founder-email-row-state">{draft.to || draft.subject || draft.body ? draft.status : ''}</span><ArrowRight size={20}/>
-            </button>
+            <div className="founder-email-row">
+              <button type="button" className="founder-email-row-open" aria-expanded={selectedEmailDraft === index && openVoiceEditor === 'email'} onClick={() => { setSelectedEmailDraft(index); setOpenVoiceEditor(openVoiceEditor === 'email' && selectedEmailDraft === index ? null : 'email'); }}>
+                <span className="founder-email-row-copy"><span>{draft.to ? `to ${draft.to.toLowerCase()}` : 'To'}</span><strong>{draft.subject || 'Email subject'}</strong></span><span className="founder-email-row-state">{draft.to || draft.subject || draft.body ? draft.status : ''}</span><ArrowRight size={20}/>
+              </button>
+              <button type="button" className="founder-draft-delete" aria-label={`Delete email draft ${index + 1}`} title="Delete draft" onClick={() => { setEmailDrafts(items => items.filter((_, itemIndex) => itemIndex !== index)); setSelectedEmailDraft(null); setOpenVoiceEditor(null); }}><Trash2 size={15}/></button>
+            </div>
             {selectedEmailDraft === index && openVoiceEditor === 'email' && <div className="founder-communication-editor">
               <label>To<select value={draft.to} onChange={event => setEmailDrafts(items => items.map((item, itemIndex) => itemIndex === index ? { ...item, to: event.target.value } : item))}><option value="">Choose a team</option><option>Support team</option><option>Editing team</option><option>Accounts team</option><option>Leadership team</option><option>Community team</option></select></label>
               <label>Subject<input value={draft.subject} onChange={event => setEmailDrafts(items => items.map((item, itemIndex) => itemIndex === index ? { ...item, subject: event.target.value } : item))} placeholder="Email subject"/></label>
               <label>Message<textarea value={draft.body} onChange={event => setEmailDrafts(items => items.map((item, itemIndex) => itemIndex === index ? { ...item, body: event.target.value } : item))} rows={8} placeholder="Write your email..."/></label>
               <div className="founder-email-actions"><button type="button" className="founder-secondary-btn" onClick={() => setEmailDrafts(items => items.map((item, itemIndex) => itemIndex === index ? { ...item, status: 'Draft Done' } : item))}>Save draft</button><button type="button" className="primary-btn" onClick={() => setEmailDrafts(items => items.map((item, itemIndex) => itemIndex === index ? { ...item, status: 'Ready for review' } : item))}>Request review <ArrowRight size={15}/></button></div>
             </div>}
-          </div>)}</div>
+          </div>)}<button type="button" className="founder-add-voice-draft" onClick={addEmailDraft}><Plus size={14}/> Add email draft</button></div>
         </article>        <aside className="founder-voice-side"><div className="founder-voice-panels">{voicePanels.map(id => <article className={`founder-voice-card founder-communication-card tone-${id}`} key={id}>
           <header className="founder-communication-heading"><span>{voicePanelCatalog[id].title}</span><button type="button" className="founder-remove-panel" aria-label={`Remove ${voicePanelCatalog[id].title}`} title="Remove container" onClick={() => { setVoicePanels(items => items.filter(item => item !== id)); if (openVoiceEditor === id) setOpenVoiceEditor(null); }}><X size={14}/></button></header>
           <div className="founder-voice-draft-list">{voiceDrafts[id].map(draft => <div className={`founder-voice-draft-wrap${selectedVoiceDraft?.id === draft.id && openVoiceEditor === id ? ' is-open' : ''}`} key={draft.id}>
-            <button type="button" className="founder-voice-draft-row" aria-expanded={selectedVoiceDraft?.id === draft.id && openVoiceEditor === id} onClick={() => { setSelectedVoiceDraft({ panel: id, id: draft.id }); setOpenVoiceEditor(openVoiceEditor === id && selectedVoiceDraft?.id === draft.id ? null : id); }}><span><strong>{draft.title}</strong>{draft.saved && <small>Draft Done</small>}</span><ArrowRight size={18}/></button>
+            <div className="founder-voice-draft-row-wrap"><button type="button" className="founder-voice-draft-row" aria-expanded={selectedVoiceDraft?.id === draft.id && openVoiceEditor === id} onClick={() => { setSelectedVoiceDraft({ panel: id, id: draft.id }); setOpenVoiceEditor(openVoiceEditor === id && selectedVoiceDraft?.id === draft.id ? null : id); }}><span><strong>{draft.title}</strong>{draft.saved && <small>Draft Done</small>}</span><ArrowRight size={18}/></button><button type="button" className="founder-draft-delete" aria-label={`Delete ${draft.title}`} title="Delete draft" onClick={() => deleteVoiceDraft(id, draft.id)}><Trash2 size={14}/></button></div>
             {selectedVoiceDraft?.id === draft.id && openVoiceEditor === id && <div className="founder-communication-editor"><textarea value={draft.content} placeholder={voicePanelCatalog[id].placeholder} rows={4} onChange={event => updateVoiceDraft(id, draft.id, event.target.value)}/><button type="button" className="founder-voice-save" onClick={() => setVoiceDrafts(items => ({ ...items, [id]: items[id].map(item => item.id === draft.id ? { ...item, saved: true } : item) }))}>Save draft <ArrowRight size={13}/></button></div>}
           </div>)}</div>
           <button type="button" className="founder-add-voice-draft" onClick={() => addVoiceDraft(id)}><Plus size={14}/> Add draft</button>
