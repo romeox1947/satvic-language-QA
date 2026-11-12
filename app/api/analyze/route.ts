@@ -356,16 +356,47 @@ function segmentRange(segments: Segment[], startIndex: unknown, endIndex: unknow
   const boundedEnd = Math.max(first, last ?? first);
   return { start: segments[first].start, end: segments[boundedEnd].end };
 }
-async function geminiTranscriptReview(source: Transcript, dub: Transcript, backTranslation: string, sourceLanguage: string, targetLanguage: string, modelsUsed: Set<string>): Promise<AudioFinding[]> {
+function timedTranscriptChunks(source: Transcript, dub: Transcript) {
+  if (!source.segments.length || !dub.segments.length) return [];
+  const duration = Math.max(
+    ...source.segments.map(segment => segment.end),
+    ...dub.segments.map(segment => segment.end),
+  );
+  // Keep review passages narrow enough to catch a single changed claim, while
+  // bounding provider calls for longer videos.
+  const windowSeconds = Math.max(30, Math.ceil(duration / 8));
+  const chunks: { start: number; end: number; source: Segment[]; dub: Segment[] }[] = [];
+  for (let start = 0; start < duration; start += windowSeconds) {
+    const end = Math.min(duration, start + windowSeconds);
+    const sourcePart = source.segments.filter(segment => segment.end > start && segment.start < end);
+    const dubPart = dub.segments.filter(segment => segment.end > start && segment.start < end);
+    if (sourcePart.length || dubPart.length) chunks.push({ start, end, source: sourcePart, dub: dubPart });
+  }
+  return chunks;
+}
+
+async function geminiTranscriptReview(source: Transcript, dub: Transcript, sourceLanguage: string, targetLanguage: string, modelsUsed: Set<string>): Promise<AudioFinding[]> {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) return [];
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
-  const texts = [source.transcript, dub.transcript, backTranslation];
-  const chunkCount = Math.max(1, Math.ceil(Math.max(...texts.map(text => text.length)) / 3000));
+  const timedChunks = timedTranscriptChunks(source, dub);
+  const chunks = timedChunks.length
+    ? timedChunks.map((chunk, index) => ({
+      label: `time window ${Math.floor(chunk.start)}-${Math.ceil(chunk.end)} seconds (part ${index + 1} of ${timedChunks.length})`,
+      source: formatSegments(chunk.source),
+      dub: formatSegments(chunk.dub),
+    }))
+    : (() => {
+      const count = Math.max(1, Math.ceil(Math.max(source.transcript.length, dub.transcript.length) / 3000));
+      return Array.from({ length: count }, (_, index) => ({
+        label: `passage ${index + 1} of ${count}`,
+        source: source.transcript.slice(Math.floor(source.transcript.length * index / count), Math.floor(source.transcript.length * (index + 1) / count)),
+        dub: dub.transcript.slice(Math.floor(dub.transcript.length * index / count), Math.floor(dub.transcript.length * (index + 1) / count)),
+      }));
+    })();
   const findingsByKey = new Map<string, AudioFinding>();
-  for (let chunk = 0; chunk < chunkCount; chunk++) {
-    const part = (text: string) => text.slice(Math.floor(text.length * chunk / chunkCount), Math.floor(text.length * (chunk + 1) / chunkCount));
-    const prompt = `Compare these matching passage portions for dubbing QA (portion ${chunk + 1} of ${chunkCount}, in original order). Source is ${sourceLanguage}; dub transcript is ${targetLanguage}; back-translation is Sarvam's translation of the dub into ${sourceLanguage}. Flag specific meaning changes: incorrect/missing/added claims, quantities or food names, negation/instructions, and omissions. Natural rewording is correct. Use quoted source and dub transcript evidence. Do not infer pronunciation or accent from text, and do not treat back-translation wording differences alone as proof. Return JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Other","title":"short issue","detail":"plain English explanation with evidence","sourceQuote":"short source phrase","dubQuote":"short target-language transcript phrase"}]}. Return an empty findings list if no concrete mismatch appears.\n\nSOURCE (${sourceLanguage}):\n${part(texts[0])}\n\nDUB TRANSCRIPT (${targetLanguage}):\n${part(texts[1])}\n\nDUB BACK-TRANSLATION (${sourceLanguage}):\n${part(texts[2])}`;
+  for (const chunk of chunks) {
+    const prompt = `Compare these source and dubbed transcript segments for dubbing QA (${chunk.label}). Source language: ${sourceLanguage}. Dub language: ${targetLanguage}. These segments are matched by their media timestamps; compare only the speech shown here. Check carefully for changed, missing, or added meaning; numbers, quantities, units, food names, negation, instructions, and claims that something is below/above a limit or threshold. Verify the direction and value against the source instead of assuming it is correct. Natural rewording is correct. Report only a concrete mismatch supported by short quotes from both segments; do not invent a finding when the meaning matches or the transcript is unclear. Do not infer pronunciation or accent from text. Return JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Other","title":"short issue","detail":"plain English explanation with evidence","sourceQuote":"short source phrase","dubQuote":"short target-language transcript phrase"}]}. Return an empty findings list if no concrete mismatch appears.\n\nSOURCE (${sourceLanguage}):\n${chunk.source}\n\nDUB (${targetLanguage}):\n${chunk.dub}`;
     const response = await geminiRequest({ model, input: prompt, response_format: { type: 'text', mime_type: 'application/json', schema: transcriptFindingsSchema }, generation_config: { max_output_tokens: 2048 } }, key, 5 * 60 * 1000);
     const usedModel = response.headers.get('x-satvic-gemini-model');
     if (usedModel) modelsUsed.add(usedModel);
@@ -514,7 +545,7 @@ export async function POST(request: Request) {
     let transcriptCrossCheckAvailable = true;
     let transcriptCrossCheckError: string | null = null;
     try {
-      textFindings = await geminiTranscriptReview(originalResult, dubbedResult, backTranslation, sourceLanguage, targetLanguage, transcriptModelsUsed);
+    textFindings = await geminiTranscriptReview(originalResult, dubbedResult, sourceLanguage, targetLanguage, transcriptModelsUsed);
     } catch (error) {
       transcriptCrossCheckAvailable = false;
       transcriptCrossCheckError = error instanceof Error ? error.message.slice(0, 500) : 'Unknown Gemini error';
