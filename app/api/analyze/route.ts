@@ -268,49 +268,8 @@ async function backTranslate(text: string, sourceCode: string, dubCode: string, 
   return output.join('\n');
 }
 
-const NUMBER_WORDS: Record<string, number> = {
-  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
-  ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
-  seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50,
-  sixty: 60, seventy: 70, eighty: 80, ninety: 90, शून्य: 0, एक: 1, दो: 2, तीन: 3,
-  चार: 4, पांच: 5, पाँच: 5, छह: 6, छः: 6, सात: 7, आठ: 8, नौ: 9, दस: 10,
-  ग्यारह: 11, बारह: 12, तेरह: 13, चौदह: 14, पंद्रह: 15, पन्द्रह: 15, सोलह: 16,
-  सत्रह: 17, अठारह: 18, उन्नीस: 19, बीस: 20, इक्कीस: 21, बाईस: 22, तेईस: 23,
-  चौबीस: 24, पच्चीस: 25, छब्बीस: 26, सत्ताईस: 27, अट्ठाईस: 28, उनतीस: 29,
-  तीस: 30, चालीस: 40, पचास: 50, साठ: 60, सत्तर: 70, अस्सी: 80, नब्बे: 90,
-};
-
-function normalizeDigits(token: string) {
-  const zeroPoints = [0x30, 0x660, 0x6f0, 0x966, 0x9e6, 0xa66, 0xae6, 0xb66, 0xbe6, 0xc66, 0xce6, 0xd66];
-  return [...token].map(char => {
-    const point = char.codePointAt(0) ?? 0;
-    const zero = zeroPoints.find(start => point >= start && point <= start + 9);
-    return zero === undefined ? char : String(point - zero);
-  }).join('');
-}
-
-function numberValues(text: string) {
-  const values = [...text.matchAll(/[\p{Nd}]+(?:[.,][\p{Nd}]+)*/gu)].map(match => Number(normalizeDigits(match[0]).replace(',', '.'))).filter(Number.isFinite);
-  // Indic vowel signs are Unicode combining marks, so include marks in tokens
-  // or Hindi/Marathi number words get split and missed by the numeric comparison.
-  for (const word of text.toLocaleLowerCase().match(/[\p{L}\p{M}]+/gu) || []) {
-    if (Object.hasOwn(NUMBER_WORDS, word)) values.push(NUMBER_WORDS[word]);
-  }
-  return values.sort((a, b) => a - b);
-}
-
 function findings(source: string, backTranslation: string) {
   const result: AudioFinding[] = [];
-  // Compare distinct values rather than occurrence counts: ASR and translation
-  // can repeat or omit a repeated mention without changing the claimed amount.
-  const sourceNumbers = [...new Set(numberValues(source))].sort((a, b) => a - b);
-  const returnedNumbers = [...new Set(numberValues(backTranslation))].sort((a, b) => a - b);
-  const missingNumbers = sourceNumbers.filter(value => !returnedNumbers.includes(value));
-  const addedNumbers = returnedNumbers.filter(value => !sourceNumbers.includes(value));
-  if (missingNumbers.length || addedNumbers.length) result.push({
-    severity: 'review', title: 'Possible quantity mismatch', category: 'Numbers/names',
-    detail: `${missingNumbers.length ? `Values found only in the source: ${missingNumbers.join(', ')}.` : ''}${missingNumbers.length && addedNumbers.length ? ' ' : ''}${addedNumbers.length ? `Values found only in the dub back-translation: ${addedNumbers.join(', ')}.` : ''} This is a transcript check; verify the specific spoken passage before treating it as an error.`,
-  });
   const negation = /\b(no|not|never|don't|do not|isn't|cannot|without|avoid|नहीं|मत|बिना|இல்லை|வேண்டாம்|కాదు|వద్దు|નહીં|નથી|ಬೇಡ|ಅಲ್ಲ|না|নয়)\b/giu;
   const sourceNegations = [...source.matchAll(negation)].length;
   const backNegations = [...backTranslation.matchAll(negation)].length;
@@ -322,6 +281,8 @@ function findings(source: string, backTranslation: string) {
 }
 
 function phrasesSupportSameFinding(audio: AudioFinding, text: AudioFinding) {
+  if (audio.sourceStart !== undefined && text.sourceStart !== undefined && Math.abs(audio.sourceStart - text.sourceStart) > 30) return false;
+  if (audio.dubStart !== undefined && text.dubStart !== undefined && Math.abs(audio.dubStart - text.dubStart) > 30) return false;
   const audioCategory = (audio.category || '').toLowerCase().split('/')[0];
   const textCategory = (text.category || '').toLowerCase().split('/')[0];
   if (audioCategory && textCategory && audioCategory !== textCategory && !(audioCategory.includes('number') && textCategory.includes('number'))) return false;
@@ -332,7 +293,7 @@ function phrasesSupportSameFinding(audio: AudioFinding, text: AudioFinding) {
     const common = [...a].filter(word => b.has(word)).length;
     return common >= 1 && common / Math.min(a.size, b.size) >= 0.5;
   };
-  return overlap(audio.sourceQuote || '', text.sourceQuote || '') || overlap(audio.dubQuote || '', text.dubQuote || '');
+  return overlap(audio.sourceQuote || '', text.sourceQuote || '') && overlap(audio.dubQuote || '', text.dubQuote || '');
 }
 
 function locatePhrase(segments: Segment[], phrase: string) {
@@ -393,6 +354,8 @@ async function geminiTranscriptReview(source: Transcript, dub: Transcript, sourc
       label: `time window ${Math.floor(chunk.start)}-${Math.ceil(chunk.end)} seconds (part ${index + 1} of ${timedChunks.length})`,
       source: formatSegments(chunk.source),
       dub: formatSegments(chunk.dub),
+      sourceSegments: chunk.source,
+      dubSegments: chunk.dub,
     }))
     : (() => {
       const count = Math.max(1, Math.ceil(Math.max(source.transcript.length, dub.transcript.length) / 3000));
@@ -400,12 +363,14 @@ async function geminiTranscriptReview(source: Transcript, dub: Transcript, sourc
         label: `passage ${index + 1} of ${count}`,
         source: source.transcript.slice(Math.floor(source.transcript.length * index / count), Math.floor(source.transcript.length * (index + 1) / count)),
         dub: dub.transcript.slice(Math.floor(dub.transcript.length * index / count), Math.floor(dub.transcript.length * (index + 1) / count)),
+        sourceSegments: [] as Segment[],
+        dubSegments: [] as Segment[],
       }));
     })();
   const findingsByKey = new Map<string, AudioFinding>();
   for (const chunk of chunks) {
-    const prompt = `Compare these source and dubbed transcript segments for dubbing QA (${chunk.label}). Source language: ${sourceLanguage}. Dub language: ${targetLanguage}. These segments are matched by their media timestamps; compare only the speech shown here. Check carefully for changed, missing, or added meaning; numbers, quantities, units, food names, negation, instructions, and claims that something is below/above a limit or threshold. Verify the direction and value against the source instead of assuming it is correct. Natural rewording is correct. Report only a concrete mismatch supported by short quotes from both segments; do not invent a finding when the meaning matches or the transcript is unclear. Do not infer pronunciation or accent from text. Return JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Other","title":"short issue","detail":"plain English explanation with evidence","sourceQuote":"short source phrase","dubQuote":"short target-language transcript phrase"}]}. Return an empty findings list if no concrete mismatch appears.\n\nSOURCE (${sourceLanguage}):\n${chunk.source}\n\nDUB (${targetLanguage}):\n${chunk.dub}`;
-    const response = await geminiRequest({ model, input: prompt, response_format: { type: 'text', mime_type: 'application/json', schema: transcriptFindingsSchema }, generation_config: { max_output_tokens: 2048 } }, key, 5 * 60 * 1000);
+    const prompt = `Compare these source and dubbed transcript segments for dubbing QA (${chunk.label}). Source language: ${sourceLanguage}. Dub language: ${targetLanguage}. These segments are matched by their media timestamps; compare only the speech shown here. Check every number and unit in its sentence, including whether a claim says below or above a limit. Flag only when the dub changes the source claim; do not judge health or nutrition safety without a trusted reference. Also flag clear English words or phrases left in the dub instead of the selected target language as Language mixing. Ignore names, brands, and common loanwords normally used in the target language. Natural rewording is correct. Report EVERY distinct issue in this passage; do not stop after the first issue or combine separate occurrences. Each finding must have short source and dub quotes. Do not invent a finding when meaning matches or the transcript is unclear. Do not infer pronunciation or accent from text. Return JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Language mixing|Other","title":"short issue","detail":"plain-English explanation of what the source says and what the dub says","sourceQuote":"short source phrase","dubQuote":"short target-language transcript phrase"}]}. Return an empty findings list if no concrete mismatch appears.\n\nSOURCE (${sourceLanguage}):\n${chunk.source}\n\nDUB (${targetLanguage}):\n${chunk.dub}`;
+    const response = await geminiRequest({ model, input: prompt, response_format: { type: 'text', mime_type: 'application/json', schema: transcriptFindingsSchema }, generation_config: { max_output_tokens: 4096 } }, key, 5 * 60 * 1000);
     const usedModel = response.headers.get('x-satvic-gemini-model');
     if (usedModel) modelsUsed.add(usedModel);
     const payload = await response.json().catch(() => ({}));
@@ -418,13 +383,13 @@ async function geminiTranscriptReview(source: Transcript, dub: Transcript, sourc
       throw new Error(`Gemini transcript cross-check returned incomplete or invalid JSON for ${chunk.label}.`);
     }
     if (!Array.isArray(parsed.findings)) throw new Error(`Gemini transcript cross-check returned invalid findings for ${chunk.label}.`);
-    for (const item of parsed.findings.filter((entry: Json) => entry?.title && entry?.detail && ['critical', 'review', 'info'].includes(entry.severity))) {
+    for (const item of parsed.findings.filter((entry: Json) => entry?.title && entry?.detail && entry?.sourceQuote?.trim() && entry?.dubQuote?.trim() && ['critical', 'review', 'info'].includes(entry.severity))) {
       const sourceQuote = String(item.sourceQuote || '').slice(0, 300);
       const dubQuote = String(item.dubQuote || '').slice(0, 300);
-      const sourceRange = locatePhrase(source.segments, sourceQuote);
-      const dubRange = locatePhrase(dub.segments, dubQuote);
+      const sourceRange = locatePhrase(chunk.sourceSegments.length ? chunk.sourceSegments : source.segments, sourceQuote);
+      const dubRange = locatePhrase(chunk.dubSegments.length ? chunk.dubSegments : dub.segments, dubQuote);
       const finding: AudioFinding = { severity: item.severity, title: String(item.title).slice(0, 140), detail: String(item.detail).slice(0, 1000), category: String(item.category || 'Meaning'), sourceQuote, dubQuote, sourceStart: sourceRange.start, sourceEnd: sourceRange.end, dubStart: dubRange.start, dubEnd: dubRange.end, evidenceStatus: 'transcript-only' };
-      findingsByKey.set(`${finding.title}|${sourceQuote}|${dubQuote}`.toLowerCase(), finding);
+      findingsByKey.set(`${finding.title}|${sourceQuote}|${dubQuote}|${finding.sourceStart ?? ''}|${finding.dubStart ?? ''}`.toLowerCase(), finding);
     }
   }
   return [...findingsByKey.values()];
@@ -436,7 +401,7 @@ async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudi
   const body = {
     model,
     input: [
-      { type: 'text', text: `You are an audio dubbing quality reviewer. You can listen to BOTH attached audio tracks. Track 1 is the original ${sourceLanguage}; track 2 is the finished dub in ${targetLanguage}. Compare the spoken meaning, not just the transcripts. The timestamped transcripts below help locate speech; audio is the evidence. Find only concrete issues a producer can fix: changed or incorrect meaning, mistranslated words or names, omissions/additions, numbers, unclear pronunciation or unintelligible speech, unnatural pacing, obvious voice/accent mismatch that harms intelligibility, missing/extra speech, and audio defects. Do not label a regional accent as wrong just because it differs; only flag if it affects intelligibility or brief requirements. For each issue give the exact start and end time in BOTH tracks where possible (seconds from each track's start), a category, severity (critical/review/info), a concise plain-English explanation with source/dub phrase evidence. Return the zero-based start/end segment indexes for the closest transcript segments (sourceStartSegment, sourceEndSegment, dubStartSegment, dubEndSegment). Use transcript segments as timing anchors. Do not invent issues or exact quotes. If audio or transcripts are unclear, state the uncertainty instead of guessing. Output JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Pronunciation/intelligibility|Accent/voice|Pacing/timing|Audio quality|Other","title":"short actionable issue","detail":"what differs and why it may matter","sourceQuote":"short source phrase","dubQuote":"short target-language phrase heard","sourceStart":0,"sourceEnd":1,"dubStart":0,"dubEnd":1,"sourceStartSegment":0,"sourceEndSegment":0,"dubStartSegment":0,"dubEndSegment":0}]}. If no concrete issue is audible, return {"findings":[]}.\n\nSOURCE TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(source.segments)}\n\nDUB TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(dub.segments)}\n\nFull source transcript: ${source.transcript.slice(0, 8000)}\n\nFull dub transcript: ${dub.transcript.slice(0, 8000)}` },
+      { type: 'text', text: `You are an audio dubbing quality reviewer. You can listen to BOTH attached audio tracks. Track 1 is the original ${sourceLanguage}; track 2 is the finished dub in ${targetLanguage}. Compare the spoken meaning, not just the transcripts. The timestamped transcripts below help locate speech; audio is the evidence. Find EVERY distinct issue and each separate occurrence; do not stop after one or combine separate times. Check changed meaning, omissions/additions, each quantity and unit, and claims changed from below to above a limit. Flag clear English words or phrases used instead of the selected target language as Language mixing; ignore proper names, brands, and common loanwords. Do not judge health or nutrition safety without a trusted reference. Do not label a regional accent as wrong just because it differs; only flag if it affects intelligibility or brief requirements. For each issue give the exact start and end time in BOTH tracks where possible (seconds from each track's start), a category, severity (critical/review/info), a plain-English explanation that states what the source says and what the dub says, with short quotes. Return the zero-based start/end segment indexes for the closest transcript segments (sourceStartSegment, sourceEndSegment, dubStartSegment, dubEndSegment). Use transcript segments as timing anchors. Do not invent issues or exact quotes. If audio or transcripts are unclear, state the uncertainty instead of guessing. Output JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Language mixing|Pronunciation/intelligibility|Accent/voice|Pacing/timing|Audio quality|Other","title":"short actionable issue","detail":"what the source says and what the dub says","sourceQuote":"short source phrase","dubQuote":"short target-language phrase heard","sourceStart":0,"sourceEnd":1,"dubStart":0,"dubEnd":1,"sourceStartSegment":0,"sourceEndSegment":0,"dubStartSegment":0,"dubEndSegment":0}]}. If no concrete issue is audible, return {"findings":[]}.\n\nSOURCE TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(source.segments)}\n\nDUB TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(dub.segments)}\n\nFull source transcript: ${source.transcript.slice(0, 8000)}\n\nFull dub transcript: ${dub.transcript.slice(0, 8000)}` },
       { type: 'audio', data: sourceAudio.data, mime_type: sourceAudio.mime_type },
       { type: 'audio', data: dubAudio.data, mime_type: dubAudio.mime_type },
     ],
