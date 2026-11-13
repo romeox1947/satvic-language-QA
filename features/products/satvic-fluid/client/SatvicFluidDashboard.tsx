@@ -193,7 +193,8 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
         const merged = jobs.map(job => latest.get(job.run_id || job.id) || job);
         setProjects([exampleProject, ...merged.map((job) => {
           const completionMs = job.updated_at ? Date.parse(job.updated_at) - Date.parse(job.created_at) : NaN;
-          return { title: job.project_name, source: job.source_language, target: job.target_language, status: job.status === 'completed' ? (job.issue_count ? 'Needs review' : 'Ready') : job.status === 'failed' ? 'Failed' : 'In progress', issues: job.issue_count || 0, date: new Date(job.created_at).toLocaleDateString(), color: 'lilac', initials: job.project_name.slice(0, 2).toUpperCase(), jobId: job.run_id || job.id, completedSeconds: job.status === 'completed' && Number.isFinite(completionMs) && completionMs >= 0 ? Math.round(completionMs / 1000) : undefined, errorMessage: job.error_message || undefined };
+          const status: Project['status'] = job.status === 'completed' ? (job.issue_count ? 'Needs review' : 'Ready') : job.status === 'failed' ? 'Failed' : 'In progress';
+          return { title: job.project_name, source: job.source_language, target: job.target_language, status, issues: job.issue_count || 0, date: new Date(job.created_at).toLocaleDateString(), color: 'lilac', initials: job.project_name.slice(0, 2).toUpperCase(), jobId: job.run_id || job.id, completedSeconds: job.status === 'completed' && Number.isFinite(completionMs) && completionMs >= 0 ? Math.round(completionMs / 1000) : undefined, errorMessage: job.error_message || undefined };
         })]);
       } catch { /* Keep the current dashboard visible if history is temporarily unavailable. */ }
     };
