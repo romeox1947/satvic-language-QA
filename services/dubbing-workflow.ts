@@ -168,13 +168,21 @@ async function runQa(input: JobInput, dubbedBlobUrl: string) {
 
 export async function generateAndReview(input: JobInput) {
   'use workflow';
+  const workflowStartedAt = Date.now();
+  let phaseStartedAt = workflowStartedAt;
+  const logPhase = (phase: string) => {
+    console.info(`[dubbing-workflow] job=${input.dbJobId} phase=${phase} durationMs=${Date.now() - phaseStartedAt}`);
+    phaseStartedAt = Date.now();
+  };
   await updateHistory(input, { status: 'running' });
   try {
     const hostedOnVercel = Boolean(process.env.VERCEL);
     await sendJobEmail(input, 'started', hostedOnVercel
       ? 'Your video has been accepted and the background workflow has started on Vercel. Dubbing and QA are starting; you can close your browser or turn off your computer. We will email you again when it completes or fails.'
       : 'Your video has been accepted and the background workflow has started locally. Keep this computer and the local development server running until the job finishes.');
+    phaseStartedAt = Date.now();
     const { jobId } = await startSarvam(input);
+    logPhase('sarvam-upload-and-start');
     const deadline = Date.now() + 12 * 60 * 60 * 1000;
     let current = { ready: false, progress: 0, step: 'Sarvam is creating the dub' } as Awaited<ReturnType<typeof checkSarvam>>;
     while (Date.now() < deadline) {
@@ -183,8 +191,12 @@ export async function generateAndReview(input: JobInput) {
       if (current.ready && current.downloadUrl) break;
     }
     if (!current.ready || !current.downloadUrl) throw new Error('Sarvam has not finished the dubbing export within 12 hours.');
+    logPhase('sarvam-dub-and-export');
     const dubbedBlobUrl = await saveDub(current.downloadUrl);
+    logPhase('store-dub-video');
     const result = await runQa(input, dubbedBlobUrl);
+    logPhase('qa-and-report-storage');
+    console.info(`[dubbing-workflow] job=${input.dbJobId} totalDurationMs=${Date.now() - workflowStartedAt}`);
     if ('jobError' in result && typeof result.jobError === 'string') {
       await updateHistory(input, { status: 'failed', error_message: result.jobError });
       await sendJobEmail(input, 'failed', result.jobError);
@@ -194,6 +206,7 @@ export async function generateAndReview(input: JobInput) {
     await sendJobEmail(input, 'completed', 'The dubbed video and QA report are ready in Satvic Studio.');
     return result;
   } catch (error) {
+    console.info(`[dubbing-workflow] job=${input.dbJobId} failedPhaseDurationMs=${Date.now() - phaseStartedAt} totalDurationMs=${Date.now() - workflowStartedAt}`);
     const jobError = errorText(error);
     await updateHistory(input, { status: 'failed', error_message: jobError });
     await sendJobEmail(input, 'failed', jobError);

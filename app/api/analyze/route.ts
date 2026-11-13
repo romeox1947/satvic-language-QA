@@ -24,6 +24,12 @@ const LANGUAGES: Record<string, { whisper: string; sarvam: string }> = {
   Urdu: { whisper: 'ur', sarvam: 'ur-IN' }, Sanskrit: { whisper: 'sa', sarvam: 'sa-IN' },
   Nepali: { whisper: 'ne', sarvam: 'ne-IN' },
 };
+const TARGET_LANGUAGE_REVIEW_NOTES: Record<string, string> = {
+  Punjabi: 'Punjabi reference note: A Start in Punjabi (Academy of the Punjab in North America), lesson 15, teaches rīn/rinn as “cook” and rīdda as “cooked,” including the example of cooked dal. Do not interpret a Punjabi cooking form applied to dal as rajma or an added ingredient without clear evidence in the actual phrase.',
+};
+function targetLanguageReviewNote(language: string) {
+  return TARGET_LANGUAGE_REVIEW_NOTES[language] || `Respect dialects and regional forms in ${language}. Do not call an unfamiliar inflection or synonym a changed ingredient unless the quoted dub wording clearly names a different food.`;
+}
 
 type Segment = { start: number; end: number; text: string; words?: { start: number; end: number; text: string }[] };
 type Transcript = { transcript: string; segments: Segment[]; detectedLanguage: string; engine: string };
@@ -34,6 +40,8 @@ const transcriptFindingsSchema = {
   properties: { findings: { type: 'array', items: { type: 'object', properties: {
     severity: { type: 'string', enum: ['critical', 'review', 'info'] }, category: { type: 'string' },
     title: { type: 'string' }, detail: { type: 'string' }, sourceQuote: { type: 'string' }, dubQuote: { type: 'string' },
+    sourceStartSegment: { type: ['integer', 'null'] }, sourceEndSegment: { type: ['integer', 'null'] },
+    dubStartSegment: { type: ['integer', 'null'] }, dubEndSegment: { type: ['integer', 'null'] },
   }, required: ['severity', 'category', 'title', 'detail', 'sourceQuote', 'dubQuote'] } } },
   required: ['findings'],
 };
@@ -268,18 +276,6 @@ async function backTranslate(text: string, sourceCode: string, dubCode: string, 
   return output.join('\n');
 }
 
-function findings(source: string, backTranslation: string) {
-  const result: AudioFinding[] = [];
-  const negation = /\b(no|not|never|don't|do not|isn't|cannot|without|avoid|नहीं|मत|बिना|இல்லை|வேண்டாம்|కాదు|వద్దు|નહીં|નથી|ಬೇಡ|ಅಲ್ಲ|না|নয়)\b/giu;
-  const sourceNegations = [...source.matchAll(negation)].length;
-  const backNegations = [...backTranslation.matchAll(negation)].length;
-  if (sourceNegations !== backNegations) result.push({ severity: 'critical', title: 'Possible negation change', category: 'Meaning', detail: `Negation cues found in source: ${sourceNegations} · in back-translation: ${backNegations}. Listen to the dubbed clip and verify manually.` });
-  const ratio = backTranslation.trim().length / Math.max(source.trim().length, 1);
-  if (ratio < 0.45) result.push({ severity: 'review', title: 'Possible omission or shortened content', category: 'Omission/addition', detail: 'The back-translation is much shorter than the source. This can indicate an omission, but translation style can also change length.' });
-  if (ratio > 1.9) result.push({ severity: 'review', title: 'Possible extra or expanded content', category: 'Omission/addition', detail: 'The back-translation is much longer than the source. Check whether the dub adds an explanation or changes the meaning.' });
-  return result;
-}
-
 function phrasesSupportSameFinding(audio: AudioFinding, text: AudioFinding) {
   if (audio.sourceStart !== undefined && text.sourceStart !== undefined && Math.abs(audio.sourceStart - text.sourceStart) > 30) return false;
   if (audio.dubStart !== undefined && text.dubStart !== undefined && Math.abs(audio.dubStart - text.dubStart) > 30) return false;
@@ -325,72 +321,55 @@ function segmentRange(segments: Segment[], startIndex: unknown, endIndex: unknow
   const boundedEnd = Math.max(first, last ?? first);
   return { start: segments[first].start, end: segments[boundedEnd].end };
 }
-function timedTranscriptChunks(source: Transcript, dub: Transcript) {
-  if (!source.segments.length || !dub.segments.length) return [];
-  const duration = Math.max(
-    ...source.segments.map(segment => segment.end),
-    ...dub.segments.map(segment => segment.end),
-  );
-  // Keep review passages narrow enough to catch a single changed claim, while
-  // bounding provider calls for longer videos.
-  const windowSeconds = Math.max(30, Math.ceil(duration / 8));
-  const chunks: { start: number; end: number; source: Segment[]; dub: Segment[] }[] = [];
-  for (let start = 0; start < duration; start += windowSeconds) {
-    const end = Math.min(duration, start + windowSeconds);
-    const sourcePart = source.segments.filter(segment => segment.end > start && segment.start < end);
-    const dubPart = dub.segments.filter(segment => segment.end > start && segment.start < end);
-    if (sourcePart.length || dubPart.length) chunks.push({ start, end, source: sourcePart, dub: dubPart });
-  }
-  return chunks;
-}
-
 async function geminiTranscriptReview(source: Transcript, dub: Transcript, sourceLanguage: string, targetLanguage: string, modelsUsed: Set<string>): Promise<AudioFinding[]> {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) return [];
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
-  const timedChunks = timedTranscriptChunks(source, dub);
-  const chunks = timedChunks.length
-    ? timedChunks.map((chunk, index) => ({
-      label: `time window ${Math.floor(chunk.start)}-${Math.ceil(chunk.end)} seconds (part ${index + 1} of ${timedChunks.length})`,
-      source: formatSegments(chunk.source),
-      dub: formatSegments(chunk.dub),
-      sourceSegments: chunk.source,
-      dubSegments: chunk.dub,
-    }))
-    : (() => {
-      const count = Math.max(1, Math.ceil(Math.max(source.transcript.length, dub.transcript.length) / 3000));
-      return Array.from({ length: count }, (_, index) => ({
-        label: `passage ${index + 1} of ${count}`,
-        source: source.transcript.slice(Math.floor(source.transcript.length * index / count), Math.floor(source.transcript.length * (index + 1) / count)),
-        dub: dub.transcript.slice(Math.floor(dub.transcript.length * index / count), Math.floor(dub.transcript.length * (index + 1) / count)),
-        sourceSegments: [] as Segment[],
-        dubSegments: [] as Segment[],
-      }));
-    })();
+  const sourceText = formatSegments(source.segments) || source.transcript.slice(0, 14000);
+  const dubText = formatSegments(dub.segments) || dub.transcript.slice(0, 14000);
+  const prompt = `Compare the COMPLETE source and dub transcripts for this dubbing QA. Source language: ${sourceLanguage}. Dub language: ${targetLanguage}. Read both full transcripts in order and compare each idea with the corresponding idea wherever it appears. The dub may speak a translated sentence earlier or later than the source, so do not compare only equal timestamps and do not call content missing or added until you have checked the ENTIRE other transcript. Check every number and unit in context, changed food names, omissions/additions, negation, instructions, and below/above-limit claims. Flag clear English words or phrases left in the dub instead of the selected target language as Language mixing; ignore names, brands, and common loanwords normally used in that language. Do not judge health or nutrition safety without a trusted reference. ${targetLanguageReviewNote(targetLanguage)} Natural rewording is correct. Return EVERY distinct real issue, including repeated issues at different places. Each finding must quote the exact source wording and exact dub wording and include the closest zero-based segment indexes from the supplied lists. If you cannot find a concrete source/dub difference in the full transcripts, do not report it. Do not infer pronunciation or accent from text. Return JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Language mixing|Other","title":"short issue","detail":"plain-English explanation: what the source says and what the dub says","sourceQuote":"exact short source phrase","dubQuote":"exact short dub phrase","sourceStartSegment":0,"sourceEndSegment":0,"dubStartSegment":0,"dubEndSegment":0}]}. Return an empty findings list if no concrete mismatch appears.
+
+SOURCE (${sourceLanguage}) — complete ordered transcript segments:
+${sourceText}
+
+DUB (${targetLanguage}) — complete ordered transcript segments:
+${dubText}`;
+  const response = await geminiRequest({ model, input: prompt, response_format: { type: 'text', mime_type: 'application/json', schema: transcriptFindingsSchema }, generation_config: { max_output_tokens: 8192 } }, key, 5 * 60 * 1000);
+  const usedModel = response.headers.get('x-satvic-gemini-model');
+  if (usedModel) modelsUsed.add(usedModel);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(`Gemini transcript cross-check returned ${response.status}: ${providerError(payload)}`);
+  const output = interactionOutputText(payload);
+  let parsed: Json;
+  try {
+    parsed = JSON.parse(output.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+  } catch {
+    throw new Error('Gemini transcript cross-check returned incomplete or invalid JSON.');
+  }
+  if (!Array.isArray(parsed.findings)) throw new Error('Gemini transcript cross-check returned invalid findings.');
   const findingsByKey = new Map<string, AudioFinding>();
-  for (const chunk of chunks) {
-    const prompt = `Compare these source and dubbed transcript segments for dubbing QA (${chunk.label}). Source language: ${sourceLanguage}. Dub language: ${targetLanguage}. These segments are matched by their media timestamps; compare only the speech shown here. Check every number and unit in its sentence, including whether a claim says below or above a limit. Flag only when the dub changes the source claim; do not judge health or nutrition safety without a trusted reference. Also flag clear English words or phrases left in the dub instead of the selected target language as Language mixing. Ignore names, brands, and common loanwords normally used in the target language. Natural rewording is correct. Report EVERY distinct issue in this passage; do not stop after the first issue or combine separate occurrences. Each finding must have short source and dub quotes. Do not invent a finding when meaning matches or the transcript is unclear. Do not infer pronunciation or accent from text. Return JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Language mixing|Other","title":"short issue","detail":"plain-English explanation of what the source says and what the dub says","sourceQuote":"short source phrase","dubQuote":"short target-language transcript phrase"}]}. Return an empty findings list if no concrete mismatch appears.\n\nSOURCE (${sourceLanguage}):\n${chunk.source}\n\nDUB (${targetLanguage}):\n${chunk.dub}`;
-    const response = await geminiRequest({ model, input: prompt, response_format: { type: 'text', mime_type: 'application/json', schema: transcriptFindingsSchema }, generation_config: { max_output_tokens: 4096 } }, key, 5 * 60 * 1000);
-    const usedModel = response.headers.get('x-satvic-gemini-model');
-    if (usedModel) modelsUsed.add(usedModel);
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(`Gemini transcript cross-check returned ${response.status}: ${providerError(payload)}`);
-    const output = interactionOutputText(payload);
-    let parsed: Json;
-    try {
-      parsed = JSON.parse(output.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
-    } catch {
-      throw new Error(`Gemini transcript cross-check returned incomplete or invalid JSON for ${chunk.label}.`);
-    }
-    if (!Array.isArray(parsed.findings)) throw new Error(`Gemini transcript cross-check returned invalid findings for ${chunk.label}.`);
-    for (const item of parsed.findings.filter((entry: Json) => entry?.title && entry?.detail && entry?.sourceQuote?.trim() && entry?.dubQuote?.trim() && ['critical', 'review', 'info'].includes(entry.severity))) {
-      const sourceQuote = String(item.sourceQuote || '').slice(0, 300);
-      const dubQuote = String(item.dubQuote || '').slice(0, 300);
-      const sourceRange = locatePhrase(chunk.sourceSegments.length ? chunk.sourceSegments : source.segments, sourceQuote);
-      const dubRange = locatePhrase(chunk.dubSegments.length ? chunk.dubSegments : dub.segments, dubQuote);
-      const finding: AudioFinding = { severity: item.severity, title: String(item.title).slice(0, 140), detail: String(item.detail).slice(0, 1000), category: String(item.category || 'Meaning'), sourceQuote, dubQuote, sourceStart: sourceRange.start, sourceEnd: sourceRange.end, dubStart: dubRange.start, dubEnd: dubRange.end, evidenceStatus: 'transcript-only' };
-      findingsByKey.set(`${finding.title}|${sourceQuote}|${dubQuote}|${finding.sourceStart ?? ''}|${finding.dubStart ?? ''}`.toLowerCase(), finding);
-    }
+  for (const item of parsed.findings.filter((entry: Json) => entry?.title && entry?.detail && entry?.sourceQuote?.trim() && entry?.dubQuote?.trim() && ['critical', 'review', 'info'].includes(entry.severity))) {
+    const sourceQuote = String(item.sourceQuote).slice(0, 300);
+    const dubQuote = String(item.dubQuote).slice(0, 300);
+    const sourceRange = segmentRange(source.segments, item.sourceStartSegment, item.sourceEndSegment, undefined, undefined);
+    const dubRange = segmentRange(dub.segments, item.dubStartSegment, item.dubEndSegment, undefined, undefined);
+    const sourceLocation = sourceRange.start === undefined ? locatePhrase(source.segments, sourceQuote) : sourceRange;
+    const dubLocation = dubRange.start === undefined ? locatePhrase(dub.segments, dubQuote) : dubRange;
+    const finding: AudioFinding = {
+      severity: item.severity,
+      title: String(item.title).slice(0, 140),
+      detail: String(item.detail).slice(0, 1000),
+      category: String(item.category || 'Meaning'),
+      sourceQuote,
+      dubQuote,
+      sourceStart: sourceLocation.start,
+      sourceEnd: sourceLocation.end,
+      dubStart: dubLocation.start,
+      dubEnd: dubLocation.end,
+      evidenceStatus: 'transcript-only',
+    };
+    const key = `${finding.title}|${sourceQuote}|${dubQuote}|${finding.sourceStart ?? ''}|${finding.dubStart ?? ''}`.toLowerCase();
+    findingsByKey.set(key, finding);
   }
   return [...findingsByKey.values()];
 }
@@ -401,7 +380,7 @@ async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudi
   const body = {
     model,
     input: [
-      { type: 'text', text: `You are an audio dubbing quality reviewer. You can listen to BOTH attached audio tracks. Track 1 is the original ${sourceLanguage}; track 2 is the finished dub in ${targetLanguage}. Compare the spoken meaning, not just the transcripts. The timestamped transcripts below help locate speech; audio is the evidence. Find EVERY distinct issue and each separate occurrence; do not stop after one or combine separate times. Check changed meaning, omissions/additions, each quantity and unit, and claims changed from below to above a limit. Flag clear English words or phrases used instead of the selected target language as Language mixing; ignore proper names, brands, and common loanwords. Do not judge health or nutrition safety without a trusted reference. Do not label a regional accent as wrong just because it differs; only flag if it affects intelligibility or brief requirements. For each issue give the exact start and end time in BOTH tracks where possible (seconds from each track's start), a category, severity (critical/review/info), a plain-English explanation that states what the source says and what the dub says, with short quotes. Return the zero-based start/end segment indexes for the closest transcript segments (sourceStartSegment, sourceEndSegment, dubStartSegment, dubEndSegment). Use transcript segments as timing anchors. Do not invent issues or exact quotes. If audio or transcripts are unclear, state the uncertainty instead of guessing. Output JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Language mixing|Pronunciation/intelligibility|Accent/voice|Pacing/timing|Audio quality|Other","title":"short actionable issue","detail":"what the source says and what the dub says","sourceQuote":"short source phrase","dubQuote":"short target-language phrase heard","sourceStart":0,"sourceEnd":1,"dubStart":0,"dubEnd":1,"sourceStartSegment":0,"sourceEndSegment":0,"dubStartSegment":0,"dubEndSegment":0}]}. If no concrete issue is audible, return {"findings":[]}.\n\nSOURCE TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(source.segments)}\n\nDUB TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(dub.segments)}\n\nFull source transcript: ${source.transcript.slice(0, 8000)}\n\nFull dub transcript: ${dub.transcript.slice(0, 8000)}` },
+      { type: 'text', text: `You are an audio dubbing quality reviewer. You can listen to BOTH attached audio tracks. Track 1 is the original ${sourceLanguage}; track 2 is the finished dub in ${targetLanguage}. Compare the spoken meaning, not just the transcripts. The timestamped transcripts below help locate speech; audio is the evidence. Find EVERY distinct issue and each separate occurrence; do not stop after one or combine separate times. Check changed meaning, omissions/additions, each quantity and unit, and claims changed from below to above a limit. Flag clear English words or phrases used instead of the selected target language as Language mixing; ignore proper names, brands, and common loanwords. Do not judge health or nutrition safety without a trusted reference. ${targetLanguageReviewNote(targetLanguage)} Do not label a regional accent as wrong just because it differs; only flag if it affects intelligibility or brief requirements. For each issue give the exact start and end time in BOTH tracks where possible (seconds from each track's start), a category, severity (critical/review/info), a plain-English explanation that states what the source says and what the dub says, with short quotes. Return the zero-based start/end segment indexes for the closest transcript segments (sourceStartSegment, sourceEndSegment, dubStartSegment, dubEndSegment). Use transcript segments as timing anchors. Do not invent issues or exact quotes. If audio or transcripts are unclear, state the uncertainty instead of guessing. Output JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Language mixing|Pronunciation/intelligibility|Accent/voice|Pacing/timing|Audio quality|Other","title":"short actionable issue","detail":"what the source says and what the dub says","sourceQuote":"short source phrase","dubQuote":"short target-language phrase heard","sourceStart":0,"sourceEnd":1,"dubStart":0,"dubEnd":1,"sourceStartSegment":0,"sourceEndSegment":0,"dubStartSegment":0,"dubEndSegment":0}]}. If no concrete issue is audible, return {"findings":[]}.\n\nSOURCE TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(source.segments)}\n\nDUB TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(dub.segments)}\n\nFull source transcript: ${source.transcript.slice(0, 8000)}\n\nFull dub transcript: ${dub.transcript.slice(0, 8000)}` },
       { type: 'audio', data: sourceAudio.data, mime_type: sourceAudio.mime_type },
       { type: 'audio', data: dubAudio.data, mime_type: dubAudio.mime_type },
     ],
@@ -436,6 +415,12 @@ export async function POST(request: Request) {
   if (!key) return NextResponse.json({ error: 'Add SARVAM_API_KEY to .env.local and restart the dev server.' }, { status: 503 });
   if (!process.env.GEMINI_API_KEY?.trim()) return NextResponse.json({ error: 'Add GEMINI_API_KEY to .env.local. The AI audio reviewer needs it to listen to and compare both languages.' }, { status: 503 });
   let stage = 'Reading uploaded files';
+  let stageStartedAt = Date.now();
+  const markStage = (nextStage: string) => {
+    console.info(`[api/analyze] stage=${stage} durationMs=${Date.now() - stageStartedAt}`);
+    stage = nextStage;
+    stageStartedAt = Date.now();
+  };
   let progressId = '';
   let historyJobId = '';
   let historyOriginalUrl = '';
@@ -462,7 +447,8 @@ export async function POST(request: Request) {
       historyDubbedUrl = savedJob.dubbed_blob_url || '';
     }
     progressId = String(form?.get('progressId') || '');
-    updateAnalysisProgress(progressId, 'Checking uploaded videos', 12);
+    markStage('Checking uploaded videos');
+    updateAnalysisProgress(progressId, stage, 12);
     let original: FormDataEntryValue | File | null = form?.get('original') || null;
     let dubbed: FormDataEntryValue | File | null = form?.get('dubbed') || null;
     if (isJson) {
@@ -497,20 +483,19 @@ export async function POST(request: Request) {
       appUrl: new URL(request.url).origin,
     });
 
-    stage = 'Transcribing original and dubbed media';
+    markStage('Transcribing original and dubbed media');
     updateAnalysisProgress(progressId, stage, 24);
     const [originalResult, dubbedResult] = await Promise.all([
       transcribeWithWhisper(original, source.whisper, source.sarvam, key),
       transcribeWithWhisper(dubbed, target.whisper, target.sarvam, key),
     ]);
-    stage = 'Checking transcript and back-translation';
+    markStage('Checking transcript and back-translation');
     updateAnalysisProgress(progressId, stage, 66);
     const backTranslation = await backTranslate(dubbedResult.transcript, source.sarvam, target.sarvam, key);
-    const heuristicFindings = findings(originalResult.transcript, backTranslation);
-    stage = 'Preparing both audio tracks for AI listening';
+    markStage('Preparing both audio tracks for AI listening');
     updateAnalysisProgress(progressId, stage, 73);
     const [sourceAudio, dubAudio] = await Promise.all([extractCompactAudio(original), extractCompactAudio(dubbed)]);
-    stage = 'Gemini checking transcript meaning';
+    markStage('Gemini checking transcript meaning');
     updateAnalysisProgress(progressId, stage, 82);
     let textFindings: AudioFinding[] = [];
     const transcriptModelsUsed = new Set<string>();
@@ -528,7 +513,7 @@ export async function POST(request: Request) {
     if (formatSegments(originalResult.segments).length > 14000 || formatSegments(dubbedResult.segments).length > 14000) reviewCoverageWarnings.push('Timestamped segment context for audio review was truncated.');
     if (!originalResult.segments.length) reviewCoverageWarnings.push('The source transcript has no timing data, so source-side issue locations may be unavailable.');
     if (!dubbedResult.segments.length) reviewCoverageWarnings.push('The dub transcript has no timing data, so dub-side issue locations and transcript playback are unavailable.');
-    stage = 'Gemini listening to both audio tracks';
+    markStage('Gemini listening to both audio tracks');
     updateAnalysisProgress(progressId, stage, 88);
     const aiFindings = await geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage, audioModelsUsed);
     const audioFindings = aiFindings.map(item => ({
@@ -539,15 +524,12 @@ export async function POST(request: Request) {
     const unmatchedTextFindings = textFindings
       .filter(check => !aiFindings.some(item => phrasesSupportSameFinding(item, check)))
       .map(item => ({ ...item, source: 'Gemini transcript cross-check' }));
-    const unmatchedTranscriptFindings = heuristicFindings
-      .filter(check => !textFindings.some(item => (item.category || '').split('/')[0].toLowerCase() === (check.category || '').split('/')[0].toLowerCase()))
-      .map(item => ({ ...item, evidenceStatus: 'transcript-only' as const, source: 'Transcript checks' }));
     const combinedFindings = [
       ...audioFindings,
       ...unmatchedTextFindings,
-      ...unmatchedTranscriptFindings,
     ];
-    updateAnalysisProgress(progressId, 'Finishing the timestamped report', 97);
+    markStage('Finishing the timestamped report');
+    updateAnalysisProgress(progressId, stage, 97);
     updateAnalysisProgress(progressId, 'Analysis complete', 100, 'complete');
     const report: Json = {
       project: historyProjectName || original.name.replace(/\.[^.]+$/, ''),
@@ -584,6 +566,7 @@ export async function POST(request: Request) {
     }
     return NextResponse.json(report);
   } catch (error) {
+    console.info(`[api/analyze] stage=${stage} failedAfterMs=${Date.now() - stageStartedAt}`);
     const message = error instanceof Error ? error.message : providerError(error as Json);
     if (historyJobId && historySupabase) {
       await historySupabase.from('qa_jobs').update({ status: 'failed', error_message: message.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
