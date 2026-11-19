@@ -84,4 +84,8 @@
 .auth-v2 .auth-v2-google-mark svg{display:block;width:20px;height:20px}
 main.auth-screen.auth-v2{position:fixed!important;inset:0!important;display:block!important;width:100vw!important;max-width:none!important;height:100svh!important;min-height:100svh!important;margin:0!important;padding:0!important;overflow:hidden!important}
 .auth-v2 .auth-layout{position:absolute;inset:0;width:100vw!important;max-width:none!important;height:100svh;min-height:100svh;margin:0!important}
+.auth-v2 .auth-form-glass{position:relative;isolation:isolate;width:min(100%,500px);margin:auto;padding:42px 40px;border:1px solid rgba(255,255,255,.94);border-radius:25px;background:linear-gradient(145deg,rgba(255,255,255,.82),rgba(245,249,241,.6) 56%,rgba(255,255,255,.74));box-shadow:0 24px 70px rgba(75,106,72,.14),inset 0 1px 0 rgba(255,255,255,.98),inset 0 -1px 0 rgba(125,161,120,.12);backdrop-filter:blur(26px) saturate(1.4)}
+.auth-v2 .auth-form-glass::before{position:absolute;z-index:-1;inset:0 12% 62%;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.8),rgba(255,255,255,0));content:"";filter:blur(15px);pointer-events:none}
+.auth-v2 .auth-v2-content{width:min(100%,390px)}
 @media(max-width:620px){main.auth-screen.auth-v2{position:relative!important;height:auto!important;min-height:100svh;overflow-y:auto!important}.auth-v2 .auth-layout{position:relative;inset:auto;width:100%!important;height:auto;min-height:100svh;margin:0!important}}
+@media(max-width:620px){.auth-v2 .auth-main-panel{padding:18px 16px}.auth-v2 .auth-form-glass{width:min(100%,450px);padding:32px 24px;border-radius:22px}}
