@@ -12,6 +12,7 @@
 .so-india-content{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(130px,.85fr);align-items:center;gap:8px;margin-top:8px}
 .so-india-map{display:grid;min-width:0;min-height:250px;place-items:center;overflow:hidden}
 .so-india-map svg{display:block;width:100%;height:auto;max-height:330px;overflow:visible}
+.so-india-map svg path{cursor:pointer;transition:fill .16s}
 .so-india-state-panel{display:grid;min-width:0;gap:8px;align-self:stretch;padding:3px 0}
 .so-india-state-summary{display:grid;gap:3px;padding:0 1px 7px;border-bottom:1px solid #efefed}
 .so-india-state-summary strong{overflow:hidden;color:#59446f;font-size:11px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
