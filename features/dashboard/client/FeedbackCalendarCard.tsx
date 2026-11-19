@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, ExternalLink, Link2, MessageSquare, Video, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, ExternalLink, Link2, LoaderCircle, MessageSquare, RefreshCw, Video, X } from 'lucide-react';
 
 export type FeedbackEntry = {
   id: string;
@@ -14,17 +14,21 @@ export type FeedbackEntry = {
   respondent?: string;
 };
 
-type Props = { entries?: FeedbackEntry[]; formUrl?: string | null; onSaveFormUrl?: (url: string) => Promise<void> };
+type Props = { folderId: string; formUrl?: string | null; sheetUrl?: string | null; onSaveFormLinks?: (formUrl: string, sheetUrl: string) => Promise<void> };
 
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-export default function FeedbackCalendarCard({ entries = [], formUrl = '', onSaveFormUrl }: Props) {
+export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl = '', onSaveFormLinks }: Props) {
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [formSettingsOpen, setFormSettingsOpen] = useState(false);
   const [formUrlDraft, setFormUrlDraft] = useState(formUrl || '');
+  const [sheetUrlDraft, setSheetUrlDraft] = useState(sheetUrl || '');
   const [formUrlSaving, setFormUrlSaving] = useState(false);
   const [formUrlError, setFormUrlError] = useState('');
+  const [entries, setEntries] = useState<FeedbackEntry[]>([]);
+  const [responsesLoading, setResponsesLoading] = useState(false);
+  const [responsesError, setResponsesError] = useState('');
   const monthLabel = visibleMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const firstWeekday = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1).getDay();
   const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
@@ -36,15 +40,34 @@ export default function FeedbackCalendarCard({ entries = [], formUrl = '', onSav
   const selectedEntries = selectedDate ? groupedEntries[selectedDate] || [] : [];
   const selectedLabel = selectedDate ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
 
-  useEffect(() => setFormUrlDraft(formUrl || ''), [formUrl]);
+  useEffect(() => { setFormUrlDraft(formUrl || ''); setSheetUrlDraft(sheetUrl || ''); }, [formUrl, sheetUrl]);
+
+  const loadResponses = useCallback(async () => {
+    if (!folderId || !sheetUrl) { setEntries([]); setResponsesError(''); setResponsesLoading(false); return; }
+    setResponsesLoading(true);
+    setResponsesError('');
+    try {
+      const response = await fetch(`/api/folders/${encodeURIComponent(folderId)}/feedback`, { cache: 'no-store' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not load feedback responses.');
+      setEntries(Array.isArray(body.entries) ? body.entries : []);
+    } catch (error) {
+      setEntries([]);
+      setResponsesError(error instanceof Error ? error.message : 'Could not load feedback responses.');
+    } finally {
+      setResponsesLoading(false);
+    }
+  }, [folderId, sheetUrl]);
+
+  useEffect(() => { void loadResponses(); }, [loadResponses]);
 
   async function saveFormUrl(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!onSaveFormUrl || formUrlSaving) return;
+    if (!onSaveFormLinks || formUrlSaving) return;
     setFormUrlSaving(true);
     setFormUrlError('');
     try {
-      await onSaveFormUrl(formUrlDraft.trim());
+      await onSaveFormLinks(formUrlDraft.trim(), sheetUrlDraft.trim());
       setFormSettingsOpen(false);
     } catch (error) {
       setFormUrlError(error instanceof Error ? error.message : 'Could not save the form link.');
@@ -54,12 +77,13 @@ export default function FeedbackCalendarCard({ entries = [], formUrl = '', onSav
   }
 
   async function removeFormUrl() {
-    if (!onSaveFormUrl || formUrlSaving) return;
+    if (!onSaveFormLinks || formUrlSaving) return;
     setFormUrlSaving(true);
     setFormUrlError('');
     try {
-      await onSaveFormUrl('');
+      await onSaveFormLinks('', '');
       setFormUrlDraft('');
+      setSheetUrlDraft('');
       setFormSettingsOpen(false);
     } catch (error) {
       setFormUrlError(error instanceof Error ? error.message : 'Could not remove the form link.');
@@ -76,10 +100,10 @@ export default function FeedbackCalendarCard({ entries = [], formUrl = '', onSav
   return <article className="feedback-calendar-card" aria-label="Video feedback calendar">
     <header className="feedback-card-heading">
       <div className="feedback-card-title"><span className="feedback-card-icon"><MessageSquare size={16}/></span><div><span className="feedback-card-kicker">VIDEO FEEDBACK</span><h2>Community reports</h2></div></div>
-      <div className="feedback-card-actions">{selectedDate && <button type="button" className="feedback-back-button" onClick={() => setSelectedDate(null)}><ArrowLeft size={13}/> Calendar</button>}<span className="feedback-response-count">{entries.length} reports</span>{formUrl ? <a className="feedback-form-link" href={formUrl} target="_blank" rel="noreferrer"><ExternalLink size={12}/> Report an issue</a> : <button type="button" className="feedback-form-link" onClick={() => { setFormUrlDraft(''); setFormUrlError(''); setFormSettingsOpen(true); }}><Link2 size={12}/> Add form link</button>}{formUrl && onSaveFormUrl && <button type="button" className="feedback-form-edit" aria-label="Edit form link" title="Edit form link" onClick={() => { setFormUrlDraft(formUrl); setFormUrlError(''); setFormSettingsOpen(true); }}><Link2 size={13}/></button>}</div>
+      <div className="feedback-card-actions">{selectedDate && <button type="button" className="feedback-back-button" onClick={() => setSelectedDate(null)}><ArrowLeft size={13}/> Calendar</button>}<span className="feedback-response-count">{responsesLoading ? <><LoaderCircle size={10} className="feedback-spin"/> Loading</> : `${entries.length} reports`}</span>{sheetUrl && <button type="button" className="feedback-form-edit" aria-label="Refresh form responses" title="Refresh form responses" onClick={() => void loadResponses()} disabled={responsesLoading}><RefreshCw size={12}/></button>}{formUrl ? <a className="feedback-form-link" href={formUrl} target="_blank" rel="noreferrer"><ExternalLink size={12}/> Report an issue</a> : <button type="button" className="feedback-form-link" onClick={() => { setFormUrlDraft(''); setSheetUrlDraft(''); setFormUrlError(''); setFormSettingsOpen(true); }}><Link2 size={12}/> Add form links</button>}{(formUrl || sheetUrl) && onSaveFormLinks && <button type="button" className="feedback-form-edit" aria-label="Edit feedback links" title="Edit feedback links" onClick={() => { setFormUrlDraft(formUrl || ''); setSheetUrlDraft(sheetUrl || ''); setFormUrlError(''); setFormSettingsOpen(true); }}><Link2 size={13}/></button>}</div>
     </header>
 
-    {formSettingsOpen && <form className="feedback-form-settings" onSubmit={saveFormUrl}><div className="feedback-form-settings-heading"><b>{formUrl ? 'Update feedback form' : 'Add a feedback form'}</b><button type="button" aria-label="Close form link settings" onClick={() => setFormSettingsOpen(false)}><X size={14}/></button></div><label>Google Form URL<input type="url" value={formUrlDraft} onChange={event => setFormUrlDraft(event.target.value)} placeholder="https://docs.google.com/forms/..." required autoFocus /></label>{formUrlError && <p role="alert">{formUrlError}</p>}<div className="feedback-form-settings-actions">{formUrl && <button type="button" className="feedback-remove-form" disabled={formUrlSaving} onClick={() => void removeFormUrl()}>Remove link</button>}<button type="submit" disabled={formUrlSaving || !formUrlDraft.trim()}>{formUrlSaving ? 'Saving…' : 'Save link'}</button></div></form>}
+    {formSettingsOpen && <form className="feedback-form-settings" onSubmit={saveFormUrl}><div className="feedback-form-settings-heading"><b>Feedback links for this folder</b><button type="button" aria-label="Close form link settings" onClick={() => setFormSettingsOpen(false)}><X size={14}/></button></div><label>Viewer Google Form URL<input type="url" value={formUrlDraft} onChange={event => setFormUrlDraft(event.target.value)} placeholder="https://docs.google.com/forms/..." required autoFocus /></label><label>Form response spreadsheet URL<input type="url" value={sheetUrlDraft} onChange={event => setSheetUrlDraft(event.target.value)} placeholder="https://docs.google.com/spreadsheets/..." required /></label><small className="feedback-sheet-help">Set the Sheet’s General access to “Anyone with the link · Viewer” so the calendar can read its responses.</small>{formUrlError && <p role="alert">{formUrlError}</p>}<div className="feedback-form-settings-actions">{(formUrl || sheetUrl) && <button type="button" className="feedback-remove-form" disabled={formUrlSaving} onClick={() => void removeFormUrl()}>Remove links</button>}<button type="submit" disabled={formUrlSaving || !formUrlDraft.trim() || !sheetUrlDraft.trim()}>{formUrlSaving ? 'Saving…' : 'Save links'}</button></div></form>}
 
     {selectedDate ? <section className="feedback-day-view" aria-live="polite">
       <div className="feedback-day-heading"><span className="feedback-card-kicker">SUBMISSIONS</span><h3>{selectedLabel}</h3><p>{selectedEntries.length ? `${selectedEntries.length} feedback ${selectedEntries.length === 1 ? 'report' : 'reports'}` : 'No feedback was submitted on this day.'}</p></div>
@@ -104,7 +128,7 @@ export default function FeedbackCalendarCard({ entries = [], formUrl = '', onSav
         })}
       </div>
       <footer className="feedback-calendar-footer"><span><i/> Feedback received</span><small>{entries.length ? 'Select a marked date to review responses.' : 'Submitted form responses will appear here.'}</small></footer>
-      {!entries.length && <div className="feedback-connect-hint"><CalendarDays size={15}/><span>Link the form response sheet to show viewer reports here.</span></div>}
+      {responsesError ? <div className="feedback-connect-hint feedback-load-error"><CalendarDays size={15}/><span>{responsesError}</span><button type="button" onClick={() => void loadResponses()}>Retry</button></div> : !sheetUrl && <div className="feedback-connect-hint"><CalendarDays size={15}/><span>Add this folder’s Google Form and response Sheet links.</span></div>}
     </>}
   </article>;
 }

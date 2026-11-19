@@ -60,6 +60,7 @@ create table if not exists public.qa_folders (
   unique (id, user_id)
 );
   alter table public.qa_folders add column if not exists feedback_form_url text;
+alter table public.qa_folders add column if not exists feedback_sheet_url text;
 
 create unique index if not exists qa_folders_user_name_idx on public.qa_folders (user_id, lower(name));
 alter table public.qa_folders enable row level security;

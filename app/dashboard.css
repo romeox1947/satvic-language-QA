@@ -1464,6 +1464,12 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .feedback-calendar-footer>small{color:#999e95;font:400 8px "Matter";text-align:right}
 .app-shell .feedback-connect-hint{display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:9px;border-top:1px solid #f0f1ee;color:#969b92;font:400 9px "Matter"}
 .app-shell .feedback-connect-hint svg{flex:none;color:#8c70b1}
+.app-shell .feedback-sheet-help{color:#8f958b;font:400 8px/1.45 "Matter"}
+.app-shell .feedback-load-error{align-items:flex-start;color:#a8564f;line-height:1.4}
+.app-shell .feedback-load-error svg{margin-top:1px;color:#a8564f}
+.app-shell .feedback-load-error button{margin-left:auto;border:0;background:transparent;color:#775895;font:500 8px "Matter";cursor:pointer}
+.app-shell .feedback-spin{animation:feedback-spin .9s linear infinite}
+@keyframes feedback-spin{to{transform:rotate(360deg)}}
 .app-shell .feedback-back-button{width:auto;gap:5px;padding:0 8px;font:500 9px "Matter"}
 .app-shell .feedback-form-edit{display:grid;width:27px;height:27px;place-items:center;border:1px solid #e7e9e4;border-radius:8px;background:#fff;color:#777d73;cursor:pointer}
 .app-shell .feedback-form-edit:hover{border-color:#d2c4e1;background:#faf8fd;color:#705292}
