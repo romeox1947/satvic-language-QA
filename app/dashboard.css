@@ -175,6 +175,10 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .account-menu svg { color: #60635c; stroke-width: 1.8; }
 .account-menu form { margin: 5px 0 0; padding-top: 5px; border-top: 1px solid #ededeb; }
 .account-menu .account-logout, .account-menu .account-logout svg { color: #bd3935; }
+.account-menu .satvic-dashboard-menu-mark{display:grid;width:20px;height:20px;flex:none;place-items:center}
+.account-menu .satvic-dashboard-menu-mark img{display:block;width:20px;height:20px;object-fit:contain}
+.app-shell .drawer-workspace.dashboard-disabled{opacity:.62}
+.app-shell .drawer-workspace.dashboard-disabled:hover{background:#f7f7f5}
 
 .app-shell .main-area { width: calc(100% - 346px); height: 100%; margin-left: 346px; overflow: auto; scrollbar-width: none; background: #fff; }
 .app-shell .main-area::-webkit-scrollbar { display: none; }
