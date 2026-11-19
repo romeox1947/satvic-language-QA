@@ -129,7 +129,6 @@ export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl 
           return <button type="button" role="gridcell" key={key} className={`feedback-day${count ? ' has-feedback' : ''}${isToday ? ' today' : ''}`} aria-label={`${key}${count ? `, ${count} feedback reports` : ', no feedback'}`} aria-pressed={selectedDate === key} onClick={() => setSelectedDate(key)}><span>{day}</span>{count > 0 && <i>{count > 9 ? '9+' : count}</i>}</button>;
         })}
       </div>
-      <footer className="feedback-calendar-footer"><span><i/> Feedback received</span><small>{entries.length ? 'Select a marked date to review responses.' : 'Submitted form responses will appear here.'}</small></footer>
       {responsesError ? <div className="feedback-connect-hint feedback-load-error"><CalendarDays size={15}/><span>{responsesError}</span><button type="button" onClick={() => void loadResponses()}>Retry</button></div> : !sheetUrl && <div className="feedback-connect-hint"><CalendarDays size={15}/><span>Add this folder’s Google Form and response Sheet links.</span></div>}
     </>}
   </article>;
