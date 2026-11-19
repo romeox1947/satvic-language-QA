@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadPresigned } from '@vercel/blob/client';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
@@ -105,6 +105,8 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
   const [accountEmail, setAccountEmail] = useState(initialAccountEmail);
   const [activeTab, setActiveTab] = useState('All projects');
   const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [projectMenuId, setProjectMenuId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
@@ -237,6 +239,47 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     const matchTab = activeTab === 'All projects' || (activeTab === 'Needs review' && p.status === 'Needs review') || (activeTab === 'In progress' && p.status === 'In progress') || (activeTab === 'Ready' && p.status === 'Ready') || (activeTab === 'Failed' && p.status === 'Failed');
     return matchQuery && matchTab;
   }), [projects, query, activeTab]);
+  const searchProjects = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    const matchingProjects = projects.filter(project => !normalizedQuery || `${project.title} ${project.target} ${project.source} ${project.status}`.toLocaleLowerCase().includes(normalizedQuery));
+    return matchingProjects.sort((a, b) => {
+      if (!normalizedQuery) return 0;
+      const aStarts = a.title.toLocaleLowerCase().startsWith(normalizedQuery);
+      const bStarts = b.title.toLocaleLowerCase().startsWith(normalizedQuery);
+      return Number(bStarts) - Number(aStarts);
+    }).slice(0, 8);
+  }, [projects, query]);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && searchOpen) {
+        event.preventDefault();
+        setQuery('');
+        setSearchOpen(false);
+      } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [searchOpen]);
+
+  function openSearchProject(project: Project) {
+    setSearchOpen(false);
+    setQuery('');
+    if (project.isExample) {
+      setNotice('This is a shared sample project. No video or QA report is attached.');
+      return;
+    }
+    setProjectMenuId(null);
+    setReport(null);
+    setDetails(project);
+  }
 
   const latestFindingProject = projects.find(project => project.issues > 0 && project.jobId)
     ?? projects.find(project => project.status === 'Ready' && project.jobId)
@@ -549,13 +592,25 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       initialFeatureId="generate-sarvam"
       onFeatureSelect={(featureId) => setActiveWorkflow(featureId as 'generate-sarvam' | 'start-review')}
     >
+      {searchOpen && <div className="spotlight-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setQuery(''); setSearchOpen(false); } }}>
+        <section className="spotlight-panel" role="dialog" aria-modal="true" aria-label="Search workspace projects">
+          <div className="spotlight-input-row"><Search size={21} aria-hidden="true"/><input ref={searchInputRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search projects, languages, or status..." aria-label="Search projects, languages, or status" onKeyDown={event => { if (event.key === 'Enter' && searchProjects[0]) { event.preventDefault(); openSearchProject(searchProjects[0]); } }} /><button type="button" className="spotlight-escape" onClick={() => { setQuery(''); setSearchOpen(false); }}>ESC</button></div>
+          <div className="spotlight-results" role="listbox" aria-label="Matching projects">
+            <div className="spotlight-section-label">{query.trim() ? 'MATCHING PROJECTS' : 'RECENT PROJECTS'}</div>
+            {searchProjects.length ? searchProjects.map(project => <button type="button" key={project.isExample ? 'shared-example' : project.jobId || project.title} className="spotlight-result" role="option" aria-selected="false" onClick={() => openSearchProject(project)}>
+              <span className={`spotlight-project-icon ${project.color}`}>{project.initials}</span><span className="spotlight-result-copy"><b>{project.title}</b><small>{project.source} <ArrowRight size={11}/> {project.target} <i>·</i> {project.date}</small></span><span className={`spotlight-status ${project.status.toLowerCase().replace(' ', '-')}`}>{project.status}</span><ArrowRight className="spotlight-result-arrow" size={16}/>
+            </button>) : <div className="spotlight-empty"><Search size={19}/><b>No matching projects</b><span>Try a project name, language, or status.</span></div>}
+          </div>
+          <footer className="spotlight-footer"><span><kbd>↵</kbd> Open project</span><span><kbd>ESC</kbd> Close</span><span><kbd>⌘ K</kbd> Search</span></footer>
+        </section>
+      </div>}
       <section className="welcome-row"><div><h1>{isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{isSarvamWorkflow ? 'Create a dub in your target language, then review it.' : 'Compare an existing dub with its original.'}</p></div><button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={17}/>} {workflow.action}</button></section>
 
 
 
       <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div className="qa-flow-title"><span className={`qa-flow-brand${isSarvamWorkflow ? ' sarvam' : ' review'}`}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={19}/>}</span><div><div className="section-kicker">{workflow.eyebrow}</div><h2 id="qa-flow-title">{workflow.title}</h2></div></div><span className="qa-flow-time"><Clock3 size={15}/> 4 steps</span></div><ol className="qa-flow-steps">{workflow.steps.map(([title,description],index)=>{const StepIcon=workflowStepIcons[index];return <li key={title}><span className="qa-step-number">0{index+1}</span><span className="qa-step-icon" aria-hidden="true"><StepIcon size={15}/></span><div><b>{title}</b><p>{description}</p></div></li>})}</ol><button className="qa-flow-action" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={16}/>} Open upload <ArrowRight size={15}/></button></section>
 
-          <section className="work-grid"><div className="projects-panel panel"><div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>Recent projects <span className="heading-count">{projects.length}</span></h3></div><button className="text-action" onClick={() => setActiveTab('All projects')}>View all <ArrowRight size={14} /></button></div><div className="project-toolbar"><div className="tabs">{['All projects','Needs review','In progress','Ready','Failed'].map(tab => <button key={tab} className={cx('tab', activeTab===tab && 'tab-active')} onClick={() => setActiveTab(tab)}>{tab}{tab==='Needs review' && <i className="tab-dot"/>}</button>)}</div><div className="project-tools"><label className="search-box"><Search size={15}/><input placeholder="Search projects" value={query} onChange={e=>setQuery(e.target.value)} /></label><button className="filter-btn" onClick={() => setNotice('Showing the latest dubbing QA projects.')}><Filter size={14}/><span>Filter</span></button></div></div><div className="project-list">{visibleProjects.length ? visibleProjects.map((p,index)=><div className={cx('project-row',p.isExample&&'example-project-row')} key={p.isExample?'shared-example':`${p.title}-${index}`} role="group" aria-label={`Project ${p.title}${p.isExample?' (example)':''}`} onClick={()=>{if(p.isExample){setNotice('This is a shared sample project. No video or QA report is attached.');return;}setProjectMenuId(null);setReport(null);setDetails(p)}}><div className={`project-thumb ${p.color}`}><span>{p.initials}</span><div className="thumb-play"><Play size={10} fill="currentColor"/></div></div><div className="project-name"><button type="button" className="project-open" onClick={event=>{event.stopPropagation();if(p.isExample){setNotice('This is a shared sample project. No video or QA report is attached.');return;}setProjectMenuId(null);setReport(null);setDetails(p)}}><b>{p.title}</b>{p.isExample&&<span className="example-project-badge">Example</span>}</button><span>{p.source} <ArrowRight size={11}/> {p.target}<span className="project-dot">·</span>{p.date}</span></div><div className="project-score"><div className={cx("outcome-mark",p.status==='Failed'&&'failed')}>{p.status==='Failed'?<AlertCircle size={15}/>:<Clock3 size={15}/>}</div><span>{p.isExample?'Sample preview':p.completedSeconds !== undefined ? `Completed in ${formatDuration(p.completedSeconds)}` : p.status === 'Failed' ? 'Dubbing failed' : p.status === 'In progress' ? 'Processing' : 'Time unavailable'}</span></div><div className={cx("project-issues",p.status==='Failed'&&'failed')}>{p.status==='Failed' ? <><AlertCircle size={14}/><span>Failed</span></> : p.issues>0 ? <><span className={cx('issue-count',p.status==='Needs review'&&'issue-hot')}>{p.issues}</span><span>{p.issues===1?'flag':'flags'}</span></> : p.isExample ? <><CheckCheck size={15}/><span>Sample</span></> : <><CheckCheck size={15}/><span>No flags</span></>}</div><div className="status-cell"><span className={cx('status-pill',p.status.toLowerCase().replace(' ','-'))}><i/>{p.status}</span></div>{!p.isExample&&<div className="project-actions" onClick={event=>event.stopPropagation()}><button type="button" className="row-more" aria-label={`Actions for ${p.title}`} aria-expanded={projectMenuId===p.jobId} onClick={()=>{setProjectMenuId(projectMenuId===p.jobId?null:p.jobId??null);setDeleteConfirmId(null)}}><MoreHorizontal size={18}/></button>{projectMenuId===p.jobId && <div className="project-actions-menu">{deleteConfirmId===p.jobId ? <><p>Delete this project and its stored files?</p><button type="button" className="project-delete-confirm" disabled={deletingProjectId===p.jobId} onClick={()=>void deleteProject(p)}>{deletingProjectId===p.jobId?'Deleting...':'Confirm delete'}</button><button type="button" onClick={()=>{setDeleteConfirmId(null);setProjectMenuId(null)}}>Cancel</button></> : <button type="button" className="project-delete-option" onClick={()=>setDeleteConfirmId(p.jobId??null)}><Trash2 size={14}/>Delete project</button>}</div>}</div>}</div>) : <div className="empty-state"><Search size={19}/><b>No matching projects</b><span>Try another search or choose a different view.</span></div>}</div><button className="list-footer" onClick={()=>setNotice('You’re viewing the latest projects in this workspace.')}>Showing {visibleProjects.length} of {projects.length} projects <ArrowDown size={13}/></button></div>
+          <section className="work-grid"><div className="projects-panel panel"><div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>Recent projects <span className="heading-count">{projects.length}</span></h3></div><button className="text-action" onClick={() => setActiveTab('All projects')}>View all <ArrowRight size={14} /></button></div><div className="project-toolbar"><div className="tabs">{['All projects','Needs review','In progress','Ready','Failed'].map(tab => <button key={tab} className={cx('tab', activeTab===tab && 'tab-active')} onClick={() => setActiveTab(tab)}>{tab}{tab==='Needs review' && <i className="tab-dot"/>}</button>)}</div><div className="project-tools"><button type="button" className="search-box search-trigger" onClick={()=>{setQuery("");setSearchOpen(true)}} aria-haspopup="dialog" aria-expanded={searchOpen}><Search size={15}/><span>Search projects</span><kbd>⌘ K</kbd></button><button className="filter-btn" onClick={() => setNotice('Showing the latest dubbing QA projects.')}><Filter size={14}/><span>Filter</span></button></div></div><div className="project-list">{visibleProjects.length ? visibleProjects.map((p,index)=><div className={cx('project-row',p.isExample&&'example-project-row')} key={p.isExample?'shared-example':`${p.title}-${index}`} role="group" aria-label={`Project ${p.title}${p.isExample?' (example)':''}`} onClick={()=>{if(p.isExample){setNotice('This is a shared sample project. No video or QA report is attached.');return;}setProjectMenuId(null);setReport(null);setDetails(p)}}><div className={`project-thumb ${p.color}`}><span>{p.initials}</span><div className="thumb-play"><Play size={10} fill="currentColor"/></div></div><div className="project-name"><button type="button" className="project-open" onClick={event=>{event.stopPropagation();if(p.isExample){setNotice('This is a shared sample project. No video or QA report is attached.');return;}setProjectMenuId(null);setReport(null);setDetails(p)}}><b>{p.title}</b>{p.isExample&&<span className="example-project-badge">Example</span>}</button><span>{p.source} <ArrowRight size={11}/> {p.target}<span className="project-dot">·</span>{p.date}</span></div><div className="project-score"><div className={cx("outcome-mark",p.status==='Failed'&&'failed')}>{p.status==='Failed'?<AlertCircle size={15}/>:<Clock3 size={15}/>}</div><span>{p.isExample?'Sample preview':p.completedSeconds !== undefined ? `Completed in ${formatDuration(p.completedSeconds)}` : p.status === 'Failed' ? 'Dubbing failed' : p.status === 'In progress' ? 'Processing' : 'Time unavailable'}</span></div><div className={cx("project-issues",p.status==='Failed'&&'failed')}>{p.status==='Failed' ? <><AlertCircle size={14}/><span>Failed</span></> : p.issues>0 ? <><span className={cx('issue-count',p.status==='Needs review'&&'issue-hot')}>{p.issues}</span><span>{p.issues===1?'flag':'flags'}</span></> : p.isExample ? <><CheckCheck size={15}/><span>Sample</span></> : <><CheckCheck size={15}/><span>No flags</span></>}</div><div className="status-cell"><span className={cx('status-pill',p.status.toLowerCase().replace(' ','-'))}><i/>{p.status}</span></div>{!p.isExample&&<div className="project-actions" onClick={event=>event.stopPropagation()}><button type="button" className="row-more" aria-label={`Actions for ${p.title}`} aria-expanded={projectMenuId===p.jobId} onClick={()=>{setProjectMenuId(projectMenuId===p.jobId?null:p.jobId??null);setDeleteConfirmId(null)}}><MoreHorizontal size={18}/></button>{projectMenuId===p.jobId && <div className="project-actions-menu">{deleteConfirmId===p.jobId ? <><p>Delete this project and its stored files?</p><button type="button" className="project-delete-confirm" disabled={deletingProjectId===p.jobId} onClick={()=>void deleteProject(p)}>{deletingProjectId===p.jobId?'Deleting...':'Confirm delete'}</button><button type="button" onClick={()=>{setDeleteConfirmId(null);setProjectMenuId(null)}}>Cancel</button></> : <button type="button" className="project-delete-option" onClick={()=>setDeleteConfirmId(p.jobId??null)}><Trash2 size={14}/>Delete project</button>}</div>}</div>}</div>) : <div className="empty-state"><Search size={19}/><b>No matching projects</b><span>Try another search or choose a different view.</span></div>}</div><button className="list-footer" onClick={()=>setNotice('You’re viewing the latest projects in this workspace.')}>Showing {visibleProjects.length} of {projects.length} projects <ArrowDown size={13}/></button></div>
 
           <aside className="insight-column"><section className="review-panel panel"><div className="review-heading"><div className="section-kicker">LATEST FINDINGS</div><span className="queue-count">{latestReport?.findings.length || latestFindingProject?.issues || 0}</span></div>{latestReport?.findings.length ? <div className="review-latest">{latestReport.findings.slice(0,3).map((issue,index)=><button key={`${issue.title}-${index}`} className="issue-row" onClick={()=>setDetails(latestFindingProject)}><span className={cx('severity-mark',issue.severity)}>{issue.severity==='critical'?<Zap size={14}/>:<Activity size={14}/>}</span><span className="issue-copy"><b>{issue.title}</b><span>{issue.detail}</span><small><Languages size={11}/> {latestReport.targetLanguage} dub</small></span><ArrowRight className="issue-arrow" size={14}/></button>)}</div> : latestFindingProject ? <div className="review-empty"><b>{latestFindingProject.issues} flagged {latestFindingProject.issues === 1 ? 'finding' : 'findings'}</b><span>Open the latest report to see the flagged moments.</span></div> : <div className="review-empty"><b>No findings yet</b><span>Start either workflow to create a report here.</span></div>}<button className="queue-link" onClick={()=>latestFindingProject ? setDetails(latestFindingProject) : projects.length ? setDetails(projects[0]) : openActiveWorkflow()}>{latestFindingProject || projects.length ? 'Open latest report' : 'Start this workflow'} <ArrowRight size={14}/></button></section></aside></section>
 
