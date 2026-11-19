@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, Link2, LoaderCircle, MessageSquare, RefreshCw, Video, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, Languages, Link2, LoaderCircle, MessageSquare, RefreshCw, Video, X } from 'lucide-react';
 
 export type FeedbackEntry = {
   id: string;
@@ -9,6 +9,7 @@ export type FeedbackEntry = {
   videoName: string;
   timestamp: string;
   reportedText: string;
+  language?: string;
   suggestedText?: string;
   note?: string;
   respondent?: string;
@@ -108,7 +109,7 @@ export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl 
     {selectedDate ? <section className="feedback-day-view" aria-live="polite">
       <div className="feedback-day-heading"><span className="feedback-card-kicker">SUBMISSIONS</span><h3>{selectedLabel}</h3><p>{selectedEntries.length ? `${selectedEntries.length} feedback ${selectedEntries.length === 1 ? 'report' : 'reports'}` : 'No feedback was submitted on this day.'}</p></div>
       {selectedEntries.length ? <div className="feedback-entry-list">{selectedEntries.map(entry => <article className="feedback-entry" key={entry.id}>
-        <div className="feedback-entry-meta"><span><Video size={13}/>{entry.videoName}</span><span><Clock3 size={13}/>{entry.timestamp}</span></div>
+        <div className="feedback-entry-meta"><span><Video size={13}/>{entry.videoName}</span>{entry.language && <span><Languages size={13}/>{entry.language}</span>}<span><Clock3 size={13}/>{entry.timestamp}</span></div>
         <div className="feedback-entry-field"><small>Reported word or option</small><b>{entry.reportedText}</b></div>
         {entry.suggestedText && <div className="feedback-entry-field"><small>Suggested correction</small><b>{entry.suggestedText}</b></div>}
         {entry.note && <p className="feedback-entry-note">{entry.note}</p>}

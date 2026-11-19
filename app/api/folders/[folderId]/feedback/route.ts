@@ -52,7 +52,7 @@ export async function GET(_request: Request, context: { params: Promise<{ folder
   try {
     const { folderId } = await context.params;
     const { data: folder, error: folderError } = await supabase.from('qa_folders')
-      .select('id, feedback_sheet_url').eq('id', folderId).eq('user_id', user.id).maybeSingle();
+      .select('id, name, feedback_sheet_url').eq('id', folderId).eq('user_id', user.id).maybeSingle();
     if (folderError) throw folderError;
     if (!folder) return Response.json({ error: 'This folder was not found in your account.' }, { status: 404 });
     if (!folder.feedback_sheet_url) return Response.json({ entries: [], configured: false }, { headers: { 'cache-control': 'no-store' } });
@@ -74,17 +74,20 @@ export async function GET(_request: Request, context: { params: Promise<{ folder
     const columns = rawHeaders.map(normalizeHeader);
     const timestampIndex = columns.findIndex(header => header === 'timestamp' || header === 'submitted at' || header === 'submission time');
     if (timestampIndex < 0) return Response.json({ error: 'The response Sheet needs the Google Form Timestamp column in its first row.' }, { status: 422 });
+    const videoTimestampIndex = columns.findIndex((header, index) => index !== timestampIndex && (header.includes('timestamp') || header.includes('time in video') || header.includes('minutes')));
     const entries = rows.flatMap((row, index) => {
       const submittedAt = submissionDate(row[timestampIndex] ?? '');
       if (!submittedAt) return [];
       return [{
         id: `${spreadsheetId}-${index + 2}`,
         submittedAt,
-        videoName: cell(row, columns, header => header.includes('video') && !header.includes('timestamp')) || 'Viewer feedback',
-        timestamp: cell(row, columns, header => (header.includes('timestamp') && header.includes('video')) || header.includes('video timestamp') || header.includes('time in video')) || 'Timestamp not provided',
+        videoName: folder.name,
+        timestamp: videoTimestampIndex >= 0 ? String(row[videoTimestampIndex] ?? '').trim() || 'Timestamp not provided' : 'Timestamp not provided',
+        language: cell(row, columns, header => header.includes('language')) || undefined,
         reportedText: cell(row, columns, header => header.includes('wrong') || header.includes('incorrect') || header.includes('issue') || header.includes('reported word') || header.includes('option')) || 'No reported word or option provided',
         suggestedText: cell(row, columns, header => header.includes('expect') || header.includes('correct') || header.includes('suggest') || header.includes('instead')) || undefined,
         note: cell(row, columns, header => header.includes('additional') || header.includes('context') || header.includes('detail') || header === 'other') || undefined,
+        respondent: cell(row, columns, header => header === 'name') || cell(row, columns, header => header === 'email') || undefined,
       }];
     });
     return Response.json({ entries, configured: true }, { headers: { 'cache-control': 'no-store' } });

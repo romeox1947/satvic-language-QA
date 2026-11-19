@@ -6,7 +6,7 @@ import {
   Archive, ArrowRight, AudioLines, Bell, BookOpen, Brain, Building2, CalendarDays, Check, CheckCheck, ChevronDown,
   FileText, Globe2, LayoutDashboard, Lightbulb, ListChecks, LogOut, Menu, MessageSquare,
   PanelLeftClose,
-  PanelLeftOpen, Plus, Settings, Settings2, X, type LucideIcon,
+  PanelLeftOpen, Plus, Settings, Settings2, Trash2, X, type LucideIcon,
   Users,
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
@@ -77,9 +77,8 @@ export default function ProductDashboardShell({
   const [founderOfficeEnabled, setFounderOfficeEnabled] = useState(initialFounderOfficeEnabled);
   const [founderOfficePreferenceLoading, setFounderOfficePreferenceLoading] = useState(true);
   const [founderOfficePreferenceSaving, setFounderOfficePreferenceSaving] = useState(false);
-  const [satvicDashboardEnabled, setSatvicDashboardEnabled] = useState(true);
+  const [satvicDashboardEnabled, setSatvicDashboardEnabled] = useState(false);
   const [satvicDashboardPreferenceLoading, setSatvicDashboardPreferenceLoading] = useState(true);
-  const [satvicDashboardPreferenceSaving, setSatvicDashboardPreferenceSaving] = useState(false);
   const [activeFeatureId, setActiveFeatureId] = useState(initialFeatureId ?? product.groups[0].features[1]?.id ?? product.groups[0].features[0].id);
 
   useEffect(() => {
@@ -143,7 +142,7 @@ export default function ProductDashboardShell({
     let active = true;
     fetch('/api/preferences/satvic-dashboard', { cache: 'no-store' })
       .then(async response => ({ response, body: await response.json().catch(() => ({})) }))
-      .then(({ response, body }) => { if (active && response.ok) setSatvicDashboardEnabled(body.enabled !== false); })
+      .then(({ response, body }) => { if (active && response.ok) setSatvicDashboardEnabled(body.enabled === true); })
       .catch(() => {})
       .finally(() => { if (active) setSatvicDashboardPreferenceLoading(false); });
     return () => { active = false; };
@@ -205,25 +204,9 @@ export default function ProductDashboardShell({
     }
   }
 
-  async function toggleSatvicDashboard() {
-    if (satvicDashboardPreferenceLoading || satvicDashboardPreferenceSaving) return;
-    const enabled = !satvicDashboardEnabled;
-    setSatvicDashboardPreferenceSaving(true);
-    setSatvicDashboardEnabled(enabled);
-    try {
-      const response = await fetch('/api/preferences/satvic-dashboard', {
-        method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Could not update Satvic Dashboard.');
-      setSatvicDashboardEnabled(body.enabled !== false);
-      onNotice(enabled ? 'Satvic Dashboard is on.' : 'Satvic Dashboard is off.');
-    } catch (error) {
-      setSatvicDashboardEnabled(!enabled);
-      onNotice(error instanceof Error ? error.message : 'Could not update Satvic Dashboard.');
-    } finally {
-      setSatvicDashboardPreferenceSaving(false);
-    }
+  function toggleSatvicDashboard() {
+    if (satvicDashboardPreferenceLoading) return;
+    onNotice('Satvic Dashboard is coming soon.');
   }
 
   const loadNotifications = useCallback(async () => {
@@ -247,7 +230,7 @@ export default function ProductDashboardShell({
     return () => window.clearInterval(timer);
   }, [loadNotifications]);
 
-  async function followNotification(item: DashboardNotification) {
+  async function dismissNotification(item: DashboardNotification) {
     setFollowingNotificationId(item.id);
     setNotificationError('');
     try {
@@ -257,14 +240,17 @@ export default function ProductDashboardShell({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'Could not remove this notification.');
       setNotifications(current => current.filter(notification => notification.id !== item.id));
-      setNotificationOpen(false);
-      if (new URL(item.href, window.location.origin).pathname !== window.location.pathname) startNavigationLoading();
-      router.push(item.href);
     } catch (error) {
       setNotificationError(error instanceof Error ? error.message : 'Could not remove this notification.');
     } finally {
       setFollowingNotificationId(null);
     }
+  }
+
+  function openNotification(item: DashboardNotification) {
+    setNotificationOpen(false);
+    if (new URL(item.href, window.location.origin).pathname !== window.location.pathname) startNavigationLoading();
+    router.push(item.href);
   }
 
   return (
@@ -310,7 +296,7 @@ export default function ProductDashboardShell({
         {featureRailCollapsed && <button type="button" className="rail-account feature-rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)} title={accountName}><span className="account-trigger-avatar"><img src={getProfileAvatarSrc(accountAvatar)} alt=""/></span></button>}
       </aside>
 
-      {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button type="button" role="menuitemcheckbox" aria-checked={founderOfficeEnabled} aria-busy={founderOfficePreferenceSaving || founderOfficePreferenceLoading} disabled={founderOfficePreferenceSaving || founderOfficePreferenceLoading} className="account-product-toggle" onClick={()=>void toggleFounderOffice()}><Building2 size={18} /><span>Founder Office</span><i className={`account-toggle-track${founderOfficeEnabled ? ' enabled' : ''}`} aria-hidden="true"><i /></i></button><button type="button" role="menuitemcheckbox" aria-checked={satvicDashboardEnabled} aria-busy={satvicDashboardPreferenceSaving || satvicDashboardPreferenceLoading} disabled={satvicDashboardPreferenceSaving || satvicDashboardPreferenceLoading} className="account-product-toggle" onClick={()=>void toggleSatvicDashboard()}><span className="satvic-dashboard-menu-mark"><img src="https://satvicmovement.org/images/favicon.png" alt="" /></span><span>Satvic Dashboard</span><i className={`account-toggle-track${satvicDashboardEnabled ? ' enabled' : ''}`} aria-hidden="true"><i /></i></button><form action={signOut}><PendingSubmitButton role="menuitem" className="account-logout" pendingText="Logging out…"><LogOut size={18} /><span>Logout</span></PendingSubmitButton></form></div>}
+      {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button type="button" role="menuitemcheckbox" aria-checked={founderOfficeEnabled} aria-busy={founderOfficePreferenceSaving || founderOfficePreferenceLoading} disabled={founderOfficePreferenceSaving || founderOfficePreferenceLoading} className="account-product-toggle" onClick={()=>void toggleFounderOffice()}><Building2 size={18} /><span>Founder Office</span><i className={`account-toggle-track${founderOfficeEnabled ? ' enabled' : ''}`} aria-hidden="true"><i /></i></button><button type="button" role="menuitemcheckbox" aria-checked={satvicDashboardEnabled} aria-busy={satvicDashboardPreferenceLoading} disabled={satvicDashboardPreferenceLoading} className="account-product-toggle" onClick={toggleSatvicDashboard}><span className="satvic-dashboard-menu-mark"><img src="https://satvicmovement.org/images/favicon.png" alt="" /></span><span>Satvic Dashboard</span><i className={`account-toggle-track${satvicDashboardEnabled ? ' enabled' : ''}`} aria-hidden="true"><i /></i></button><form action={signOut}><PendingSubmitButton role="menuitem" className="account-logout" pendingText="Logging out…"><LogOut size={18} /><span>Logout</span></PendingSubmitButton></form></div>}
 
       <section className="main-area">
         <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button></header>
@@ -319,7 +305,7 @@ export default function ProductDashboardShell({
           {notificationError && <div className="notification-error"><span>{notificationError}</span><button type="button" onClick={() => void loadNotifications()}>Retry</button></div>}
           {notificationsLoading && visibleNotifications.length === 0 ? <div className="notification-empty">Loading notifications...</div> : visibleNotifications.length === 0 ? <div className="notification-empty"><Bell size={22}/><b>You are all caught up</b><span>New deadlines and completed video reviews will appear here.</span></div> : <div className="notification-list">{visibleNotifications.map(item => <article className="notification-card" key={item.id}>
             <div className="notification-card-copy"><div className="notification-card-meta"><span>{item.kind}</span><time>{new Date(item.createdAt).toLocaleString()}</time></div><h2>{item.title}</h2><p>{item.description}</p></div>
-            <button type="button" className="notification-open" aria-label={followingNotificationId === item.id ? `Opening ${item.title}` : `Open ${item.title}`} title="Open and remove notification" disabled={followingNotificationId === item.id} aria-busy={followingNotificationId === item.id} onClick={() => void followNotification(item)}>{followingNotificationId === item.id ? <span className="action-spinner" aria-hidden="true"/> : <ArrowRight size={19}/>}</button>
+            <div className="notification-actions"><button type="button" className="notification-delete" aria-label={`Delete notification: ${item.title}`} title="Delete notification" disabled={followingNotificationId === item.id} aria-busy={followingNotificationId === item.id} onClick={() => void dismissNotification(item)}>{followingNotificationId === item.id ? <span className="action-spinner" aria-hidden="true"/> : <Trash2 size={16}/>}</button><button type="button" className="notification-open" aria-label={`Open ${item.title}`} title="Open notification" onClick={() => openNotification(item)}><ArrowRight size={19}/></button></div>
           </article>)}</div>}
         </section> : children}</div>
       </section>

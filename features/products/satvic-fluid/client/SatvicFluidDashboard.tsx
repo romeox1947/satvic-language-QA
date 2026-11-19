@@ -310,17 +310,26 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
   }), [projects, query, activeTab, activeFolderId]);
 
   const folderProjects = activeFolderId ? projects.filter(project => project.folderId === activeFolderId && !project.isExample) : projects.filter(project => !project.isExample);
+  const searchFolders = useMemo(() => {
+    if (activeFolderId) return [];
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    const matchingFolders = folders.filter(folder => !normalizedQuery || folder.name.toLocaleLowerCase().includes(normalizedQuery));
+    return matchingFolders.sort((a, b) => {
+      if (!normalizedQuery) return 0;
+      return Number(b.name.toLocaleLowerCase().startsWith(normalizedQuery)) - Number(a.name.toLocaleLowerCase().startsWith(normalizedQuery));
+    }).slice(0, 5);
+  }, [folders, query, activeFolderId]);
   const searchProjects = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
     const matchingProjects = projects.filter(project => (!activeFolderId || (!project.isExample && project.folderId === activeFolderId))
-      && (!normalizedQuery || `${project.title} ${project.target} ${project.source} ${project.status}`.toLocaleLowerCase().includes(normalizedQuery)));
+      && (!normalizedQuery || `${project.title} ${project.target} ${project.source} ${project.status} ${folders.find(folder => folder.id === project.folderId)?.name || ''}`.toLocaleLowerCase().includes(normalizedQuery)));
     return matchingProjects.sort((a, b) => {
       if (!normalizedQuery) return 0;
       const aStarts = a.title.toLocaleLowerCase().startsWith(normalizedQuery);
       const bStarts = b.title.toLocaleLowerCase().startsWith(normalizedQuery);
       return Number(bStarts) - Number(aStarts);
     }).slice(0, 8);
-  }, [projects, query, activeFolderId]);
+  }, [projects, folders, query, activeFolderId]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
@@ -352,6 +361,18 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     setProjectMenuId(null);
     setReport(null);
     setDetails(project);
+  }
+
+  function openSearchFolder(folder: ProjectFolder) {
+    setSearchOpen(false);
+    setQuery('');
+    setActiveFolderId(folder.id);
+    setActiveTab('All projects');
+  }
+
+  function openFirstSearchResult() {
+    if (searchFolders[0]) openSearchFolder(searchFolders[0]);
+    else if (searchProjects[0]) openSearchProject(searchProjects[0]);
   }
 
   const latestFindingProject = folderProjects.find(project => project.issues > 0 && project.jobId)
@@ -798,12 +819,15 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       </section></div>}
       {searchOpen && <div className="spotlight-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setQuery(''); setSearchOpen(false); } }}>
         <section className="spotlight-panel" role="dialog" aria-modal="true" aria-label="Search workspace projects">
-          <div className="spotlight-input-row"><Search size={21} aria-hidden="true"/><input ref={searchInputRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search projects, languages, or status..." aria-label="Search projects, languages, or status" onKeyDown={event => { if (event.key === 'Enter' && searchProjects[0]) { event.preventDefault(); openSearchProject(searchProjects[0]); } }} /><button type="button" className="spotlight-escape" onClick={() => { setQuery(''); setSearchOpen(false); }}>ESC</button></div>
-          <div className="spotlight-results" role="listbox" aria-label="Matching projects">
-            <div className="spotlight-section-label">{query.trim() ? 'MATCHING PROJECTS' : 'RECENT PROJECTS'}</div>
-            {searchProjects.length ? searchProjects.map(project => <button type="button" key={project.isExample ? 'shared-example' : project.jobId || project.title} className="spotlight-result" role="option" aria-selected="false" onClick={() => openSearchProject(project)}>
+          <div className="spotlight-input-row"><Search size={21} aria-hidden="true"/><input ref={searchInputRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search projects, folders, languages, or status..." aria-label="Search projects, folders, languages, or status" onKeyDown={event => { if (event.key === 'Enter' && (searchFolders.length || searchProjects.length)) { event.preventDefault(); openFirstSearchResult(); } }} /><button type="button" className="spotlight-escape" onClick={() => { setQuery(''); setSearchOpen(false); }}>ESC</button></div>
+          <div className="spotlight-results" role="listbox" aria-label="Matching workspace items">
+            {searchFolders.length > 0 && <><div className="spotlight-section-label">{query.trim() ? 'PROJECT FOLDERS' : 'RECENT FOLDERS'}</div>{searchFolders.map(folder => <button type="button" key={folder.id} className="spotlight-result spotlight-folder-result" role="option" aria-selected="false" onClick={() => openSearchFolder(folder)}>
+              <span className="spotlight-folder-icon"><Folder size={16}/></span><span className="spotlight-result-copy"><b>{folder.name}</b><small>{projects.filter(project => project.folderId === folder.id && !project.isExample).length} videos in this project</small></span><span className="spotlight-status">Folder</span><ArrowRight className="spotlight-result-arrow" size={16}/>
+            </button>)}</>}
+            {searchProjects.length > 0 && <><div className="spotlight-section-label">{query.trim() ? 'MATCHING VIDEOS' : 'RECENT VIDEOS'}</div>{searchProjects.map(project => <button type="button" key={project.isExample ? 'shared-example' : project.jobId || project.title} className="spotlight-result" role="option" aria-selected="false" onClick={() => openSearchProject(project)}>
               <span className={`spotlight-project-icon ${project.color}`}>{project.initials}</span><span className="spotlight-result-copy"><b>{project.title}</b><small>{project.source} <ArrowRight size={11}/> {project.target} <i>·</i> {project.date}</small></span><span className={`spotlight-status ${project.status.toLowerCase().replace(' ', '-')}`}>{project.status}</span><ArrowRight className="spotlight-result-arrow" size={16}/>
-            </button>) : <div className="spotlight-empty"><Search size={19}/><b>No matching projects</b><span>Try a project name, language, or status.</span></div>}
+            </button>)}</>}
+            {!searchFolders.length && !searchProjects.length && <div className="spotlight-empty"><Search size={19}/><b>No matching projects or folders</b><span>Try a folder name, video title, language, or status.</span></div>}
           </div>
           <footer className="spotlight-footer"><span><kbd>↵</kbd> Open project</span><span><kbd>ESC</kbd> Close</span><span><kbd>⌘ K</kbd> Search</span></footer>
         </section>
@@ -816,7 +840,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       {!activeFolderId && <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div className="qa-flow-title"><span className={`qa-flow-brand${isSarvamWorkflow ? ' sarvam' : ' review'}`}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={19}/>}</span><div><div className="section-kicker">{workflow.eyebrow}</div><h2 id="qa-flow-title">{workflow.title}</h2></div></div><span className="qa-flow-time"><Clock3 size={15}/> 4 steps</span></div><ol className="qa-flow-steps">{workflow.steps.map(([title,description],index)=>{const StepIcon=workflowStepIcons[index];return <li key={title}><span className="qa-step-number">0{index+1}</span><span className="qa-step-icon" aria-hidden="true"><StepIcon size={15}/></span><div><b>{title}</b><p>{description}</p></div></li>})}</ol><button className="qa-flow-action" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={16}/>} Open upload <ArrowRight size={15}/></button></section>}
 
           {!activeFolderId && <section className="folder-library panel" aria-label="Projects">
-            <div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>Projects <span className="heading-count">{folders.length}</span></h3></div><button type="button" className="text-action" onClick={()=>{setFolderError("");setFolderName("");setFolderDialogOpen(true)}}><FolderPlus size={14}/> New folder</button></div>
+            <div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>Projects <span className="heading-count">{folders.length}</span></h3></div><div className="project-tools"><button type="button" className="search-box search-trigger" onClick={()=>{setQuery("");setSearchOpen(true)}} aria-haspopup="dialog" aria-expanded={searchOpen}><Search size={15}/><span>Search projects</span><kbd>⌘ K</kbd></button><button type="button" className="text-action" onClick={()=>{setFolderError("");setFolderName("");setFolderDialogOpen(true)}}><FolderPlus size={14}/> New folder</button></div></div>
             {foldersLoading ? <div className="folder-library-empty">Loading projects…</div> : folders.length ? <div className="folder-library-grid">{folders.map(folder=><button type="button" className="folder-library-card" key={folder.id} onClick={()=>{setActiveFolderId(folder.id);setActiveTab("All projects")}}><Folder size={20}/><span><b>{folder.name}</b><small>{projects.filter(project=>project.folderId===folder.id&&!project.isExample).length} videos</small></span><ArrowRight size={16}/></button>)}</div> : <div className="folder-library-empty"><FolderOpen size={20}/><b>No projects yet</b><span>Create a folder to keep its dubbed videos and QA findings together.</span></div>}
           </section>}
 
