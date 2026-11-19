@@ -61,9 +61,10 @@ export async function GET(_request: Request, context: { params: Promise<{ folder
     if (!spreadsheetId) return Response.json({ error: 'The response Sheet link saved for this folder is invalid.' }, { status: 400 });
     const savedSheetUrl = new URL(folder.feedback_sheet_url);
     const gid = savedSheetUrl.searchParams.get('gid') || '0';
-    const csvUrl = new URL(`https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/export`);
-    csvUrl.searchParams.set('format', 'csv');
+    const csvUrl = new URL(`https://docs.google.com/spreadsheets/d/${encodeURIComponent(spreadsheetId)}/gviz/tq`);
+    csvUrl.searchParams.set('tqx', 'out:csv');
     csvUrl.searchParams.set('gid', gid);
+    csvUrl.searchParams.set('headers', '1');
     const sheetResponse = await fetch(csvUrl, { headers: { accept: 'text/csv' }, cache: 'no-store', redirect: 'follow' });
     const csv = await sheetResponse.text();
     if (!sheetResponse.ok || /<html|accounts\.google\.com/i.test(csv.slice(0, 1200))) {
