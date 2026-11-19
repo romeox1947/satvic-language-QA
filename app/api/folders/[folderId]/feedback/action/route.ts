@@ -21,8 +21,16 @@ export async function POST(request: Request, context: { params: Promise<{ folder
     if (folderError) throw folderError;
     if (!folder) return Response.json({ error: 'This folder was not found in your account.' }, { status: 404 });
 
-    const { error } = await supabase.from('qa_feedback_actions').insert({ user_id: user.id, folder_id: folderId, feedback_id: feedbackId });
-    if (error && error.code !== '23505') throw error;
+    const actionKey = `${folderId}:${feedbackId}`;
+    const previousActions = Array.isArray(user.user_metadata?.feedback_action_ids)
+      ? user.user_metadata.feedback_action_ids.filter((id: unknown): id is string => typeof id === 'string')
+      : [];
+    if (!previousActions.includes(actionKey)) {
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { ...user.user_metadata, feedback_action_ids: [...previousActions, actionKey].slice(-300) },
+      });
+      if (updateError) throw updateError;
+    }
     return Response.json({ acted: true, feedbackId }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Could not mark this feedback as actioned.' }, { status: 500 });
