@@ -177,8 +177,6 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .account-menu .account-logout, .account-menu .account-logout svg { color: #bd3935; }
 .account-menu .satvic-dashboard-menu-mark{display:grid;width:20px;height:20px;flex:none;place-items:center}
 .account-menu .satvic-dashboard-menu-mark img{display:block;width:20px;height:20px;object-fit:contain}
-.app-shell .drawer-workspace.dashboard-disabled{opacity:.62}
-.app-shell .drawer-workspace.dashboard-disabled:hover{background:#f7f7f5}
 
 .app-shell .main-area { width: calc(100% - 346px); height: 100%; margin-left: 346px; overflow: auto; scrollbar-width: none; background: #fff; }
 .app-shell .main-area::-webkit-scrollbar { display: none; }
@@ -557,6 +555,8 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .chip-flag { background: #f0efff; }
 .app-shell .status-pill.needs-review i,
 .app-shell .tabs .tab-dot { background: #5950CC; }
+.app-shell .status-pill.ready { background: #e6f1e5; color: #386841; }
+.app-shell .status-pill.ready i { background: #3f7848; }
 .app-shell .issue-count.issue-hot { background: #f0efff; }
 .app-shell .queue-count { background: #f0efff; color: #5950CC; }
 .app-shell.dashboard-home-shell .sidebar { display: none; }
@@ -1278,6 +1278,9 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-satvic-fluid .status-pill.failed { background: #fcefee; color: #b94b4b; }
 .app-shell.product-satvic-fluid .status-pill.failed i { background: #b94b4b; }
 .app-shell.product-satvic-fluid .project-issues.failed { color: #b94b4b; }
+.app-shell.product-satvic-fluid .status-pill.ready { background: #e6f1e5; color: #315f39; }
+.app-shell.product-satvic-fluid .status-pill.ready i { background: #356f40; }
+.app-shell.product-satvic-fluid .project-row:has(.status-pill.ready) .project-issues { color: #356f40; }
 .app-shell.product-satvic-fluid .job-failure { display: flex; align-items: flex-start; gap: 11px; margin: 10px 0 16px; padding: 14px 16px; border: 1px solid #f0d9d7; border-radius: 12px; background: #fdf6f5; color: #b94b4b; }
 .app-shell.product-satvic-fluid .job-failure > div { min-width: 0; }
 .app-shell.product-satvic-fluid .job-failure b { color: #30312e; font: 500 13px/1.4 "Matter"; }
@@ -1431,9 +1434,50 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .folder-overview-grid .so-india-status-card .so-india-map svg{max-height:320px;filter:drop-shadow(0 4px 3px #334b3828)}
 .app-shell .folder-overview-grid .so-india-status-card .so-india-map svg path{filter:drop-shadow(0 1px 0 #ffffffb5) drop-shadow(0 2px 1px #34483a2b);transform:translateY(-1px)}
 .app-shell .folder-overview-empty{min-height:370px;border:1px solid #e9ece7;border-radius:16px;background:#fff;box-shadow:0 2px 9px #22251f04}
+.app-shell .feedback-calendar-card{display:flex;min-width:0;min-height:370px;flex-direction:column;padding:18px 19px;border:1px solid #e9ece7;border-radius:16px;background:#fff;box-shadow:0 2px 9px #22251f04}
+.app-shell .feedback-card-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.app-shell .feedback-card-title{display:flex;min-width:0;align-items:center;gap:10px}
+.app-shell .feedback-card-icon{display:grid;width:34px;height:34px;flex:none;place-items:center;border-radius:10px;background:#f1edf8;color:#8162a9}
+.app-shell .feedback-card-title>div{display:grid;gap:3px}
+.app-shell .feedback-card-kicker{color:#90938b;font:600 8px/1.2 "Matter";letter-spacing:1.05px}
+.app-shell .feedback-card-title h2{margin:0;color:#30342f;font:500 15px/1.2 "Matter"}
+.app-shell .feedback-response-count{padding:6px 9px;border-radius:20px;background:#f2eef9;color:#73559a;font:500 9px "Matter";white-space:nowrap}
+.app-shell .feedback-calendar-toolbar{display:flex;align-items:center;justify-content:space-between;margin:20px 0 9px;padding:0 3px}
+.app-shell .feedback-calendar-toolbar>b{color:#393d37;font:500 12px "Matter"}
+.app-shell .feedback-calendar-toolbar>button,.app-shell .feedback-back-button{display:inline-flex;width:28px;height:28px;align-items:center;justify-content:center;border:1px solid #e8eae6;border-radius:8px;background:#fff;color:#72786f;cursor:pointer}
+.app-shell .feedback-calendar-toolbar>button:hover,.app-shell .feedback-back-button:hover{border-color:#d3c7e4;background:#faf8fd;color:#705191}
+.app-shell .feedback-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;align-content:start}
+.app-shell .feedback-weekday{display:grid;height:22px;place-items:center;color:#a0a39c;font:500 8px "Matter"}
+.app-shell .feedback-day-spacer{min-height:34px}
+.app-shell .feedback-day{position:relative;display:flex;min-width:0;min-height:34px;align-items:center;justify-content:center;border:1px solid transparent;border-radius:8px;background:#f8f9f7;color:#5e635b;font:400 10px "Matter";cursor:pointer;transition:background .15s,border-color .15s,transform .15s}
+.app-shell .feedback-day:hover{transform:translateY(-1px);border-color:#ded5eb;background:#f7f3fc}
+.app-shell .feedback-day.today{border-color:#d9dcd6;color:#30342f;font-weight:600}
+.app-shell .feedback-day.has-feedback{border-color:#8e70ba;background:#8665af;color:#fff;font-weight:600;box-shadow:0 3px 8px #8060a62b}
+.app-shell .feedback-day.has-feedback:hover{background:#745295}
+.app-shell .feedback-day>i{position:absolute;top:2px;right:3px;min-width:11px;height:11px;padding:0 2px;border-radius:7px;background:#fff;color:#735496;font:600 7px/11px "Matter";font-style:normal;text-align:center}
+.app-shell .feedback-calendar-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:12px;color:#898e85}
+.app-shell .feedback-calendar-footer>span{display:flex;align-items:center;gap:6px;font:400 9px "Matter";white-space:nowrap}
+.app-shell .feedback-calendar-footer>span>i{width:8px;height:8px;border-radius:3px;background:#8665af}
+.app-shell .feedback-calendar-footer>small{color:#999e95;font:400 8px "Matter";text-align:right}
+.app-shell .feedback-connect-hint{display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:9px;border-top:1px solid #f0f1ee;color:#969b92;font:400 9px "Matter"}
+.app-shell .feedback-connect-hint svg{flex:none;color:#8c70b1}
+.app-shell .feedback-back-button{width:auto;gap:5px;padding:0 8px;font:500 9px "Matter"}
+.app-shell .feedback-day-view{display:flex;min-height:0;flex:1;flex-direction:column;margin-top:16px}
+.app-shell .feedback-day-heading h3{margin:5px 0 3px;color:#343832;font:500 16px "Matter"}
+.app-shell .feedback-day-heading p{margin:0;color:#898e85;font:400 9px "Matter"}
+.app-shell .feedback-entry-list{display:grid;gap:8px;overflow:auto;margin-top:12px;padding-right:3px}
+.app-shell .feedback-entry{padding:11px;border:1px solid #ebe7f1;border-radius:10px;background:#fcfbfe}
+.app-shell .feedback-entry-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:7px;margin-bottom:9px;color:#7f688f;font:500 8px "Matter"}
+.app-shell .feedback-entry-meta>span{display:flex;align-items:center;gap:4px}
+.app-shell .feedback-entry-field{display:grid;gap:3px;margin-top:7px}
+.app-shell .feedback-entry-field small,.app-shell .feedback-respondent{color:#969a92;font:400 8px "Matter"}
+.app-shell .feedback-entry-field b{color:#41453f;font:500 10px/1.4 "Matter";overflow-wrap:anywhere}
+.app-shell .feedback-entry-note{margin:8px 0 0;color:#6e746b;font:400 9px/1.5 "Matter";overflow-wrap:anywhere}
+.app-shell .feedback-respondent{display:block;margin-top:9px}
+.app-shell .feedback-empty-day{display:flex;min-height:100px;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#979c93;font:400 9px "Matter";text-align:center}
 .app-shell .folder-work-grid{margin-top:0}
 @media(max-width:900px){.app-shell .folder-overview-grid{grid-template-columns:minmax(270px,.9fr) minmax(0,1.1fr)}}
-@media(max-width:700px){.app-shell .folder-overview-grid{grid-template-columns:1fr;gap:10px;margin-bottom:10px}.app-shell .folder-overview-grid .so-global-card{min-height:340px;padding:15px}.app-shell .folder-overview-grid .so-india-content{grid-template-columns:minmax(0,1.1fr) minmax(130px,.9fr)}.app-shell .folder-overview-grid .so-india-map{min-height:245px}.app-shell .folder-overview-empty{min-height:250px}}
+@media(max-width:700px){.app-shell .folder-overview-grid{grid-template-columns:1fr;gap:10px;margin-bottom:10px}.app-shell .folder-overview-grid .so-global-card{min-height:340px;padding:15px}.app-shell .folder-overview-grid .so-india-content{grid-template-columns:minmax(0,1.1fr) minmax(130px,.9fr)}.app-shell .folder-overview-grid .so-india-map{min-height:245px}.app-shell .folder-overview-empty{min-height:250px}.app-shell .feedback-calendar-card{min-height:340px;padding:15px}.app-shell .feedback-calendar-grid{gap:4px}.app-shell .feedback-day,.app-shell .feedback-day-spacer{min-height:36px}}
 .app-shell .welcome-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex:none}
 .app-shell .folder-back-button{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #e2e7e0;border-radius:9px;background:#fff;color:#596359;font:500 11px "Matter";white-space:nowrap;cursor:pointer}
 .app-shell .folder-back-button:hover{border-color:#cdd9cc;background:#f6f9f5}

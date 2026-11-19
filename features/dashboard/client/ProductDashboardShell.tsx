@@ -170,11 +170,7 @@ export default function ProductDashboardShell({
 
   const openSatvicDashboard = () => {
     if (satvicDashboardPreferenceLoading) return;
-    if (!satvicDashboardEnabled) {
-      setProductMenuOpen(false);
-      onNotice('Satvic Dashboard is off. Turn it on in your account menu to open it.');
-      return;
-    }
+    if (!satvicDashboardEnabled) return;
     navigateToProduct('/dashboard');
   };
 
@@ -213,6 +209,7 @@ export default function ProductDashboardShell({
     if (satvicDashboardPreferenceLoading || satvicDashboardPreferenceSaving) return;
     const enabled = !satvicDashboardEnabled;
     setSatvicDashboardPreferenceSaving(true);
+    setSatvicDashboardEnabled(enabled);
     try {
       const response = await fetch('/api/preferences/satvic-dashboard', {
         method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled }),
@@ -222,6 +219,7 @@ export default function ProductDashboardShell({
       setSatvicDashboardEnabled(body.enabled !== false);
       onNotice(enabled ? 'Satvic Dashboard is on.' : 'Satvic Dashboard is off.');
     } catch (error) {
+      setSatvicDashboardEnabled(!enabled);
       onNotice(error instanceof Error ? error.message : 'Could not update Satvic Dashboard.');
     } finally {
       setSatvicDashboardPreferenceSaving(false);

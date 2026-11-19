@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { uploadPresigned } from '@vercel/blob/client';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
 import IndiaCommunityMapCard from '@/features/dashboard/client/IndiaCommunityMapCard';
+import FeedbackCalendarCard from '@/features/dashboard/client/FeedbackCalendarCard';
 import {
   Activity, AlertCircle, ArrowDown, ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCheck,
   Clock3, FileAudio, FileText, Filter, ExternalLink, Folder, FolderPlus, FolderOpen, Headphones, Languages,
@@ -13,7 +14,7 @@ import {
 } from 'lucide-react';
 
 type Issue = { title: string; detail: string; time?: string; source?: string; severity: 'critical' | 'review' | 'info'; category?: string; sourceStart?: number; sourceEnd?: number; dubStart?: number; dubEnd?: number; evidenceStatus?: 'cross-checked' | 'audio-only' | 'transcript-only'; sourceQuote?: string; dubQuote?: string };
-type Project = { title: string; source: string; target: string; status: 'Needs review' | 'In progress' | 'Ready' | 'Failed' | 'Example'; issues: number; date: string; color: string; initials: string; jobId?: string; folderId?: string; completedSeconds?: number; errorMessage?: string; isExample?: boolean };
+type Project = { title: string; source: string; target: string; status: 'Needs review' | 'In progress' | 'Ready' | 'Failed' | 'Example'; issues: number; date: string; createdAt?: string; color: string; initials: string; jobId?: string; folderId?: string; completedSeconds?: number; errorMessage?: string; isExample?: boolean };
 type ProjectFolder = { id: string; name: string; created_at: string };
 type TranscriptSegment = { start: number; end: number; text: string; words?: { start: number; end: number; text: string }[] };
 type AnalysisReport = { project: string; sourceLanguage: string; targetLanguage: string; createdAt: string; originalTranscript: string; dubbedTranscript: string; backTranslation: string; findings: Issue[]; disclaimer: string; originalSegments: TranscriptSegment[]; dubbedSegments: TranscriptSegment[]; timestampsAvailable: boolean; transcriptionEngine: string; semanticReviewEngine: string | null; transcriptCrossCheckAvailable: boolean; transcriptCrossCheckError?: string | null; audioReviewCompleted?: boolean; audioReviewEngine?: string; audioReviewFindingCount?: number; reviewCoverageWarnings?: string[]; reviewComplete?: boolean; generatedBySarvam?: boolean; originalVideoUrl?: string | null; dubbedVideoUrl?: string | null; originalB2Key?: string | null; dubbedB2Key?: string | null; reportB2Key?: string | null };
@@ -249,7 +250,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
         setProjects([exampleProject, ...merged.map((job) => {
           const completionMs = job.updated_at ? Date.parse(job.updated_at) - Date.parse(job.created_at) : NaN;
           const status: Project['status'] = job.status === 'completed' ? (job.issue_count ? 'Needs review' : 'Ready') : job.status === 'failed' ? 'Failed' : 'In progress';
-          return { title: job.project_name, source: job.source_language, target: job.target_language, status, issues: job.issue_count || 0, date: new Date(job.created_at).toLocaleDateString(), color: 'lilac', initials: job.project_name.slice(0, 2).toUpperCase(), jobId: job.run_id || job.id, folderId: job.folder_id || undefined, completedSeconds: job.status === 'completed' && Number.isFinite(completionMs) && completionMs >= 0 ? Math.round(completionMs / 1000) : undefined, errorMessage: job.error_message || undefined };
+          return { title: job.project_name, source: job.source_language, target: job.target_language, status, issues: job.issue_count || 0, date: new Date(job.created_at).toLocaleDateString(), createdAt: job.created_at, color: 'lilac', initials: job.project_name.slice(0, 2).toUpperCase(), jobId: job.run_id || job.id, folderId: job.folder_id || undefined, completedSeconds: job.status === 'completed' && Number.isFinite(completionMs) && completionMs >= 0 ? Math.round(completionMs / 1000) : undefined, errorMessage: job.error_message || undefined };
         })]);
       } catch { /* Keep the current dashboard visible if history is temporarily unavailable. */ }
     };
@@ -479,7 +480,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
         const startBody = await readApiJson(startResponse);
         if (!startResponse.ok) throw new Error(startBody.error || 'Could not start the server-side dubbing job.');
         const title = cleanProjectName;
-        const project: Project = { title, source, target, status: 'In progress', issues: 0, date: 'Just now', color: 'lilac', initials: title.slice(0, 2).toUpperCase(), jobId: startBody.runId, folderId: projectFolderId || undefined };
+        const project: Project = { title, source, target, status: 'In progress', issues: 0, date: 'Just now', createdAt: new Date().toISOString(), color: 'lilac', initials: title.slice(0, 2).toUpperCase(), jobId: startBody.runId, folderId: projectFolderId || undefined };
         setProjects(previous => [project, ...previous]);
         setModal(false); setOriginalFile(null); setDubbedFile(null); setProjectName('');
         const backgroundLocation = startBody.runsOnVercel
@@ -509,7 +510,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       result.originalVideoUrl = `/api/jobs/media?runId=${encodeURIComponent(jobBody.jobId)}&url=${encodeURIComponent(originalStored.url)}`;
       result.dubbedVideoUrl = `/api/jobs/media?runId=${encodeURIComponent(jobBody.jobId)}&url=${encodeURIComponent(dubbedStored.url)}`;
       result.generatedBySarvam = false;
-      const project: Project = { title: result.project || title, source, target, status: 'Needs review', issues: result.findings.length, date: 'Just now', color: 'lilac', initials: title.slice(0, 2).toUpperCase(), jobId: jobBody.jobId, folderId: projectFolderId || undefined };
+      const project: Project = { title: result.project || title, source, target, status: 'Needs review', issues: result.findings.length, date: 'Just now', createdAt: new Date().toISOString(), color: 'lilac', initials: title.slice(0, 2).toUpperCase(), jobId: jobBody.jobId, folderId: projectFolderId || undefined };
       setReport(result); setLatestReport(result); setProjects((prev) => [project, ...prev]); setDetails(project);
       setModal(false); setOriginalFile(null); setDubbedFile(null); setProjectName(''); setNotice('AI listened to both audio tracks. Open the report for timestamped findings.');
       window.setTimeout(() => setNotice(''), 4500);
@@ -795,7 +796,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       <section className="welcome-row"><div><h1>{activeFolderId ? folders.find(folder=>folder.id===activeFolderId)?.name : isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{activeFolderId ? 'Dub videos and QA findings saved in this project.' : isSarvamWorkflow ? 'Create a dub in your target language, then review it.' : 'Compare an existing dub with its original.'}</p></div><div className="welcome-actions">{activeFolderId && <><button type="button" className="folder-back-button" onClick={()=>{setActiveFolderId(null);setActiveTab('All projects')}}><ArrowLeft size={15}/> Back to projects</button><button type="button" className="folder-delete-trigger" onClick={()=>setFolderDeleteConfirmOpen(true)}><Trash2 size={14}/> Delete folder</button></>}<button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={17}/>} {workflow.action}</button></div></section>
 
 
-      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard projects={folderProjects} compact/><div className="folder-overview-empty panel" aria-hidden="true"/></section>}
+      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard projects={folderProjects} compact/><FeedbackCalendarCard/></section>}
 
       {!activeFolderId && <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div className="qa-flow-title"><span className={`qa-flow-brand${isSarvamWorkflow ? ' sarvam' : ' review'}`}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={19}/>}</span><div><div className="section-kicker">{workflow.eyebrow}</div><h2 id="qa-flow-title">{workflow.title}</h2></div></div><span className="qa-flow-time"><Clock3 size={15}/> 4 steps</span></div><ol className="qa-flow-steps">{workflow.steps.map(([title,description],index)=>{const StepIcon=workflowStepIcons[index];return <li key={title}><span className="qa-step-number">0{index+1}</span><span className="qa-step-icon" aria-hidden="true"><StepIcon size={15}/></span><div><b>{title}</b><p>{description}</p></div></li>})}</ol><button className="qa-flow-action" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={16}/>} Open upload <ArrowRight size={15}/></button></section>}
 

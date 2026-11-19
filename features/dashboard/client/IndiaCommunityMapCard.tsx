@@ -8,14 +8,16 @@ export type IndiaMapProject = {
   target: string;
   status: 'Needs review' | 'In progress' | 'Ready' | 'Failed' | 'Example';
   issues: number;
+  createdAt?: string;
 };
 
 const neutralState = '#dfe3df';
 const statusColors = {
-  review: '#cce8d0',
+  review: '#d9c7ee',
   failed: '#f1bcb7',
   processing: '#d9c9ed',
-  ready: neutralState,
+  ready: '#79a77d',
+  neutral: neutralState,
 };
 
 const targetStates: Record<string, string[]> = {
@@ -38,10 +40,16 @@ type MapStatus = 'review' | 'failed' | 'processing' | 'ready';
 function statusForState(stateName: string, projects: IndiaMapProject[]): MapStatus | null {
   const languages = Object.entries(targetStates).filter(([, states]) => states.includes(stateName)).map(([language]) => language);
   const stateProjects = projects.filter(project => languages.includes(project.target) && project.status !== 'Example');
-  if (stateProjects.some(project => project.status === 'Failed')) return 'failed';
-  if (stateProjects.some(project => project.status === 'In progress')) return 'processing';
-  if (stateProjects.some(project => project.status === 'Needs review')) return 'review';
-  if (stateProjects.some(project => project.status === 'Ready' && project.issues === 0)) return 'ready';
+  if (!stateProjects.length) return null;
+  const latestProject = stateProjects.reduce((latest, project) => {
+    if (!project.createdAt) return latest;
+    if (!latest.createdAt) return project;
+    return Date.parse(project.createdAt) > Date.parse(latest.createdAt) ? project : latest;
+  }, stateProjects[0]);
+  if (latestProject.status === 'Failed') return 'failed';
+  if (latestProject.status === 'In progress') return 'processing';
+  if (latestProject.status === 'Needs review') return 'review';
+  if (latestProject.status === 'Ready' && latestProject.issues === 0) return 'ready';
   return null;
 }
 
@@ -63,7 +71,7 @@ export default function IndiaCommunityMapCard({ projects = [], compact = false }
       padding: 9,
       stateStyle: { stroke: '#ffffff', strokeWidth: 1.8 },
       stateFill: name => {
-        if (compact) return statusColors[statusForState(name, projects) || 'ready'];
+        if (compact) return statusColors[statusForState(name, projects) || 'neutral'];
         return name === selectedState ? '#8963ad' : neutralState;
       },
     });
