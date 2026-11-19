@@ -77,6 +77,9 @@ export default function ProductDashboardShell({
   const [founderOfficeEnabled, setFounderOfficeEnabled] = useState(initialFounderOfficeEnabled);
   const [founderOfficePreferenceLoading, setFounderOfficePreferenceLoading] = useState(true);
   const [founderOfficePreferenceSaving, setFounderOfficePreferenceSaving] = useState(false);
+  const [satvicDashboardEnabled, setSatvicDashboardEnabled] = useState(true);
+  const [satvicDashboardPreferenceLoading, setSatvicDashboardPreferenceLoading] = useState(true);
+  const [satvicDashboardPreferenceSaving, setSatvicDashboardPreferenceSaving] = useState(false);
   const [activeFeatureId, setActiveFeatureId] = useState(initialFeatureId ?? product.groups[0].features[1]?.id ?? product.groups[0].features[0].id);
 
   useEffect(() => {
@@ -137,6 +140,16 @@ export default function ProductDashboardShell({
   }, []);
 
   useEffect(() => {
+    let active = true;
+    fetch('/api/preferences/satvic-dashboard', { cache: 'no-store' })
+      .then(async response => ({ response, body: await response.json().catch(() => ({})) }))
+      .then(({ response, body }) => { if (active && response.ok) setSatvicDashboardEnabled(body.enabled !== false); })
+      .catch(() => {})
+      .finally(() => { if (active) setSatvicDashboardPreferenceLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     router.prefetch('/dashboard/satvic-fluid');
     products.forEach(item => router.prefetch(item.href));
   }, [router]);
@@ -153,6 +166,16 @@ export default function ProductDashboardShell({
     setProductMenuOpen(false);
     if (new URL(href, window.location.origin).pathname !== window.location.pathname) startNavigationLoading();
     router.push(href);
+  };
+
+  const openSatvicDashboard = () => {
+    if (satvicDashboardPreferenceLoading) return;
+    if (!satvicDashboardEnabled) {
+      setProductMenuOpen(false);
+      onNotice('Satvic Dashboard is off. Turn it on in your account menu to open it.');
+      return;
+    }
+    navigateToProduct('/dashboard');
   };
 
   const accountName = accountEmail
@@ -183,6 +206,25 @@ export default function ProductDashboardShell({
       onNotice(error instanceof Error ? error.message : 'Could not update Founder Office.');
     } finally {
       setFounderOfficePreferenceSaving(false);
+    }
+  }
+
+  async function toggleSatvicDashboard() {
+    if (satvicDashboardPreferenceLoading || satvicDashboardPreferenceSaving) return;
+    const enabled = !satvicDashboardEnabled;
+    setSatvicDashboardPreferenceSaving(true);
+    try {
+      const response = await fetch('/api/preferences/satvic-dashboard', {
+        method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not update Satvic Dashboard.');
+      setSatvicDashboardEnabled(body.enabled !== false);
+      onNotice(enabled ? 'Satvic Dashboard is on.' : 'Satvic Dashboard is off.');
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : 'Could not update Satvic Dashboard.');
+    } finally {
+      setSatvicDashboardPreferenceSaving(false);
     }
   }
 

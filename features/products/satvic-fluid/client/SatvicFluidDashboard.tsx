@@ -111,6 +111,8 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
   const [folderName, setFolderName] = useState('');
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderError, setFolderError] = useState('');
+  const [folderDeleteConfirmOpen, setFolderDeleteConfirmOpen] = useState(false);
+  const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
   const [projectFolderId, setProjectFolderId] = useState('');
   const [workflowProjectOpen, setWorkflowProjectOpen] = useState(false);
   const [workflowProjectCreating, setWorkflowProjectCreating] = useState(false);
@@ -551,6 +553,31 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     }
   }
 
+  async function deleteActiveFolder() {
+    const folderId = activeFolderId;
+    if (!folderId || deletingFolderId) return;
+    setDeletingFolderId(folderId);
+    try {
+      const response = await fetch('/api/folders', {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ folderId }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not delete this folder.');
+      setFolders(current => current.filter(folder => folder.id !== folderId));
+      setProjects(current => current.map(project => project.folderId === folderId ? { ...project, folderId: undefined } : project));
+      setActiveFolderId(null);
+      setActiveTab('All projects');
+      setFolderDeleteConfirmOpen(false);
+      setNotice('Folder deleted. Its videos are back in Projects.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not delete this folder.');
+    } finally {
+      setDeletingFolderId(null);
+    }
+  }
+
   async function moveProjectToFolder(project: Project, folderId: string) {
     if (!project.jobId || movingProjectId === project.jobId) return;
     const nextFolderId = folderId || null;
@@ -750,6 +777,9 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
         {folderError&&<div className="auth-error folder-create-error" role="alert">{folderError}</div>}
         <div className="folder-create-actions"><button type="button" className="secondary-btn" onClick={()=>setFolderDialogOpen(false)} disabled={folderSaving}>Cancel</button><button type="submit" className="primary-btn" disabled={folderSaving}>{folderSaving?<><span className="spinner"/> Creating folder…</>:<><FolderPlus size={15}/> Create folder</>}</button></div>
       </form></div>}
+      {folderDeleteConfirmOpen && activeFolderId && <div className="modal-backdrop folder-delete-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!deletingFolderId)setFolderDeleteConfirmOpen(false)}}><section className="folder-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="folder-delete-title">
+        <span className="folder-delete-icon"><Trash2 size={19}/></span><div className="section-kicker">DELETE PROJECT FOLDER</div><h2 id="folder-delete-title">Delete this folder?</h2><p>Its {folderProjects.length} videos will move back to Projects and stay in your account.</p><div className="folder-delete-actions"><button type="button" className="secondary-btn" onClick={()=>setFolderDeleteConfirmOpen(false)} disabled={Boolean(deletingFolderId)}>Cancel</button><button type="button" className="folder-delete-confirm" onClick={()=>void deleteActiveFolder()} disabled={Boolean(deletingFolderId)}>{deletingFolderId?<><span className="spinner"/> Deleting…</>:<><Trash2 size={14}/> Delete folder</>}</button></div>
+      </section></div>}
       {searchOpen && <div className="spotlight-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setQuery(''); setSearchOpen(false); } }}>
         <section className="spotlight-panel" role="dialog" aria-modal="true" aria-label="Search workspace projects">
           <div className="spotlight-input-row"><Search size={21} aria-hidden="true"/><input ref={searchInputRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search projects, languages, or status..." aria-label="Search projects, languages, or status" onKeyDown={event => { if (event.key === 'Enter' && searchProjects[0]) { event.preventDefault(); openSearchProject(searchProjects[0]); } }} /><button type="button" className="spotlight-escape" onClick={() => { setQuery(''); setSearchOpen(false); }}>ESC</button></div>
@@ -762,10 +792,10 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
           <footer className="spotlight-footer"><span><kbd>↵</kbd> Open project</span><span><kbd>ESC</kbd> Close</span><span><kbd>⌘ K</kbd> Search</span></footer>
         </section>
       </div>}
-      <section className="welcome-row"><div><h1>{activeFolderId ? folders.find(folder=>folder.id===activeFolderId)?.name : isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{activeFolderId ? 'Dub videos and QA findings saved in this project.' : isSarvamWorkflow ? 'Create a dub in your target language, then review it.' : 'Compare an existing dub with its original.'}</p></div><div className="welcome-actions">{activeFolderId && <button type="button" className="folder-back-button" onClick={()=>{setActiveFolderId(null);setActiveTab('All projects')}}><ArrowLeft size={15}/> Back to projects</button>}<button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={17}/>} {workflow.action}</button></div></section>
+      <section className="welcome-row"><div><h1>{activeFolderId ? folders.find(folder=>folder.id===activeFolderId)?.name : isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{activeFolderId ? 'Dub videos and QA findings saved in this project.' : isSarvamWorkflow ? 'Create a dub in your target language, then review it.' : 'Compare an existing dub with its original.'}</p></div><div className="welcome-actions">{activeFolderId && <><button type="button" className="folder-back-button" onClick={()=>{setActiveFolderId(null);setActiveTab('All projects')}}><ArrowLeft size={15}/> Back to projects</button><button type="button" className="folder-delete-trigger" onClick={()=>setFolderDeleteConfirmOpen(true)}><Trash2 size={14}/> Delete folder</button></>}<button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={17}/>} {workflow.action}</button></div></section>
 
 
-      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard/><div className="folder-overview-empty panel" aria-hidden="true"/></section>}
+      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard projects={folderProjects} compact/><div className="folder-overview-empty panel" aria-hidden="true"/></section>}
 
       {!activeFolderId && <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div className="qa-flow-title"><span className={`qa-flow-brand${isSarvamWorkflow ? ' sarvam' : ' review'}`}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={19}/>}</span><div><div className="section-kicker">{workflow.eyebrow}</div><h2 id="qa-flow-title">{workflow.title}</h2></div></div><span className="qa-flow-time"><Clock3 size={15}/> 4 steps</span></div><ol className="qa-flow-steps">{workflow.steps.map(([title,description],index)=>{const StepIcon=workflowStepIcons[index];return <li key={title}><span className="qa-step-number">0{index+1}</span><span className="qa-step-icon" aria-hidden="true"><StepIcon size={15}/></span><div><b>{title}</b><p>{description}</p></div></li>})}</ol><button className="qa-flow-action" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={16}/>} Open upload <ArrowRight size={15}/></button></section>}
 

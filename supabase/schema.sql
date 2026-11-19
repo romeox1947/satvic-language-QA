@@ -64,9 +64,11 @@ create unique index if not exists qa_folders_user_name_idx on public.qa_folders 
 alter table public.qa_folders enable row level security;
 drop policy if exists "Users can read their own folders" on public.qa_folders;
 drop policy if exists "Users can create their own folders" on public.qa_folders;
+drop policy if exists "Users can delete their own folders" on public.qa_folders;
 create policy "Users can read their own folders" on public.qa_folders for select to authenticated using ((select auth.uid()) = user_id);
 create policy "Users can create their own folders" on public.qa_folders for insert to authenticated with check ((select auth.uid()) = user_id);
-grant select, insert on public.qa_folders to authenticated;
+create policy "Users can delete their own folders" on public.qa_folders for delete to authenticated using ((select auth.uid()) = user_id);
+grant select, insert, delete on public.qa_folders to authenticated;
 
 alter table public.qa_jobs add column if not exists folder_id uuid;
 do $$ begin

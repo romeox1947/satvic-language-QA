@@ -1,36 +1,94 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { renderIndiaSvg } from 'vardhan-maps/svg';
 import { stateList } from 'vardhan-maps/data';
-import { ArrowUpRight } from 'lucide-react';
 
-const stateColors = ['#dfd3ec', '#ead9c8', '#d7e2d4', '#e9e4c8', '#d5dfeb', '#e6d9de'];
+export type IndiaMapProject = {
+  target: string;
+  status: 'Needs review' | 'In progress' | 'Ready' | 'Failed' | 'Example';
+  issues: number;
+};
 
-export default function IndiaCommunityMapCard() {
+const neutralState = '#dfe3df';
+const statusColors = {
+  review: '#cce8d0',
+  failed: '#f1bcb7',
+  processing: '#d9c9ed',
+  ready: neutralState,
+};
+
+const targetStates: Record<string, string[]> = {
+  Assamese: ['Assam'],
+  Bengali: ['West Bengal'],
+  Gujarati: ['Gujarat'],
+  Kannada: ['Karnataka'],
+  Malayalam: ['Kerala'],
+  Marathi: ['Maharashtra'],
+  Odia: ['Odisha'],
+  Punjabi: ['Punjab'],
+  Tamil: ['Tamil Nadu'],
+  Telugu: ['Andhra Pradesh', 'Telangana'],
+  Hindi: ['Bihar', 'Chhattisgarh', 'Delhi', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Madhya Pradesh', 'Rajasthan', 'Uttar Pradesh', 'Uttarakhand'],
+};
+
+type Props = { projects?: IndiaMapProject[]; compact?: boolean };
+type MapStatus = 'review' | 'failed' | 'processing' | 'ready';
+
+function statusForState(stateName: string, projects: IndiaMapProject[]): MapStatus | null {
+  const languages = Object.entries(targetStates).filter(([, states]) => states.includes(stateName)).map(([language]) => language);
+  const stateProjects = projects.filter(project => languages.includes(project.target) && project.status !== 'Example');
+  if (stateProjects.some(project => project.status === 'Failed')) return 'failed';
+  if (stateProjects.some(project => project.status === 'In progress')) return 'processing';
+  if (stateProjects.some(project => project.status === 'Needs review')) return 'review';
+  if (stateProjects.some(project => project.status === 'Ready' && project.issues === 0)) return 'ready';
+  return null;
+}
+
+function statusTitle(stateName: string, status: string | null) {
+  if (status === 'review') return `${stateName} · Dub complete, needs review`;
+  if (status === 'failed') return `${stateName} · Dub failed`;
+  if (status === 'processing') return `${stateName} · Dub in progress`;
+  if (status === 'ready') return `${stateName} · No mistake`;
+  return `${stateName} · No dub activity`;
+}
+
+export default function IndiaCommunityMapCard({ projects = [], compact = false }: Props) {
   const [selectedState, setSelectedState] = useState('Maharashtra');
-  const mapSvg = renderIndiaSvg({
-    level: 'state',
-    width: 350,
-    height: 390,
-    padding: 9,
-    stateStyle: { stroke: '#ffffff', strokeWidth: 1.8 },
-    stateFill: name => name === selectedState ? '#8963ad' : stateColors[stateList.findIndex(state => state.name === name) % stateColors.length],
-  });
+  const mapSvg = useMemo(() => {
+    const svg = renderIndiaSvg({
+      level: 'state',
+      width: 350,
+      height: 390,
+      padding: 9,
+      stateStyle: { stroke: '#ffffff', strokeWidth: 1.8 },
+      stateFill: name => {
+        if (compact) return statusColors[statusForState(name, projects) || 'ready'];
+        return name === selectedState ? '#8963ad' : neutralState;
+      },
+    });
+    if (!compact) return svg;
+    return svg.replace(/<title>([^<]+)<\/title>/g, (_match, name: string) => {
+      const status = statusForState(name, projects);
+      return `<title>${statusTitle(name, status)}</title>`;
+    });
+  }, [compact, projects, selectedState]);
 
-  const selectMapState = (event: MouseEvent<HTMLDivElement>) => {
-    if (!(event.target instanceof Element)) return;
-    const stateName = event.target.closest('path')?.querySelector('title')?.textContent;
-    if (stateName && stateList.some(state => state.name === stateName)) setSelectedState(stateName);
-  };
+  if (compact) return <article className="so-card so-global-card so-india-card so-india-status-card">
+    <div className="so-card-heading"><h2>Dub status across India</h2></div>
+    <div className="so-india-map" role="img" aria-label="Map of India showing dubbing project status by state" dangerouslySetInnerHTML={{ __html: mapSvg }}/>
+  </article>;
 
   return <article className="so-card so-global-card so-india-card">
     <div className="so-card-heading">
       <div><span className="so-card-kicker">COMMUNITY ACROSS INDIA</span><h2>Explore by state</h2></div>
-      <button className="so-text-action" type="button" aria-label="Community details"><ArrowUpRight size={15}/></button>
     </div>
     <div className="so-india-content">
-      <div className="so-india-map" aria-label="Interactive map of India's states and union territories" onClick={selectMapState} dangerouslySetInnerHTML={{ __html: mapSvg }}/>
+      <div className="so-india-map" aria-label="Interactive map of India's states and union territories" onClick={event => {
+        if (!(event.target instanceof Element)) return;
+        const stateName = event.target.closest('path')?.querySelector('title')?.textContent?.split(' · ')[0];
+        if (stateName && stateList.some(state => state.name === stateName)) setSelectedState(stateName);
+      }} dangerouslySetInnerHTML={{ __html: mapSvg }}/>
       <div className="so-india-state-panel">
         <div className="so-india-state-summary"><strong>{selectedState}</strong><span>{stateList.length} states &amp; union territories</span></div>
         <div className="so-india-state-list" aria-label="Choose a state">

@@ -1421,6 +1421,11 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .folder-overview-grid .so-india-map{min-height:270px}
 .app-shell .folder-overview-grid .so-india-map svg{width:100%;max-height:315px}
 .app-shell .folder-overview-grid .so-india-state-list{max-height:280px}
+.app-shell .folder-overview-grid .so-india-status-card{display:flex;flex-direction:column}
+.app-shell .folder-overview-grid .so-india-status-card .so-card-heading{justify-content:flex-start}
+.app-shell .folder-overview-grid .so-india-status-card .so-india-map{flex:1;min-height:300px}
+.app-shell .folder-overview-grid .so-india-status-card .so-india-map svg{max-height:320px;filter:drop-shadow(0 4px 3px #334b3828)}
+.app-shell .folder-overview-grid .so-india-status-card .so-india-map svg path{filter:drop-shadow(0 1px 0 #ffffffb5) drop-shadow(0 2px 1px #34483a2b);transform:translateY(-1px)}
 .app-shell .folder-overview-empty{min-height:370px;border:1px solid #e9ece7;border-radius:16px;background:#fff;box-shadow:0 2px 9px #22251f04}
 .app-shell .folder-work-grid{margin-top:0}
 @media(max-width:900px){.app-shell .folder-overview-grid{grid-template-columns:minmax(270px,.9fr) minmax(0,1.1fr)}}
@@ -1428,7 +1433,19 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .welcome-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex:none}
 .app-shell .folder-back-button{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #e2e7e0;border-radius:9px;background:#fff;color:#596359;font:500 11px "Matter";white-space:nowrap;cursor:pointer}
 .app-shell .folder-back-button:hover{border-color:#cdd9cc;background:#f6f9f5}
-@media(max-width:700px){.app-shell .welcome-actions{gap:6px}.app-shell .folder-back-button{min-height:36px;padding:0 8px;font-size:9px}}
+.app-shell .folder-delete-trigger{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #ead8d5;border-radius:9px;background:#fff;color:#a3554e;font:500 11px "Matter";white-space:nowrap;cursor:pointer}
+.app-shell .folder-delete-trigger:hover{border-color:#dfbcb6;background:#fff8f7}
+.folder-delete-backdrop{z-index:120}
+.app-shell .folder-delete-modal{position:relative;width:min(100%,410px);padding:27px;border:1px solid #e7e9e4;border-radius:17px;background:#fff;box-shadow:0 22px 70px #20211f26;animation:modal-in .18s ease-out}
+.app-shell .folder-delete-icon{display:grid;width:40px;height:40px;place-items:center;margin-bottom:14px;border-radius:12px;background:#fbefed;color:#b65f56}
+.app-shell .folder-delete-modal h2{margin:7px 0 7px;color:#292d28;font:500 22px "Matter"}
+.app-shell .folder-delete-modal p{margin:0;color:#777e74;font:400 12px/1.55 "Matter"}
+.app-shell .folder-delete-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:22px}
+.app-shell .folder-delete-actions button{display:inline-flex;height:37px;align-items:center;justify-content:center;gap:7px;padding:0 13px;border-radius:8px;font:500 10px "Matter";cursor:pointer}
+.app-shell .folder-delete-actions .secondary-btn{border:1px solid #e2e6e0;background:#fff;color:#596359}
+.app-shell .folder-delete-confirm{border:1px solid #b96158;background:#b96158;color:#fff}
+.app-shell .folder-delete-actions button:disabled{opacity:.65;cursor:wait}
+@media(max-width:700px){.app-shell .welcome-actions{gap:6px}.app-shell .folder-back-button,.app-shell .folder-delete-trigger{min-height:36px;padding:0 8px;font-size:9px}.app-shell .folder-delete-modal{padding:23px 19px}}
 .app-shell .folder-library{min-height:260px;margin-top:15px}
 .app-shell .folder-library-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:11px;padding:4px 20px 20px}
 .app-shell .folder-library-card{display:flex;min-width:0;min-height:78px;align-items:center;gap:12px;padding:13px;border:1px solid #e7ebe5;border-radius:11px;background:#fff;color:#66806a;text-align:left;cursor:pointer;transition:background .16s,border-color .16s,transform .16s}
