@@ -61,7 +61,7 @@ function makeJob(text: string, feature: FeatureId, due = 'Unscheduled'): Job {
   return { id: `job-${Date.now()}`, title, source: text, feature, status: 'captured', due, plan: plans[feature] };
 }
 
-export default function FounderOfficeDashboard({ accountEmail = '', initialFounderOfficeEnabled = false }: { accountEmail?: string; initialFounderOfficeEnabled?: boolean }) {
+export default function FounderOfficeDashboard({ accountEmail = '' }: { accountEmail?: string }) {
   const router = useRouter();
   const [activeFeature, setActiveFeature] = useState<FeatureId>('overview');
   const [jobs, setJobs] = useState<Job[]>(demoJobs);
@@ -309,7 +309,7 @@ export default function FounderOfficeDashboard({ accountEmail = '', initialFound
     }
   }
 
-  return <ProductDashboardShell productId="founder-office" accountEmail={accountEmail} onNotice={() => {}} initialFounderOfficeEnabled={initialFounderOfficeEnabled} initialFeatureId="overview" onFeatureSelect={id => { if (id in featureInfo) setActiveFeature(id as FeatureId); }}>
+  return <ProductDashboardShell productId="founder-office" accountEmail={accountEmail} onNotice={() => {}} initialFeatureId="overview" onFeatureSelect={id => { if (id in featureInfo) setActiveFeature(id as FeatureId); }}>
     <section className="welcome-row founder-welcome"><div><h1>{current.title}</h1><p className="welcome-subtitle">{current.description}</p><span className={`founder-data-status ${workspaceStatus}`}>{workspaceStatus === 'loading' ? 'Loading saved data...' : workspaceStatus === 'saving' ? 'Saving...' : workspaceStatus === 'saved' ? 'Saved privately - 30 days' : 'Could not sync saved data'}</span>{workspaceStatus === 'error' && <button type="button" className="founder-data-retry" onClick={() => { setWorkspaceLoaded(false); setWorkspaceLoadAttempt(value => value + 1); }}>Retry</button>}</div><button type="button" className="primary-btn founder-new-job-trigger" onClick={() => { setJobFeature(activeFeature === 'overview' || activeFeature === 'founder-mind' ? 'projects' : activeFeature); setShowNewJob(true); }}><Plus size={16}/> New job</button></section>
 
     {activeFeature === 'founder-mind' && <section className="founder-mind-workspace"><div className="founder-mind-history"><button type="button" className="founder-new-chat" onClick={startNewChat}><Plus size={15}/> New chat</button><span className="section-kicker">CHAT HISTORY</span>{chatSessions.map(session => <div className="founder-chat-history-entry" key={session.id}>

@@ -38,10 +38,21 @@ export async function PATCH(request: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in before updating a folder.' }, { status: 401 });
-    const body = await request.json().catch(() => null) as { folderId?: unknown; feedbackFormUrl?: unknown; feedbackSheetUrl?: unknown } | null;
+    const body = await request.json().catch(() => null) as { folderId?: unknown; name?: unknown; feedbackFormUrl?: unknown; feedbackSheetUrl?: unknown } | null;
     const folderId = typeof body?.folderId === 'string' ? body.folderId : '';
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(folderId)) {
       return Response.json({ error: 'Choose a valid project folder.' }, { status: 400 });
+    }
+    if (typeof body?.name === 'string') {
+      const name = body.name.trim();
+      if (!name) return Response.json({ error: 'Enter a folder name.' }, { status: 400 });
+      if (name.length > 80) return Response.json({ error: 'Folder names must be 80 characters or fewer.' }, { status: 400 });
+      const { data, error } = await supabase.from('qa_folders').update({ name }).eq('id', folderId).eq('user_id', user.id)
+        .select('id, name, created_at, feedback_form_url, feedback_sheet_url').maybeSingle();
+      if (error?.code === '23505') return Response.json({ error: 'You already have a folder with that name.' }, { status: 409 });
+      if (error) throw error;
+      if (!data) return Response.json({ error: 'This folder was not found in your account.' }, { status: 404 });
+      return Response.json({ folder: data }, { headers: { 'cache-control': 'no-store' } });
     }
     const formValue = body?.feedbackFormUrl;
     const sheetValue = body?.feedbackSheetUrl;

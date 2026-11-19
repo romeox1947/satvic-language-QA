@@ -1496,16 +1496,17 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .feedback-day-heading p{margin:0;color:#898e85;font:400 9px "Matter"}
 .app-shell .feedback-entry-list{display:grid;gap:8px;overflow:auto;margin-top:12px;padding-right:3px}
 .app-shell .feedback-entry{padding:11px;border:1px solid #ebe7f1;border-radius:10px;background:#fcfbfe}
-.app-shell .feedback-entry-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:7px;margin-bottom:9px;color:#7f688f;font:500 8px "Matter"}
+.app-shell .feedback-entry-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:7px;margin-bottom:10px;color:#7f688f;font:500 10px "Matter"}
 .app-shell .feedback-entry-meta>span{display:flex;align-items:center;gap:4px}
 .app-shell .feedback-entry-field{display:grid;gap:3px;margin-top:7px}
-.app-shell .feedback-entry-field small,.app-shell .feedback-respondent{color:#969a92;font:400 8px "Matter"}
-.app-shell .feedback-entry-field b{color:#41453f;font:500 10px/1.4 "Matter";overflow-wrap:anywhere}
-.app-shell .feedback-entry-note{margin:8px 0 0;color:#6e746b;font:400 9px/1.5 "Matter";overflow-wrap:anywhere}
+.app-shell .feedback-entry-field small,.app-shell .feedback-respondent{color:#858a81;font:400 9px "Matter"}
+.app-shell .feedback-entry-field b{color:#41453f;font:500 12px/1.45 "Matter";overflow-wrap:anywhere}
+.app-shell .feedback-entry-note{margin:8px 0 0;color:#6e746b;font:400 10px/1.5 "Matter";overflow-wrap:anywhere}
 .app-shell .feedback-entry-actions{display:flex;justify-content:flex-end;margin-top:10px;padding-top:9px;border-top:1px solid #eeeaf3}
-.app-shell .feedback-entry-actions button{display:inline-flex;min-height:30px;align-items:center;justify-content:center;gap:6px;padding:0 10px;border:1px solid #dfd5eb;border-radius:8px;background:#fff;color:#70528e;font:500 9px "Matter";cursor:pointer;transition:background .15s,border-color .15s}
+.app-shell .feedback-entry-actions button{display:inline-flex;min-height:32px;align-items:center;justify-content:center;gap:6px;padding:0 11px;border:1px solid #dfd5eb;border-radius:8px;background:#fff;color:#70528e;font:500 10px "Matter";cursor:pointer;transition:background .15s,border-color .15s}
 .app-shell .feedback-entry-actions button:hover{border-color:#c8b5dc;background:#f7f3fa}
 .app-shell .feedback-entry-actions button:disabled{opacity:.5;cursor:not-allowed}
+.app-shell .feedback-action-error{margin:8px 0;padding:9px 11px;border:1px solid #ead7d4;border-radius:8px;background:#fff8f7;color:#934f48;font:400 9px/1.4 "Matter"}
 .app-shell .feedback-respondent{display:block;margin-top:9px}
 .app-shell .feedback-empty-day{display:flex;min-height:100px;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#979c93;font:400 9px "Matter";text-align:center}
 .app-shell .folder-work-grid{margin-top:0}
@@ -1514,6 +1515,8 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .welcome-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex:none}
 .app-shell .folder-back-button{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #e2e7e0;border-radius:9px;background:#fff;color:#596359;font:500 11px "Matter";white-space:nowrap;cursor:pointer}
 .app-shell .folder-back-button:hover{border-color:#cdd9cc;background:#f6f9f5}
+.app-shell .folder-rename-trigger{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #e2e7e0;border-radius:9px;background:#fff;color:#596359;font:500 11px "Matter";white-space:nowrap;cursor:pointer}
+.app-shell .folder-rename-trigger:hover{border-color:#cdd9cc;background:#f6f9f5}
 .app-shell .folder-delete-trigger{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #ead8d5;border-radius:9px;background:#fff;color:#a3554e;font:500 11px "Matter";white-space:nowrap;cursor:pointer}
 .app-shell .folder-delete-trigger:hover{border-color:#dfbcb6;background:#fff8f7}
 .folder-delete-backdrop{z-index:120}
@@ -1526,7 +1529,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .folder-delete-actions .secondary-btn{border:1px solid #e2e6e0;background:#fff;color:#596359}
 .app-shell .folder-delete-confirm{border:1px solid #b96158;background:#b96158;color:#fff}
 .app-shell .folder-delete-actions button:disabled{opacity:.65;cursor:wait}
-@media(max-width:700px){.app-shell .welcome-actions{gap:6px}.app-shell .folder-back-button,.app-shell .folder-delete-trigger{min-height:36px;padding:0 8px;font-size:9px}.app-shell .folder-delete-modal{padding:23px 19px}}
+@media(max-width:700px){.app-shell .welcome-actions{gap:6px}.app-shell .folder-back-button,.app-shell .folder-rename-trigger,.app-shell .folder-delete-trigger{min-height:36px;padding:0 8px;font-size:9px}.app-shell .folder-delete-modal{padding:23px 19px}}
 .app-shell .folder-library{min-height:260px;margin-top:15px}
 .app-shell .folder-library .panel-heading{gap:14px}
 .app-shell .folder-library .project-tools{position:static;width:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0}

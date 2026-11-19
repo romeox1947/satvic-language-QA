@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { uploadPresigned } from '@vercel/blob/client';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
 import IndiaCommunityMapCard from '@/features/dashboard/client/IndiaCommunityMapCard';
-import FeedbackCalendarCard, { type FeedbackEntry } from '@/features/dashboard/client/FeedbackCalendarCard';
+import FeedbackCalendarCard from '@/features/dashboard/client/FeedbackCalendarCard';
 import {
   Activity, AlertCircle, ArrowDown, ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCheck,
   Clock3, FileAudio, FileText, Filter, ExternalLink, Folder, FolderPlus, FolderOpen, Headphones, Languages,
@@ -102,7 +102,7 @@ function readMediaDuration(file: File): Promise<number> {
   });
 }
 
-export default function SatvicFluidDashboard({ initialAccountEmail = '', initialAccountAvatar = 'sage', initialAccountUserId, initialFounderOfficeEnabled = false }: { initialAccountEmail?: string; initialAccountAvatar?: string; initialAccountUserId: string; initialFounderOfficeEnabled?: boolean }) {
+export default function SatvicFluidDashboard({ initialAccountEmail = '', initialAccountAvatar = 'sage', initialAccountUserId }: { initialAccountEmail?: string; initialAccountAvatar?: string; initialAccountUserId: string }) {
   const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
   const [folders, setFolders] = useState<ProjectFolder[]>([]);
@@ -114,6 +114,10 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
   const [folderError, setFolderError] = useState('');
   const [folderDeleteConfirmOpen, setFolderDeleteConfirmOpen] = useState(false);
   const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
+  const [renameFolderOpen, setRenameFolderOpen] = useState(false);
+  const [renameFolderName, setRenameFolderName] = useState('');
+  const [renameFolderError, setRenameFolderError] = useState('');
+  const [renameFolderSaving, setRenameFolderSaving] = useState(false);
   const [projectFolderId, setProjectFolderId] = useState('');
   const [workflowProjectOpen, setWorkflowProjectOpen] = useState(false);
   const [workflowProjectCreating, setWorkflowProjectCreating] = useState(false);
@@ -376,23 +380,6 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     else if (searchProjects[0]) openSearchProject(searchProjects[0]);
   }
 
-  function openFeedbackAction(entry: FeedbackEntry) {
-    const language = entry.language?.trim().toLocaleLowerCase();
-    const videoName = entry.videoName.trim().toLocaleLowerCase();
-    const match = folderProjects.find(project => project.jobId && (
-      (language && project.target.toLocaleLowerCase().includes(language))
-      || (videoName && project.title.toLocaleLowerCase().includes(videoName))
-    ));
-    if (!match) {
-      setNotice(`No dubbed video matching ${entry.language || entry.videoName} was found in this folder.`);
-      return;
-    }
-    setReport(null);
-    setDetails(match);
-    setReportDeleteConfirmOpen(false);
-    setReportPage(true);
-  }
-
   const latestFindingProject = folderProjects.find(project => project.issues > 0 && project.jobId)
     ?? folderProjects.find(project => project.status === 'Ready' && project.jobId)
     ?? folderProjects.find(project => project.jobId)
@@ -590,6 +577,30 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       setFolderError(error instanceof Error ? error.message : 'Could not create this folder.');
     } finally {
       setFolderSaving(false);
+    }
+  }
+
+  async function renameActiveFolder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const folderId = activeFolderId;
+    const name = renameFolderName.trim();
+    if (!folderId || !name || renameFolderSaving) return;
+    setRenameFolderSaving(true);
+    setRenameFolderError('');
+    try {
+      const response = await fetch('/api/folders', {
+        method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ folderId, name }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not rename this folder.');
+      const updatedFolder = body.folder as ProjectFolder;
+      setFolders(current => current.map(folder => folder.id === folderId ? updatedFolder : folder));
+      setRenameFolderOpen(false);
+      setNotice(`Folder renamed to “${updatedFolder.name}”.`);
+    } catch (error) {
+      setRenameFolderError(error instanceof Error ? error.message : 'Could not rename this folder.');
+    } finally {
+      setRenameFolderSaving(false);
     }
   }
 
@@ -817,7 +828,6 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       productId="satvic-fluid"
       accountEmail={accountEmail}
       accountAvatar={initialAccountAvatar}
-      initialFounderOfficeEnabled={initialFounderOfficeEnabled}
       onNotice={setNotice}
       initialFeatureId="generate-sarvam"
       onFeatureSelect={(featureId) => setActiveWorkflow(featureId as 'generate-sarvam' | 'start-review')}
@@ -831,6 +841,12 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
         <label className="field-label">Folder name<input className="text-input" autoFocus value={folderName} onChange={event=>setFolderName(event.target.value)} maxLength={80} placeholder="e.g. How much protein in milk?" required /></label>
         {folderError&&<div className="auth-error folder-create-error" role="alert">{folderError}</div>}
         <div className="folder-create-actions"><button type="button" className="secondary-btn" onClick={()=>setFolderDialogOpen(false)} disabled={folderSaving}>Cancel</button><button type="submit" className="primary-btn" disabled={folderSaving}>{folderSaving?<><span className="spinner"/> Creating folder…</>:<><FolderPlus size={15}/> Create folder</>}</button></div>
+      </form></div>}
+      {renameFolderOpen && activeFolderId && <div className="modal-backdrop folder-create-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!renameFolderSaving)setRenameFolderOpen(false)}}><form className="folder-create-modal" role="dialog" aria-modal="true" aria-labelledby="rename-folder-title" onSubmit={renameActiveFolder}>
+        <button type="button" className="modal-close icon-btn" onClick={()=>{if(!renameFolderSaving)setRenameFolderOpen(false)}} aria-label="Close rename folder dialog"><X size={18}/></button><span className="folder-create-icon"><Pencil size={18}/></span><div className="section-kicker">PROJECT FOLDER</div><h2 id="rename-folder-title">Rename folder</h2><p className="modal-intro">Update the name for this folder. Its videos and feedback links will stay in place.</p>
+        <label className="field-label">Folder name<input className="text-input" autoFocus value={renameFolderName} onChange={event=>setRenameFolderName(event.target.value)} maxLength={80} required /></label>
+        {renameFolderError&&<div className="auth-error folder-create-error" role="alert">{renameFolderError}</div>}
+        <div className="folder-create-actions"><button type="button" className="secondary-btn" onClick={()=>setRenameFolderOpen(false)} disabled={renameFolderSaving}>Cancel</button><button type="submit" className="primary-btn" disabled={renameFolderSaving || !renameFolderName.trim()}>{renameFolderSaving?<><span className="spinner"/> Saving…</>:<><Check size={15}/> Save name</>}</button></div>
       </form></div>}
       {folderDeleteConfirmOpen && activeFolderId && <div className="modal-backdrop folder-delete-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!deletingFolderId)setFolderDeleteConfirmOpen(false)}}><section className="folder-delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="folder-delete-title">
         <span className="folder-delete-icon"><Trash2 size={19}/></span><div className="section-kicker">DELETE PROJECT FOLDER</div><h2 id="folder-delete-title">Delete this folder?</h2><p>Its {folderProjects.length} videos will move back to Projects and stay in your account.</p><div className="folder-delete-actions"><button type="button" className="secondary-btn" onClick={()=>setFolderDeleteConfirmOpen(false)} disabled={Boolean(deletingFolderId)}>Cancel</button><button type="button" className="folder-delete-confirm" onClick={()=>void deleteActiveFolder()} disabled={Boolean(deletingFolderId)}>{deletingFolderId?<><span className="spinner"/> Deleting…</>:<><Trash2 size={14}/> Delete folder</>}</button></div>
@@ -850,10 +866,10 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
           <footer className="spotlight-footer"><span><kbd>↵</kbd> {activeFolderId ? 'Open video' : 'Open folder'}</span><span><kbd>ESC</kbd> Close</span><span><kbd>⌘ K</kbd> Search</span></footer>
         </section>
       </div>}
-      <section className="welcome-row"><div><h1>{activeFolderId ? folders.find(folder=>folder.id===activeFolderId)?.name : isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{activeFolderId ? 'Dub videos and QA findings saved in this project.' : isSarvamWorkflow ? 'Create a dub in your target language, then review it.' : 'Compare an existing dub with its original.'}</p></div><div className="welcome-actions">{activeFolderId && <><button type="button" className="folder-back-button" onClick={()=>{setActiveFolderId(null);setActiveTab('All projects')}}><ArrowLeft size={15}/> Back to projects</button><button type="button" className="folder-delete-trigger" onClick={()=>setFolderDeleteConfirmOpen(true)}><Trash2 size={14}/> Delete folder</button></>}<button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={17}/>} {workflow.action}</button></div></section>
+      <section className="welcome-row"><div><h1>{activeFolderId ? folders.find(folder=>folder.id===activeFolderId)?.name : isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{activeFolderId ? 'Dub videos and QA findings saved in this project.' : isSarvamWorkflow ? 'Create a dub in your target language, then review it.' : 'Compare an existing dub with its original.'}</p></div><div className="welcome-actions">{activeFolderId && <><button type="button" className="folder-back-button" onClick={()=>{setActiveFolderId(null);setActiveTab('All projects')}}><ArrowLeft size={15}/> Back to projects</button><button type="button" className="folder-rename-trigger" onClick={()=>{setRenameFolderName(folders.find(folder=>folder.id===activeFolderId)?.name || '');setRenameFolderError('');setRenameFolderOpen(true)}}><Pencil size={14}/> Rename folder</button><button type="button" className="folder-delete-trigger" onClick={()=>setFolderDeleteConfirmOpen(true)}><Trash2 size={14}/> Delete folder</button></>}<button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={17}/>} {workflow.action}</button></div></section>
 
 
-      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard projects={folderProjects} compact/><FeedbackCalendarCard folderId={activeFolderId} formUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_form_url} sheetUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_sheet_url} onSaveFormLinks={saveFolderFeedbackLinks} onTakeAction={openFeedbackAction}/></section>}
+      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard projects={folderProjects} compact/><FeedbackCalendarCard folderId={activeFolderId} formUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_form_url} sheetUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_sheet_url} onSaveFormLinks={saveFolderFeedbackLinks}/></section>}
 
       {!activeFolderId && <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div className="qa-flow-title"><span className={`qa-flow-brand${isSarvamWorkflow ? ' sarvam' : ' review'}`}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={19}/>}</span><div><div className="section-kicker">{workflow.eyebrow}</div><h2 id="qa-flow-title">{workflow.title}</h2></div></div><span className="qa-flow-time"><Clock3 size={15}/> 4 steps</span></div><ol className="qa-flow-steps">{workflow.steps.map(([title,description],index)=>{const StepIcon=workflowStepIcons[index];return <li key={title}><span className="qa-step-number">0{index+1}</span><span className="qa-step-icon" aria-hidden="true"><StepIcon size={15}/></span><div><b>{title}</b><p>{description}</p></div></li>})}</ol><button className="qa-flow-action" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={16}/>} Open upload <ArrowRight size={15}/></button></section>}
 

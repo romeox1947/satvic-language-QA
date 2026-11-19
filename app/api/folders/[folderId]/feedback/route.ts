@@ -90,7 +90,11 @@ export async function GET(_request: Request, context: { params: Promise<{ folder
         respondent: cell(row, columns, header => header === 'name') || cell(row, columns, header => header === 'email') || undefined,
       }];
     });
-    return Response.json({ entries, configured: true }, { headers: { 'cache-control': 'no-store' } });
+    const { data: actions, error: actionsError } = await supabase.from('qa_feedback_actions')
+      .select('feedback_id').eq('folder_id', folderId).eq('user_id', user.id);
+    if (actionsError) throw actionsError;
+    const actionedIds = new Set((actions || []).map(action => action.feedback_id));
+    return Response.json({ entries: entries.filter(entry => !actionedIds.has(entry.id)), configured: true }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Could not load viewer feedback.' }, { status: 502 });
   }

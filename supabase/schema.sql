@@ -62,6 +62,27 @@ create table if not exists public.qa_folders (
   alter table public.qa_folders add column if not exists feedback_form_url text;
 alter table public.qa_folders add column if not exists feedback_sheet_url text;
 
+-- Viewer feedback is read from each folder's public Google Sheet. Keep actioned
+-- response row IDs separately so the source Sheet remains untouched.
+create table if not exists public.qa_feedback_actions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  folder_id uuid not null,
+  feedback_id text not null check (char_length(feedback_id) between 1 and 300),
+  acted_at timestamptz not null default now(),
+  constraint qa_feedback_actions_folder_user_fkey foreign key (folder_id, user_id)
+    references public.qa_folders(id, user_id) on delete cascade,
+  unique (folder_id, feedback_id)
+);
+alter table public.qa_feedback_actions enable row level security;
+drop policy if exists "Users can read their own feedback actions" on public.qa_feedback_actions;
+drop policy if exists "Users can create their own feedback actions" on public.qa_feedback_actions;
+drop policy if exists "Users can delete their own feedback actions" on public.qa_feedback_actions;
+create policy "Users can read their own feedback actions" on public.qa_feedback_actions for select to authenticated using ((select auth.uid()) = user_id);
+create policy "Users can create their own feedback actions" on public.qa_feedback_actions for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "Users can delete their own feedback actions" on public.qa_feedback_actions for delete to authenticated using ((select auth.uid()) = user_id);
+grant select, insert, delete on public.qa_feedback_actions to authenticated;
+
 create unique index if not exists qa_folders_user_name_idx on public.qa_folders (user_id, lower(name));
 alter table public.qa_folders enable row level security;
 drop policy if exists "Users can read their own folders" on public.qa_folders;

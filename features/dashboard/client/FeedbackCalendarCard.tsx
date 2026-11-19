@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Clock3, Languages, Link2, LoaderCircle, MessageSquare, RefreshCw, Video, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, Languages, Link2, LoaderCircle, MessageSquare, RefreshCw, Video, X } from 'lucide-react';
 
 export type FeedbackEntry = {
   id: string;
@@ -15,11 +15,11 @@ export type FeedbackEntry = {
   respondent?: string;
 };
 
-type Props = { folderId: string; formUrl?: string | null; sheetUrl?: string | null; onSaveFormLinks?: (formUrl: string, sheetUrl: string) => Promise<void>; onTakeAction?: (entry: FeedbackEntry) => void };
+type Props = { folderId: string; formUrl?: string | null; sheetUrl?: string | null; onSaveFormLinks?: (formUrl: string, sheetUrl: string) => Promise<void> };
 
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl = '', onSaveFormLinks, onTakeAction }: Props) {
+export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl = '', onSaveFormLinks }: Props) {
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [formSettingsOpen, setFormSettingsOpen] = useState(false);
@@ -30,6 +30,8 @@ export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl 
   const [entries, setEntries] = useState<FeedbackEntry[]>([]);
   const [responsesLoading, setResponsesLoading] = useState(false);
   const [responsesError, setResponsesError] = useState('');
+  const [actioningEntryId, setActioningEntryId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
   const monthLabel = visibleMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const firstWeekday = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1).getDay();
   const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
@@ -93,6 +95,24 @@ export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl 
     }
   }
 
+  async function markActionTaken(entry: FeedbackEntry) {
+    if (actioningEntryId) return;
+    setActioningEntryId(entry.id);
+    setActionError('');
+    try {
+      const response = await fetch(`/api/folders/${encodeURIComponent(folderId)}/feedback/action`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ feedbackId: entry.id }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not mark this report as actioned.');
+      setEntries(current => current.filter(item => item.id !== entry.id));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not mark this report as actioned.');
+    } finally {
+      setActioningEntryId(null);
+    }
+  }
+
   function shiftMonth(direction: number) {
     setVisibleMonth(current => new Date(current.getFullYear(), current.getMonth() + direction, 1));
     setSelectedDate(null);
@@ -107,14 +127,15 @@ export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl 
     {formSettingsOpen && <form className="feedback-form-settings" onSubmit={saveFormUrl}><div className="feedback-form-settings-heading"><b>Feedback links for this folder</b><button type="button" aria-label="Close link settings" onClick={() => setFormSettingsOpen(false)}><X size={14}/></button></div><label>Viewer Google Form URL <small>(optional; where viewers submit)</small><input type="url" value={formUrlDraft} onChange={event => setFormUrlDraft(event.target.value)} placeholder="https://docs.google.com/forms/..." autoFocus /></label><label>Response Sheet URL <input type="url" value={sheetUrlDraft} onChange={event => setSheetUrlDraft(event.target.value)} placeholder="https://docs.google.com/spreadsheets/..." required /></label><small className="feedback-sheet-help">The calendar reads responses from this Sheet. Set General access to “Anyone with the link · Viewer”.</small>{formUrlError && <p role="alert">{formUrlError}</p>}<div className="feedback-form-settings-actions">{(formUrl || sheetUrl) && <button type="button" className="feedback-remove-form" disabled={formUrlSaving} onClick={() => void removeFormUrl()}>Remove links</button>}<button type="submit" disabled={formUrlSaving || !sheetUrlDraft.trim()}>{formUrlSaving ? 'Saving…' : 'Save Sheet'}</button></div></form>}
 
     {selectedDate ? <section className="feedback-day-view" aria-live="polite">
-      <div className="feedback-day-heading"><span className="feedback-card-kicker">SUBMISSIONS</span><h3>{selectedLabel}</h3><p>{selectedEntries.length ? `${selectedEntries.length} feedback ${selectedEntries.length === 1 ? 'report' : 'reports'}` : 'No feedback was submitted on this day.'}</p></div>
+      <div className="feedback-day-heading"><span className="feedback-card-kicker">SUBMISSIONS</span><h3>{selectedLabel}</h3><p>{selectedEntries.length ? `${selectedEntries.length} feedback ${selectedEntries.length === 1 ? 'report' : 'reports'}` : 'No feedback reports remain on this day.'}</p></div>
+      {actionError && <div className="feedback-action-error" role="alert">{actionError}</div>}
       {selectedEntries.length ? <div className="feedback-entry-list">{selectedEntries.map(entry => <article className="feedback-entry" key={entry.id}>
         <div className="feedback-entry-meta"><span><Video size={13}/>{entry.videoName}</span>{entry.language && <span><Languages size={13}/>{entry.language}</span>}<span><Clock3 size={13}/>{entry.timestamp}</span></div>
         <div className="feedback-entry-field"><small>Reported word or option</small><b>{entry.reportedText}</b></div>
         {entry.suggestedText && <div className="feedback-entry-field"><small>Suggested correction</small><b>{entry.suggestedText}</b></div>}
         {entry.note && <p className="feedback-entry-note">{entry.note}</p>}
         {entry.respondent && <small className="feedback-respondent">Submitted by {entry.respondent}</small>}
-        <div className="feedback-entry-actions"><button type="button" onClick={() => onTakeAction?.(entry)} disabled={!onTakeAction}>Take action <ArrowRight size={13}/></button></div>
+        <div className="feedback-entry-actions"><button type="button" onClick={() => void markActionTaken(entry)} disabled={actioningEntryId === entry.id || actioningEntryId !== null} aria-busy={actioningEntryId === entry.id}>{actioningEntryId === entry.id ? <><LoaderCircle size={12} className="feedback-spin"/> Saving...</> : 'Taken action'}</button></div>
       </article>)}</div> : <div className="feedback-empty-day"><MessageSquare size={20}/><span>Choose a purple date to view submitted feedback.</span></div>}
     </section> : <>
       <div className="feedback-calendar-toolbar"><button type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)}><ChevronLeft size={16}/></button><b>{monthLabel}</b><button type="button" aria-label="Next month" onClick={() => shiftMonth(1)}><ChevronRight size={16}/></button></div>
