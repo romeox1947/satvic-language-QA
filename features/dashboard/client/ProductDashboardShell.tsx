@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
 import { getProduct, products, type ProductFeature, type ProductId } from '@/features/products/registry';
-import { useFounderOfficePreference } from './useFounderOfficePreference';
 
 const featureIcons: Record<ProductFeature['icon'], LucideIcon> = {
   plus: Plus,
@@ -68,7 +67,7 @@ export default function ProductDashboardShell({
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState('');
-  const [founderOfficeEnabled, setFounderOfficeEnabled] = useFounderOfficePreference(accountEmail);
+  const founderOfficeEnabled = false;
   const [activeFeatureId, setActiveFeatureId] = useState(initialFeatureId ?? product.groups[0].features[1]?.id ?? product.groups[0].features[0].id);
 
   useEffect(() => {
@@ -139,18 +138,12 @@ export default function ProductDashboardShell({
     ? accountEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())
     : 'Account';
   const workspaceName = accountName === 'Account' ? 'Satvic Studio Workspace' : `${accountName}'s Workspace`;
-  const visibleProducts = products.filter(item => item.id !== 'founder-office' || founderOfficeEnabled);
+  const visibleProducts = products.filter(item => item.id !== 'founder-office');
   const visibleNotifications = notifications.filter(item => item.kind !== 'Founder Office' || founderOfficeEnabled);
 
   function toggleFounderOffice() {
-    const nextEnabled = !founderOfficeEnabled;
-    setFounderOfficeEnabled(nextEnabled);
     setAccountMenuOpen(false);
-    if (!nextEnabled) {
-      setNotifications(current => current.filter(item => item.kind !== 'Founder Office'));
-      setNotificationOpen(false);
-      if (productId === 'founder-office') router.replace('/dashboard/satvic-fluid');
-    }
+    onNotice('Founder Office is coming soon.');
   }
 
   const loadNotifications = useCallback(async () => {
@@ -241,7 +234,7 @@ export default function ProductDashboardShell({
         {featureRailCollapsed && <button type="button" className="rail-account feature-rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)} title={accountName}><span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span></button>}
       </aside>
 
-      {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button type="button" role="menuitemcheckbox" aria-checked={founderOfficeEnabled} className="account-product-toggle" onClick={toggleFounderOffice}><Building2 size={18} /><span>Founder Office</span><i className={`account-toggle-track${founderOfficeEnabled ? ' enabled' : ''}`} aria-hidden="true"><i /></i></button><form action={signOut}><button role="menuitem" type="submit" className="account-logout"><LogOut size={18} /><span>Logout</span></button></form></div>}
+      {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button type="button" role="menuitemcheckbox" aria-checked={false} className="account-product-toggle" onClick={toggleFounderOffice}><Building2 size={18} /><span>Founder Office</span><i className="account-toggle-track" aria-hidden="true"><i /></i></button><form action={signOut}><button role="menuitem" type="submit" className="account-logout"><LogOut size={18} /><span>Logout</span></button></form></div>}
 
       <section className="main-area">
         <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button></header>

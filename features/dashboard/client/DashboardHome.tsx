@@ -5,13 +5,11 @@ import { ArrowRight, AudioLines, Building2, CheckCheck, Clock3 } from 'lucide-re
 import { useRouter } from 'next/navigation';
 import ProductDashboardShell from './ProductDashboardShell';
 import { products } from '@/features/products/registry';
-import { useFounderOfficePreference } from './useFounderOfficePreference';
 
 export default function DashboardHome({ accountEmail }: { accountEmail: string }) {
   const router = useRouter();
   const [notice, setNotice] = useState('');
-  const [founderOfficeEnabled] = useFounderOfficePreference(accountEmail);
-  const visibleProducts = products.filter(product => product.id !== 'founder-office' || founderOfficeEnabled);
+  const visibleProducts = products.filter(product => product.id !== 'founder-office');
 
   return <ProductDashboardShell productId="satvic-fluid" accountEmail={accountEmail} onNotice={setNotice} hideFeatureNavigation>
     <section className="dashboard-home">
