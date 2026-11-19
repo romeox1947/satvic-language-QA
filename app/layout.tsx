@@ -5,6 +5,8 @@ import './globals.css';
 import './dashboard.css';
 import './landing.css';
 import '../features/website/satvic-studio.css';
+import './satvic-overview.css';
+import './satvic-overview-layout.css';
 
 export const metadata: Metadata = {
   title: 'Satvic Studio | Multilingual Video QA',

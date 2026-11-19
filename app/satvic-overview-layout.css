@@ -1,0 +1,5 @@
+.so-top-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(240px,.85fr);grid-template-rows:minmax(395px,auto) minmax(230px,auto)}
+.so-impact-card{grid-column:span 2}
+.so-program-card{grid-column:1/-1}
+@media(max-width:1100px){.so-top-grid{grid-template-columns:minmax(0,1.5fr) minmax(245px,1fr);grid-template-rows:minmax(380px,auto) minmax(285px,auto)}.so-impact-card{grid-column:auto}.so-program-card{grid-column:1/-1}}
+@media(max-width:700px){.so-top-grid{grid-template-columns:1fr;grid-template-rows:auto}.so-impact-card,.so-program-card{grid-column:auto}}
