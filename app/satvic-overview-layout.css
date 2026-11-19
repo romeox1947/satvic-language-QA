@@ -1,5 +1,15 @@
-.so-top-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(240px,.85fr);grid-template-rows:minmax(395px,auto) minmax(230px,auto)}
-.so-impact-card{grid-column:span 2}
-.so-program-card{grid-column:1/-1}
-@media(max-width:1100px){.so-top-grid{grid-template-columns:minmax(0,1.5fr) minmax(245px,1fr);grid-template-rows:minmax(380px,auto) minmax(285px,auto)}.so-impact-card{grid-column:auto}.so-program-card{grid-column:1/-1}}
-@media(max-width:700px){.so-top-grid{grid-template-columns:1fr;grid-template-rows:auto}.so-impact-card,.so-program-card{grid-column:auto}}
+.satvic-overview-page{padding:4px;background:#252525}
+.satvic-overview-frame{max-width:none;min-height:calc(100svh - 8px);padding:20px 22px 15px;border-radius:21px}
+.so-top-grid{grid-template-columns:minmax(0,1.35fr) minmax(205px,.82fr) minmax(270px,1.08fr);grid-template-rows:minmax(360px,auto);column-gap:0;row-gap:12px}
+.so-top-grid{margin-top:16px}
+.so-bottom-grid{grid-template-columns:minmax(0,1.05fr) minmax(0,1.05fr) minmax(0,1.8fr)}
+.so-global-card{grid-column:auto}
+.so-tabs .so-tools-link{display:flex;height:39px;min-width:74px;align-items:center;justify-content:center;padding:0 18px;border:1px solid #e6e0eb;border-radius:21px;background:#f7f4fa;color:#6f5189;font-size:12px;font-weight:600;text-decoration:none;transition:all .2s}
+.so-tabs .so-tools-link:hover{border-color:#d8c9e5;background:#efe8f5;color:#62447d}
+.so-impact-card{margin-right:0;padding-right:20px;border-right:0;border-radius:18px 0 0 18px}
+.so-calendar-card{position:relative;z-index:1;margin-left:0;width:auto;padding-left:20px;border-left:0;border-radius:0 18px 18px 0;box-shadow:inset 1px 0 #ececea,0 2px 9px #22251f04}
+.so-program-card{margin-left:12px}
+@media(min-width:701px) and (max-width:1100px){.so-header{height:46px;grid-template-columns:minmax(130px,1fr) auto minmax(210px,1fr);gap:10px}.so-tabs{grid-row:auto;grid-column:auto;justify-self:center}.so-tabs button{min-width:60px;height:34px;padding:0 8px;font-size:9px}.so-tabs .so-tools-link{min-width:56px;height:34px;padding:0 9px;font-size:9px}.so-header-actions{grid-column:auto;grid-row:auto}.so-account-button{min-width:170px;height:40px}.so-avatar{width:32px;height:32px}.so-icon-button{width:38px;height:38px}}
+@media(max-width:700px){.so-tabs .so-tools-link{height:34px;min-width:0;flex:1;padding:0 8px;font-size:10px}}
+@media(max-width:1100px){.satvic-overview-page{padding:4px}.satvic-overview-frame{padding:12px 18px 8px}.so-top-grid{grid-template-columns:minmax(0,1.25fr) minmax(190px,.8fr) minmax(245px,1fr);grid-template-rows:minmax(300px,auto)}.so-top-grid{margin-top:12px}.so-impact-card,.so-calendar-card,.so-program-card,.so-content-card,.so-community-card,.so-global-card{padding:12px 14px}.so-line-chart{height:112px}.so-week-bars{min-height:130px}.so-calendar-feature{padding:7px}.so-bottom-grid>.so-card{min-height:210px}.so-world-map svg{max-height:155px}.so-footer{padding-top:8px}}
+@media(max-width:700px){.so-top-grid{grid-template-columns:1fr;grid-template-rows:auto;column-gap:12px}.so-impact-card{margin:0;padding:15px;border:1px solid #ececea;border-radius:18px}.so-calendar-card{margin:0;width:auto;padding:15px;border:1px solid #ececea;border-radius:18px;box-shadow:0 2px 9px #22251f04}.so-program-card{margin:0}.so-bottom-grid{grid-template-columns:1fr}.so-global-card{grid-column:auto}}

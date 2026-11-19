@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
-  ArrowUpRight, Bell, CalendarDays, ChevronDown, ChevronLeft, ChevronRight,
+  ArrowUpRight, Bell, ChevronDown, ChevronLeft, ChevronRight,
   CircleHelp, Leaf, LogOut, Search, Settings, Sparkles, Sprout, Utensils,
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
@@ -31,11 +32,11 @@ export default function SatvicOverviewDashboard({ accountName, accountEmail }: {
   return <main className="satvic-overview-page">
     <div className="satvic-overview-frame">
       <header className="so-header">
-        <a className="so-brand" href="https://satvicmovement.org/" target="_blank" rel="noreferrer" aria-label="Satvic Movement home">
+        <Link className="so-brand" href="/" aria-label="Satvic Studio home">
           <span className="so-brand-mark"><img src="https://satvicmovement.org/images/favicon.png" alt="" /></span>
-          <span className="so-brand-copy"><b>satvic movement</b><small>STUDIO OVERVIEW</small></span>
-        </a>
-        <nav className="so-tabs" aria-label="Dashboard sections">{navItems.map(item => <button key={item} type="button" className={activeTab === item ? 'active' : ''} onClick={() => setActiveTab(item)}>{item}</button>)}</nav>
+          <span className="so-brand-copy"><b>Satvic Studio</b><small>STUDIO OVERVIEW</small></span>
+        </Link>
+        <nav className="so-tabs" aria-label="Dashboard sections">{navItems.map(item => <button key={item} type="button" className={activeTab === item ? 'active' : ''} onClick={() => setActiveTab(item)}>{item}</button>)}<Link className="so-tools-link" href="/dashboard/satvic-fluid">Tools</Link></nav>
         <div className="so-header-actions">
           {searchOpen && <input className="so-search-input" autoFocus aria-label="Search dashboard" placeholder="Search dashboard" onKeyDown={event => { if (event.key === 'Escape') setSearchOpen(false); }} />}
           <button className={`so-icon-button${searchOpen ? ' so-icon-active' : ''}`} type="button" aria-label="Search" onClick={() => setSearchOpen(open => !open)}><Search size={18} /></button>
@@ -48,8 +49,6 @@ export default function SatvicOverviewDashboard({ accountName, accountEmail }: {
           </div>
         </div>
       </header>
-
-      <section className="so-welcome"><div><div className="so-eyebrow"><span/> SATVIC MOVEMENT <i>·</i> SAMPLE DASHBOARD</div><h1>{activeTab === 'Overview' ? 'A little more good, every day.' : `${activeTab} at a glance.`}</h1><p>A thoughtful look at the community, content and impact growing with the movement.</p></div><div className="so-welcome-date"><CalendarDays size={15}/><span>Tuesday, June 16, 2026</span></div></section>
 
       <section className="so-top-grid">
         <article className="so-card so-impact-card">
