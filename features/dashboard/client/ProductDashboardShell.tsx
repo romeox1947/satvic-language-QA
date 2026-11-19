@@ -12,6 +12,8 @@ import {
 import { signOut } from '@/features/auth/server/actions';
 import { getProduct, products, type ProductFeature, type ProductId } from '@/features/products/registry';
 import { getProfileAvatarSrc } from '@/features/auth/profile-avatar';
+import PendingSubmitButton from '@/features/auth/components/PendingSubmitButton';
+import { startNavigationLoading } from '@/features/navigation/NavigationLoading';
 
 const featureIcons: Record<ProductFeature['icon'], LucideIcon> = {
   plus: Plus,
@@ -69,6 +71,7 @@ export default function ProductDashboardShell({
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState('');
+  const [followingNotificationId, setFollowingNotificationId] = useState<string | null>(null);
   const founderOfficeEnabled = false;
   const [activeFeatureId, setActiveFeatureId] = useState(initialFeatureId ?? product.groups[0].features[1]?.id ?? product.groups[0].features[0].id);
 
@@ -129,6 +132,7 @@ export default function ProductDashboardShell({
   const navigateToProduct = (href: string) => {
     setNotificationOpen(false);
     setProductMenuOpen(false);
+    if (new URL(href, window.location.origin).pathname !== window.location.pathname) startNavigationLoading();
     router.push(href);
   };
 
@@ -166,6 +170,7 @@ export default function ProductDashboardShell({
   }, [loadNotifications]);
 
   async function followNotification(item: DashboardNotification) {
+    setFollowingNotificationId(item.id);
     setNotificationError('');
     try {
       const response = await fetch('/api/notifications', {
@@ -175,9 +180,12 @@ export default function ProductDashboardShell({
       if (!response.ok) throw new Error(body.error || 'Could not remove this notification.');
       setNotifications(current => current.filter(notification => notification.id !== item.id));
       setNotificationOpen(false);
+      if (new URL(item.href, window.location.origin).pathname !== window.location.pathname) startNavigationLoading();
       router.push(item.href);
     } catch (error) {
       setNotificationError(error instanceof Error ? error.message : 'Could not remove this notification.');
+    } finally {
+      setFollowingNotificationId(null);
     }
   }
 
@@ -224,7 +232,7 @@ export default function ProductDashboardShell({
         {featureRailCollapsed && <button type="button" className="rail-account feature-rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)} title={accountName}><span className="account-trigger-avatar"><img src={getProfileAvatarSrc(accountAvatar)} alt=""/></span></button>}
       </aside>
 
-      {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button type="button" role="menuitemcheckbox" aria-checked={false} className="account-product-toggle" onClick={toggleFounderOffice}><Building2 size={18} /><span>Founder Office</span><i className="account-toggle-track" aria-hidden="true"><i /></i></button><form action={signOut}><button role="menuitem" type="submit" className="account-logout"><LogOut size={18} /><span>Logout</span></button></form></div>}
+      {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button type="button" role="menuitemcheckbox" aria-checked={false} className="account-product-toggle" onClick={toggleFounderOffice}><Building2 size={18} /><span>Founder Office</span><i className="account-toggle-track" aria-hidden="true"><i /></i></button><form action={signOut}><PendingSubmitButton role="menuitem" className="account-logout" pendingText="Logging out…"><LogOut size={18} /><span>Logout</span></PendingSubmitButton></form></div>}
 
       <section className="main-area">
         <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button></header>
@@ -233,7 +241,7 @@ export default function ProductDashboardShell({
           {notificationError && <div className="notification-error"><span>{notificationError}</span><button type="button" onClick={() => void loadNotifications()}>Retry</button></div>}
           {notificationsLoading && visibleNotifications.length === 0 ? <div className="notification-empty">Loading notifications...</div> : visibleNotifications.length === 0 ? <div className="notification-empty"><Bell size={22}/><b>You are all caught up</b><span>New deadlines and completed video reviews will appear here.</span></div> : <div className="notification-list">{visibleNotifications.map(item => <article className="notification-card" key={item.id}>
             <div className="notification-card-copy"><div className="notification-card-meta"><span>{item.kind}</span><time>{new Date(item.createdAt).toLocaleString()}</time></div><h2>{item.title}</h2><p>{item.description}</p></div>
-            <button type="button" className="notification-open" aria-label={`Open ${item.title}`} title="Open and remove notification" onClick={() => void followNotification(item)}><ArrowRight size={19}/></button>
+            <button type="button" className="notification-open" aria-label={followingNotificationId === item.id ? `Opening ${item.title}` : `Open ${item.title}`} title="Open and remove notification" disabled={followingNotificationId === item.id} aria-busy={followingNotificationId === item.id} onClick={() => void followNotification(item)}>{followingNotificationId === item.id ? <span className="action-spinner" aria-hidden="true"/> : <ArrowRight size={19}/>}</button>
           </article>)}</div>}
         </section> : children}</div>
       </section>

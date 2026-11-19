@@ -7,6 +7,7 @@ import {
   CircleHelp, Leaf, LogOut, Settings, Sparkles, Sprout, Utensils,
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
+import PendingSubmitButton from '@/features/auth/components/PendingSubmitButton';
 import { getProfileAvatarSrc } from '@/features/auth/profile-avatar';
 import IndiaCommunityMapCard from './IndiaCommunityMapCard';
 
@@ -43,7 +44,7 @@ export default function SatvicOverviewDashboard({ accountName, accountEmail, acc
             <button type="button" className="so-account-button" aria-expanded={accountOpen} onClick={() => setAccountOpen(open => !open)}>
               <span className="so-avatar"><img src={getProfileAvatarSrc(accountAvatar)} alt=""/></span><span className="so-account-copy"><b>{accountName}</b><small>{accountEmail || 'Satvic Studio account'}</small></span><ChevronDown size={15}/>
             </button>
-            {accountOpen && <div className="so-account-menu"><div className="so-menu-identity"><b>{accountName}</b><span>{accountEmail}</span></div><button type="button" onClick={() => window.alert('Account settings are coming soon.')}><Settings size={15}/>Account settings</button><button type="button" onClick={() => window.alert('Help is coming soon.')}><CircleHelp size={15}/>Help center</button><form action={signOut}><button type="submit"><LogOut size={15}/>Sign out</button></form></div>}
+            {accountOpen && <div className="so-account-menu"><div className="so-menu-identity"><b>{accountName}</b><span>{accountEmail}</span></div><button type="button" onClick={() => window.alert('Account settings are coming soon.')}><Settings size={15}/>Account settings</button><button type="button" onClick={() => window.alert('Help is coming soon.')}><CircleHelp size={15}/>Help center</button><form action={signOut}><PendingSubmitButton pendingText="Signing out…"><LogOut size={15}/>Sign out</PendingSubmitButton></form></div>}
           </div>
         </div>
       </header>

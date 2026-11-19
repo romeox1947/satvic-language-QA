@@ -5,6 +5,7 @@ import { ArrowRight, AudioLines, Building2, CheckCheck, Clock3 } from 'lucide-re
 import { useRouter } from 'next/navigation';
 import ProductDashboardShell from './ProductDashboardShell';
 import { products } from '@/features/products/registry';
+import { startNavigationLoading } from '@/features/navigation/NavigationLoading';
 
 export default function DashboardHome({ accountEmail }: { accountEmail: string }) {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function DashboardHome({ accountEmail }: { accountEmail: string }
         }} onPointerLeave={event => {
           event.currentTarget.style.removeProperty('--pointer-x');
           event.currentTarget.style.removeProperty('--pointer-y');
-        }} onClick={() => router.push(product.href)}>
+        }} onClick={() => { startNavigationLoading(); router.push(product.href); }}>
           <span className="dashboard-product-card-icon">{product.id === 'satvic-fluid' ? <AudioLines size={22} /> : <Building2 size={22} />}</span>
           <span className="dashboard-product-card-copy"><b>{product.name}</b><small>{product.description}</small></span>
           <ArrowRight className="dashboard-product-arrow" size={18} />
