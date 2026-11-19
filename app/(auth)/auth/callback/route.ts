@@ -21,5 +21,5 @@ export async function GET(request: Request) {
   if (profileError) return NextResponse.redirect(new URL('/login?setup=profile-table', url.origin));
 
   if (!profile) return NextResponse.redirect(new URL('/onboarding', url.origin));
-  return NextResponse.redirect(new URL('/dashboard', url.origin));
+  return NextResponse.redirect(new URL('/dashboard/satvic-fluid', url.origin));
 }

@@ -18,6 +18,8 @@ export default async function ProductDashboardPage({ params }: { params: Promise
   const product = getProduct(productId);
   if (!product) notFound();
 
-  if (product.id === 'satvic-fluid') return <SatvicFluidDashboard initialAccountEmail={user.email ?? ''} initialAccountAvatar={getProfileAvatarId(user.user_metadata?.avatar_id)} initialAccountUserId={user.id} />;
-  return <FounderOfficeDashboard accountEmail={user.email ?? ''} />;
+  const founderOfficeEnabled = user.user_metadata?.founder_office_enabled === true;
+  if (product.id === 'founder-office' && !founderOfficeEnabled) redirect('/dashboard/satvic-fluid');
+  if (product.id === 'satvic-fluid') return <SatvicFluidDashboard initialAccountEmail={user.email ?? ''} initialAccountAvatar={getProfileAvatarId(user.user_metadata?.avatar_id)} initialAccountUserId={user.id} initialFounderOfficeEnabled={founderOfficeEnabled} />;
+  return <FounderOfficeDashboard accountEmail={user.email ?? ''} initialFounderOfficeEnabled={founderOfficeEnabled} />;
 }

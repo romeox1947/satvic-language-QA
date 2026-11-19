@@ -44,6 +44,7 @@ type ProductDashboardShellProps = {
   onFeatureSelect?: (featureId: string) => void;
   initialFeatureId?: string;
   hideFeatureNavigation?: boolean;
+  initialFounderOfficeEnabled?: boolean;
   children: ReactNode;
 };
 
@@ -57,6 +58,7 @@ export default function ProductDashboardShell({
   onFeatureSelect,
   initialFeatureId,
   hideFeatureNavigation = false,
+  initialFounderOfficeEnabled = false,
   children,
 }: ProductDashboardShellProps) {
   const router = useRouter();
@@ -72,7 +74,9 @@ export default function ProductDashboardShell({
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationError, setNotificationError] = useState('');
   const [followingNotificationId, setFollowingNotificationId] = useState<string | null>(null);
-  const founderOfficeEnabled = false;
+  const [founderOfficeEnabled, setFounderOfficeEnabled] = useState(initialFounderOfficeEnabled);
+  const [founderOfficePreferenceLoading, setFounderOfficePreferenceLoading] = useState(true);
+  const [founderOfficePreferenceSaving, setFounderOfficePreferenceSaving] = useState(false);
   const [activeFeatureId, setActiveFeatureId] = useState(initialFeatureId ?? product.groups[0].features[1]?.id ?? product.groups[0].features[0].id);
 
   useEffect(() => {
@@ -121,12 +125,27 @@ export default function ProductDashboardShell({
   }, [productMenuOpen]);
 
   useEffect(() => {
+    let active = true;
+    fetch('/api/preferences/founder-office', { cache: 'no-store' })
+      .then(async response => ({ response, body: await response.json().catch(() => ({})) }))
+      .then(({ response, body }) => {
+        if (active && response.ok) setFounderOfficeEnabled(body.enabled === true);
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setFounderOfficePreferenceLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     router.prefetch('/dashboard/satvic-fluid');
     products.forEach(item => router.prefetch(item.href));
   }, [router]);
 
   useEffect(() => {
-    if (productId === 'founder-office' && !founderOfficeEnabled) router.replace('/dashboard/satvic-fluid');
+    if (productId === 'founder-office' && !founderOfficeEnabled) {
+      startNavigationLoading();
+      router.replace('/dashboard/satvic-fluid');
+    }
   }, [founderOfficeEnabled, productId, router]);
 
   const navigateToProduct = (href: string) => {
@@ -140,12 +159,31 @@ export default function ProductDashboardShell({
     ? accountEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase())
     : 'Account';
   const workspaceName = accountName === 'Account' ? 'Satvic Studio Workspace' : `${accountName}'s Workspace`;
-  const visibleProducts = products.filter(item => item.id !== 'founder-office');
+  const visibleProducts = products.filter(item => item.id !== 'founder-office' || founderOfficeEnabled);
   const visibleNotifications = notifications.filter(item => item.kind !== 'Founder Office' || founderOfficeEnabled);
 
-  function toggleFounderOffice() {
-    setAccountMenuOpen(false);
-    onNotice('Founder Office is coming soon.');
+  async function toggleFounderOffice() {
+    if (founderOfficePreferenceLoading || founderOfficePreferenceSaving) return;
+    const enabled = !founderOfficeEnabled;
+    setFounderOfficePreferenceSaving(true);
+    try {
+      const response = await fetch('/api/preferences/founder-office', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not update Founder Office.');
+      setFounderOfficeEnabled(body.enabled === true);
+      onNotice(enabled ? 'Founder Office is on.' : 'Founder Office is off.');
+      if (!enabled && productId === 'founder-office') {
+        setAccountMenuOpen(false);
+      }
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : 'Could not update Founder Office.');
+    } finally {
+      setFounderOfficePreferenceSaving(false);
+    }
   }
 
   const loadNotifications = useCallback(async () => {
@@ -232,7 +270,7 @@ export default function ProductDashboardShell({
         {featureRailCollapsed && <button type="button" className="rail-account feature-rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)} title={accountName}><span className="account-trigger-avatar"><img src={getProfileAvatarSrc(accountAvatar)} alt=""/></span></button>}
       </aside>
 
-      {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button type="button" role="menuitemcheckbox" aria-checked={false} className="account-product-toggle" onClick={toggleFounderOffice}><Building2 size={18} /><span>Founder Office</span><i className="account-toggle-track" aria-hidden="true"><i /></i></button><form action={signOut}><PendingSubmitButton role="menuitem" className="account-logout" pendingText="Logging out…"><LogOut size={18} /><span>Logout</span></PendingSubmitButton></form></div>}
+      {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button type="button" role="menuitemcheckbox" aria-checked={founderOfficeEnabled} aria-busy={founderOfficePreferenceSaving || founderOfficePreferenceLoading} disabled={founderOfficePreferenceSaving || founderOfficePreferenceLoading} className="account-product-toggle" onClick={()=>void toggleFounderOffice()}><Building2 size={18} /><span>Founder Office</span><i className={`account-toggle-track${founderOfficeEnabled ? ' enabled' : ''}`} aria-hidden="true"><i /></i></button><form action={signOut}><PendingSubmitButton role="menuitem" className="account-logout" pendingText="Logging out…"><LogOut size={18} /><span>Logout</span></PendingSubmitButton></form></div>}
 
       <section className="main-area">
         <header className="topbar"><button className="icon-btn menu-trigger" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button></header>

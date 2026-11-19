@@ -101,7 +101,7 @@ function readMediaDuration(file: File): Promise<number> {
   });
 }
 
-export default function SatvicFluidDashboard({ initialAccountEmail = '', initialAccountAvatar = 'sage', initialAccountUserId }: { initialAccountEmail?: string; initialAccountAvatar?: string; initialAccountUserId: string }) {
+export default function SatvicFluidDashboard({ initialAccountEmail = '', initialAccountAvatar = 'sage', initialAccountUserId, initialFounderOfficeEnabled = false }: { initialAccountEmail?: string; initialAccountAvatar?: string; initialAccountUserId: string; initialFounderOfficeEnabled?: boolean }) {
   const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
   const [folders, setFolders] = useState<ProjectFolder[]>([]);
@@ -563,7 +563,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'Could not move this project.');
       setProjects(current => current.map(item => item.jobId === project.jobId ? { ...item, folderId: nextFolderId || undefined } : item));
-      setDetails(current => current?.jobId === project.jobId ? { ...current, folderId: nextFolderId || undefined } : current);
+      setDetails(current => current && current.jobId === project.jobId ? { ...current, folderId: nextFolderId || undefined } : current);
       setProjectMenuId(null);
       setNotice(nextFolderId ? `Moved to ${folders.find(folder => folder.id === nextFolderId)?.name || 'folder'}.` : 'Removed from folder.');
     } catch (error) {
@@ -735,6 +735,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       productId="satvic-fluid"
       accountEmail={accountEmail}
       accountAvatar={initialAccountAvatar}
+      initialFounderOfficeEnabled={initialFounderOfficeEnabled}
       onNotice={setNotice}
       initialFeatureId="generate-sarvam"
       onFeatureSelect={(featureId) => setActiveWorkflow(featureId as 'generate-sarvam' | 'start-review')}
