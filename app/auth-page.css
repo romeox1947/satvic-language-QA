@@ -89,3 +89,12 @@ main.auth-screen.auth-v2{position:fixed!important;inset:0!important;display:bloc
 .auth-v2 .auth-v2-content{width:min(100%,390px)}
 @media(max-width:620px){main.auth-screen.auth-v2{position:relative!important;height:auto!important;min-height:100svh;overflow-y:auto!important}.auth-v2 .auth-layout{position:relative;inset:auto;width:100%!important;height:auto;min-height:100svh;margin:0!important}}
 @media(max-width:620px){.auth-v2 .auth-main-panel{padding:18px 16px}.auth-v2 .auth-form-glass{width:min(100%,450px);padding:32px 24px;border-radius:22px}}
+.auth-v2 .auth-form-glass{width:min(100%,530px);padding:46px 46px;background:radial-gradient(ellipse at 16% 5%,rgba(255,255,255,.9),transparent 43%),linear-gradient(142deg,rgba(250,253,248,.69),rgba(224,238,220,.53) 52%,rgba(255,255,255,.64));box-shadow:0 26px 75px rgba(74,111,77,.19),inset 0 2px 0 rgba(255,255,255,.98),inset 0 -15px 35px rgba(129,166,124,.16),inset 9px 0 22px rgba(255,255,255,.48);backdrop-filter:blur(32px) saturate(1.65)}
+.auth-v2 .auth-form-glass::before{inset:-2% 18% 70%;background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,255,255,0));filter:blur(20px)}
+.auth-v2 .auth-form-glass::after{position:absolute;z-index:-1;right:7%;bottom:10%;width:34%;height:26%;border-radius:50%;background:rgba(166,199,159,.2);content:"";filter:blur(28px);pointer-events:none}
+.auth-v2 .auth-v2-content{width:min(100%,420px);text-align:center}
+.auth-v2 .auth-v2-content h1{text-align:center}
+.auth-v2 .auth-v2-content h1{font-size:31px}
+.auth-v2 .auth-v2-copy{margin-right:auto;margin-left:auto;font-size:13px;text-align:center}
+.auth-v2 .auth-v2-switch{font-size:12px}
+@media(max-width:620px){.auth-v2 .auth-form-glass{width:min(100%,450px);padding:32px 24px}}
