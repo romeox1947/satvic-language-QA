@@ -1502,6 +1502,10 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .feedback-entry-field small,.app-shell .feedback-respondent{color:#969a92;font:400 8px "Matter"}
 .app-shell .feedback-entry-field b{color:#41453f;font:500 10px/1.4 "Matter";overflow-wrap:anywhere}
 .app-shell .feedback-entry-note{margin:8px 0 0;color:#6e746b;font:400 9px/1.5 "Matter";overflow-wrap:anywhere}
+.app-shell .feedback-entry-actions{display:flex;justify-content:flex-end;margin-top:10px;padding-top:9px;border-top:1px solid #eeeaf3}
+.app-shell .feedback-entry-actions button{display:inline-flex;min-height:30px;align-items:center;justify-content:center;gap:6px;padding:0 10px;border:1px solid #dfd5eb;border-radius:8px;background:#fff;color:#70528e;font:500 9px "Matter";cursor:pointer;transition:background .15s,border-color .15s}
+.app-shell .feedback-entry-actions button:hover{border-color:#c8b5dc;background:#f7f3fa}
+.app-shell .feedback-entry-actions button:disabled{opacity:.5;cursor:not-allowed}
 .app-shell .feedback-respondent{display:block;margin-top:9px}
 .app-shell .feedback-empty-day{display:flex;min-height:100px;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:#979c93;font:400 9px "Matter";text-align:center}
 .app-shell .folder-work-grid{margin-top:0}

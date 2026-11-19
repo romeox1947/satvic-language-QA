@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { uploadPresigned } from '@vercel/blob/client';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
 import IndiaCommunityMapCard from '@/features/dashboard/client/IndiaCommunityMapCard';
-import FeedbackCalendarCard from '@/features/dashboard/client/FeedbackCalendarCard';
+import FeedbackCalendarCard, { type FeedbackEntry } from '@/features/dashboard/client/FeedbackCalendarCard';
 import {
   Activity, AlertCircle, ArrowDown, ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCheck,
   Clock3, FileAudio, FileText, Filter, ExternalLink, Folder, FolderPlus, FolderOpen, Headphones, Languages,
@@ -320,8 +320,9 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     }).slice(0, 5);
   }, [folders, query, activeFolderId]);
   const searchProjects = useMemo(() => {
+    if (!activeFolderId) return [];
     const normalizedQuery = query.trim().toLocaleLowerCase();
-    const matchingProjects = projects.filter(project => (!activeFolderId || (!project.isExample && project.folderId === activeFolderId))
+    const matchingProjects = projects.filter(project => !project.isExample && project.folderId === activeFolderId
       && (!normalizedQuery || `${project.title} ${project.target} ${project.source} ${project.status} ${folders.find(folder => folder.id === project.folderId)?.name || ''}`.toLocaleLowerCase().includes(normalizedQuery)));
     return matchingProjects.sort((a, b) => {
       if (!normalizedQuery) return 0;
@@ -373,6 +374,23 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
   function openFirstSearchResult() {
     if (searchFolders[0]) openSearchFolder(searchFolders[0]);
     else if (searchProjects[0]) openSearchProject(searchProjects[0]);
+  }
+
+  function openFeedbackAction(entry: FeedbackEntry) {
+    const language = entry.language?.trim().toLocaleLowerCase();
+    const videoName = entry.videoName.trim().toLocaleLowerCase();
+    const match = folderProjects.find(project => project.jobId && (
+      (language && project.target.toLocaleLowerCase().includes(language))
+      || (videoName && project.title.toLocaleLowerCase().includes(videoName))
+    ));
+    if (!match) {
+      setNotice(`No dubbed video matching ${entry.language || entry.videoName} was found in this folder.`);
+      return;
+    }
+    setReport(null);
+    setDetails(match);
+    setReportDeleteConfirmOpen(false);
+    setReportPage(true);
   }
 
   const latestFindingProject = folderProjects.find(project => project.issues > 0 && project.jobId)
@@ -819,7 +837,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       </section></div>}
       {searchOpen && <div className="spotlight-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setQuery(''); setSearchOpen(false); } }}>
         <section className="spotlight-panel" role="dialog" aria-modal="true" aria-label="Search workspace projects">
-          <div className="spotlight-input-row"><Search size={21} aria-hidden="true"/><input ref={searchInputRef} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search projects, folders, languages, or status..." aria-label="Search projects, folders, languages, or status" onKeyDown={event => { if (event.key === 'Enter' && (searchFolders.length || searchProjects.length)) { event.preventDefault(); openFirstSearchResult(); } }} /><button type="button" className="spotlight-escape" onClick={() => { setQuery(''); setSearchOpen(false); }}>ESC</button></div>
+          <div className="spotlight-input-row"><Search size={21} aria-hidden="true"/><input ref={searchInputRef} value={query} onChange={event => setQuery(event.target.value)} placeholder={activeFolderId ? "Search videos, languages, or status..." : "Search project folders..."} aria-label={activeFolderId ? "Search videos, languages, or status" : "Search project folders"} onKeyDown={event => { if (event.key === 'Enter' && (searchFolders.length || searchProjects.length)) { event.preventDefault(); openFirstSearchResult(); } }} /><button type="button" className="spotlight-escape" onClick={() => { setQuery(''); setSearchOpen(false); }}>ESC</button></div>
           <div className="spotlight-results" role="listbox" aria-label="Matching workspace items">
             {searchFolders.length > 0 && <><div className="spotlight-section-label">{query.trim() ? 'PROJECT FOLDERS' : 'RECENT FOLDERS'}</div>{searchFolders.map(folder => <button type="button" key={folder.id} className="spotlight-result spotlight-folder-result" role="option" aria-selected="false" onClick={() => openSearchFolder(folder)}>
               <span className="spotlight-folder-icon"><Folder size={16}/></span><span className="spotlight-result-copy"><b>{folder.name}</b><small>{projects.filter(project => project.folderId === folder.id && !project.isExample).length} videos in this project</small></span><span className="spotlight-status">Folder</span><ArrowRight className="spotlight-result-arrow" size={16}/>
@@ -829,13 +847,13 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
             </button>)}</>}
             {!searchFolders.length && !searchProjects.length && <div className="spotlight-empty"><Search size={19}/><b>No matching projects or folders</b><span>Try a folder name, video title, language, or status.</span></div>}
           </div>
-          <footer className="spotlight-footer"><span><kbd>↵</kbd> Open project</span><span><kbd>ESC</kbd> Close</span><span><kbd>⌘ K</kbd> Search</span></footer>
+          <footer className="spotlight-footer"><span><kbd>↵</kbd> {activeFolderId ? 'Open video' : 'Open folder'}</span><span><kbd>ESC</kbd> Close</span><span><kbd>⌘ K</kbd> Search</span></footer>
         </section>
       </div>}
       <section className="welcome-row"><div><h1>{activeFolderId ? folders.find(folder=>folder.id===activeFolderId)?.name : isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{activeFolderId ? 'Dub videos and QA findings saved in this project.' : isSarvamWorkflow ? 'Create a dub in your target language, then review it.' : 'Compare an existing dub with its original.'}</p></div><div className="welcome-actions">{activeFolderId && <><button type="button" className="folder-back-button" onClick={()=>{setActiveFolderId(null);setActiveTab('All projects')}}><ArrowLeft size={15}/> Back to projects</button><button type="button" className="folder-delete-trigger" onClick={()=>setFolderDeleteConfirmOpen(true)}><Trash2 size={14}/> Delete folder</button></>}<button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={17}/>} {workflow.action}</button></div></section>
 
 
-      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard projects={folderProjects} compact/><FeedbackCalendarCard folderId={activeFolderId} formUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_form_url} sheetUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_sheet_url} onSaveFormLinks={saveFolderFeedbackLinks}/></section>}
+      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard projects={folderProjects} compact/><FeedbackCalendarCard folderId={activeFolderId} formUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_form_url} sheetUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_sheet_url} onSaveFormLinks={saveFolderFeedbackLinks} onTakeAction={openFeedbackAction}/></section>}
 
       {!activeFolderId && <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div className="qa-flow-title"><span className={`qa-flow-brand${isSarvamWorkflow ? ' sarvam' : ' review'}`}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={19}/>}</span><div><div className="section-kicker">{workflow.eyebrow}</div><h2 id="qa-flow-title">{workflow.title}</h2></div></div><span className="qa-flow-time"><Clock3 size={15}/> 4 steps</span></div><ol className="qa-flow-steps">{workflow.steps.map(([title,description],index)=>{const StepIcon=workflowStepIcons[index];return <li key={title}><span className="qa-step-number">0{index+1}</span><span className="qa-step-icon" aria-hidden="true"><StepIcon size={15}/></span><div><b>{title}</b><p>{description}</p></div></li>})}</ol><button className="qa-flow-action" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={16}/>} Open upload <ArrowRight size={15}/></button></section>}
 

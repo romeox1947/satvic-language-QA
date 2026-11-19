@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Clock3, Languages, Link2, LoaderCircle, MessageSquare, RefreshCw, Video, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Clock3, Languages, Link2, LoaderCircle, MessageSquare, RefreshCw, Video, X } from 'lucide-react';
 
 export type FeedbackEntry = {
   id: string;
@@ -15,11 +15,11 @@ export type FeedbackEntry = {
   respondent?: string;
 };
 
-type Props = { folderId: string; formUrl?: string | null; sheetUrl?: string | null; onSaveFormLinks?: (formUrl: string, sheetUrl: string) => Promise<void> };
+type Props = { folderId: string; formUrl?: string | null; sheetUrl?: string | null; onSaveFormLinks?: (formUrl: string, sheetUrl: string) => Promise<void>; onTakeAction?: (entry: FeedbackEntry) => void };
 
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl = '', onSaveFormLinks }: Props) {
+export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl = '', onSaveFormLinks, onTakeAction }: Props) {
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [formSettingsOpen, setFormSettingsOpen] = useState(false);
@@ -114,6 +114,7 @@ export default function FeedbackCalendarCard({ folderId, formUrl = '', sheetUrl 
         {entry.suggestedText && <div className="feedback-entry-field"><small>Suggested correction</small><b>{entry.suggestedText}</b></div>}
         {entry.note && <p className="feedback-entry-note">{entry.note}</p>}
         {entry.respondent && <small className="feedback-respondent">Submitted by {entry.respondent}</small>}
+        <div className="feedback-entry-actions"><button type="button" onClick={() => onTakeAction?.(entry)} disabled={!onTakeAction}>Take action <ArrowRight size={13}/></button></div>
       </article>)}</div> : <div className="feedback-empty-day"><MessageSquare size={20}/><span>Choose a purple date to view submitted feedback.</span></div>}
     </section> : <>
       <div className="feedback-calendar-toolbar"><button type="button" aria-label="Previous month" onClick={() => shiftMonth(-1)}><ChevronLeft size={16}/></button><b>{monthLabel}</b><button type="button" aria-label="Next month" onClick={() => shiftMonth(1)}><ChevronRight size={16}/></button></div>
