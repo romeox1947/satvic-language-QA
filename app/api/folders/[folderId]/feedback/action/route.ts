@@ -21,7 +21,7 @@ export async function POST(request: Request, context: { params: Promise<{ folder
     if (folderError) throw folderError;
     if (!folder) return Response.json({ error: 'This folder was not found in your account.' }, { status: 404 });
 
-    const { error } = await supabase.from('qa_feedback_actions').insert({ user_id: user.id, folder_id: folderId, feedback_id });
+    const { error } = await supabase.from('qa_feedback_actions').insert({ user_id: user.id, folder_id: folderId, feedback_id: feedbackId });
     if (error && error.code !== '23505') throw error;
     return Response.json({ acted: true, feedbackId }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
