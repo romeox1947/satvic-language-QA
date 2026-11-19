@@ -4,18 +4,19 @@ import { useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowUpRight, Bell, ChevronDown, ChevronLeft, ChevronRight,
-  CircleHelp, Leaf, LogOut, Search, Settings, Sparkles, Sprout, Utensils,
+  CircleHelp, Leaf, LogOut, Settings, Sparkles, Sprout, Utensils,
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
+import { getProfileAvatarSrc } from '@/features/auth/profile-avatar';
+import IndiaCommunityMapCard from './IndiaCommunityMapCard';
 
 const navItems = ['Overview', 'Analytics', 'Community', 'Programs'];
 const weeklyBars = [44, 58, 36, 66, 91, 53, 73];
 
-export default function SatvicOverviewDashboard({ accountName, accountEmail }: { accountName: string; accountEmail: string }) {
+export default function SatvicOverviewDashboard({ accountName, accountEmail, accountAvatar }: { accountName: string; accountEmail: string; accountAvatar: string }) {
   const [activeTab, setActiveTab] = useState('Overview');
   const [period, setPeriod] = useState('Month');
   const [accountOpen, setAccountOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [monthOffset, setMonthOffset] = useState(0);
   const monthDate = new Date(2026, 5 + monthOffset, 1);
   const monthLabel = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(monthDate);
@@ -27,7 +28,6 @@ export default function SatvicOverviewDashboard({ accountName, accountEmail }: {
     if (day > daysInMonth) return { day: day - daysInMonth, outside: true };
     return { day, outside: false };
   });
-  const initials = accountName.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
 
   return <main className="satvic-overview-page">
     <div className="satvic-overview-frame">
@@ -38,12 +38,10 @@ export default function SatvicOverviewDashboard({ accountName, accountEmail }: {
         </Link>
         <nav className="so-tabs" aria-label="Dashboard sections">{navItems.map(item => <button key={item} type="button" className={activeTab === item ? 'active' : ''} onClick={() => setActiveTab(item)}>{item}</button>)}<Link className="so-tools-link" href="/dashboard/satvic-fluid">Tools</Link></nav>
         <div className="so-header-actions">
-          {searchOpen && <input className="so-search-input" autoFocus aria-label="Search dashboard" placeholder="Search dashboard" onKeyDown={event => { if (event.key === 'Escape') setSearchOpen(false); }} />}
-          <button className={`so-icon-button${searchOpen ? ' so-icon-active' : ''}`} type="button" aria-label="Search" onClick={() => setSearchOpen(open => !open)}><Search size={18} /></button>
           <button className="so-icon-button so-bell" type="button" aria-label="Notifications" onClick={() => window.alert('You are all caught up.') }><Bell size={18}/><i /></button>
           <div className="so-account-wrap">
             <button type="button" className="so-account-button" aria-expanded={accountOpen} onClick={() => setAccountOpen(open => !open)}>
-              <span className="so-avatar">{initials}</span><span className="so-account-copy"><b>{accountName}</b><small>{accountEmail || 'Satvic Studio account'}</small></span><ChevronDown size={15}/>
+              <span className="so-avatar"><img src={getProfileAvatarSrc(accountAvatar)} alt=""/></span><span className="so-account-copy"><b>{accountName}</b><small>{accountEmail || 'Satvic Studio account'}</small></span><ChevronDown size={15}/>
             </button>
             {accountOpen && <div className="so-account-menu"><div className="so-menu-identity"><b>{accountName}</b><span>{accountEmail}</span></div><button type="button" onClick={() => window.alert('Account settings are coming soon.')}><Settings size={15}/>Account settings</button><button type="button" onClick={() => window.alert('Help is coming soon.')}><CircleHelp size={15}/>Help center</button><form action={signOut}><button type="submit"><LogOut size={15}/>Sign out</button></form></div>}
           </div>
@@ -81,9 +79,8 @@ export default function SatvicOverviewDashboard({ accountName, accountEmail }: {
 
         <article className="so-card so-community-card"><div className="so-card-heading"><div><span className="so-card-kicker">COMMUNITY SNAPSHOT</span><h2>Growing with intention</h2></div><button className="so-round-action" type="button" aria-label="Community snapshot details"><ArrowUpRight size={17}/></button></div><div className="so-donut-wrap"><div className="so-donut"><div><strong>46%</strong><span>joined this month</span></div></div><div className="so-donut-bubble bubble-top"><strong>18%</strong><span>returning</span></div><div className="so-donut-bubble bubble-side"><strong>4%</strong><span>shared</span></div><div className="so-donut-bubble bubble-bottom"><strong>32%</strong><span>new learners</span></div></div><div className="so-dot-legend"><span><i className="legend-purple"/> New learners</span><span><i className="legend-gold"/> Returning</span><span><i className="legend-green"/> Shared</span></div></article>
 
-        <article className="so-card so-global-card"><div className="so-card-heading"><div><span className="so-card-kicker">A MOVEMENT WITHOUT BORDERS</span><h2>Satvic, everywhere</h2></div><button className="so-text-action" type="button" onClick={() => setActiveTab('Community')}>See all <ArrowUpRight size={14}/></button></div><div className="so-global-content"><div className="so-world-map" aria-label="Decorative dotted world map"><svg viewBox="0 0 550 260" role="img" aria-hidden="true"><defs><pattern id="map-dots" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.45" fill="#9d83bd"/></pattern></defs><path fill="url(#map-dots)" d="M33 69l19-19 30-8 15-13 32 4 17 17-9 16 17 8 2 15-22 9-11 22-14 5-11 28-15-5-3-24-15-8-9-18-21-3-9-13-18-3zm106 81l16 4 14 18-6 19-11 9-4 22-12-6-3-25-11-14 4-18zm91-128l20-17 38 3 17 13 31 0 18 14-4 16-19 6-10 14-16 3-6 20-18 5-9-13-19-5-12-19-21-1-14-16zm77 82l21-8 19 10 15 18-10 18-17 8-9 28-16 21-16-4-11-22-1-21-12-13 4-21zm81-77l35-14 45 8 28 17-7 15-32 6-11 17-25 4-17 17-14-7 5-19-14-14-18-5zm39 95l20-4 12 11 0 15-14 6-12-10z"/></svg><div className="so-map-pulse pulse-one"/><div className="so-map-pulse pulse-two"/><div className="so-map-pulse pulse-three"/></div><div className="so-country-list"><div className="so-global-total"><strong>231,841</strong><span>community views worldwide</span></div>{[['🇮🇳','India','83,420'],['🇺🇸','United States','43,987'],['🇬🇧','United Kingdom','32,648'],['🇦🇺','Australia','26,563'],['🇨🇦','Canada','21,514']].map(([flag,country,count]) => <div className="so-country-row" key={country}><span>{flag}</span><b>{country}</b><strong>{count}</strong></div>)}</div></div></article>
+        <IndiaCommunityMapCard />
       </section>
-      <footer className="so-footer"><span><img src="https://satvicmovement.org/images/favicon.png" alt=""/> Made with care, for a more mindful world.</span><span>DEMO DATA <i/> UPDATED JUST NOW</span></footer>
     </div>
   </main>;
 }

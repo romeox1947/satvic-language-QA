@@ -1,15 +1,28 @@
-.satvic-overview-page{padding:4px;background:#252525}
-.satvic-overview-frame{max-width:none;min-height:calc(100svh - 8px);padding:20px 22px 15px;border-radius:21px}
+.satvic-overview-page{min-height:100svh;padding:0;background:#f0f1f2}
+.satvic-overview-frame{width:100%;max-width:none;min-height:100svh;padding:28px 34px 22px;border-radius:0;background:#f0f1f2;box-shadow:none}
 .so-top-grid{grid-template-columns:minmax(0,1.35fr) minmax(205px,.82fr) minmax(270px,1.08fr);grid-template-rows:minmax(360px,auto);column-gap:0;row-gap:12px}
 .so-top-grid{margin-top:16px}
 .so-bottom-grid{grid-template-columns:minmax(0,1.05fr) minmax(0,1.05fr) minmax(0,1.8fr)}
 .so-global-card{grid-column:auto}
-.so-tabs .so-tools-link{display:flex;height:39px;min-width:74px;align-items:center;justify-content:center;padding:0 18px;border:1px solid #e6e0eb;border-radius:21px;background:#f7f4fa;color:#6f5189;font-size:12px;font-weight:600;text-decoration:none;transition:all .2s}
-.so-tabs .so-tools-link:hover{border-color:#d8c9e5;background:#efe8f5;color:#62447d}
+.so-tabs .so-tools-link{display:flex;height:39px;min-width:74px;align-items:center;justify-content:center;padding:0 18px;border:1px solid transparent;border-radius:21px;background:transparent;color:#878981;font-size:12px;font-weight:400;text-decoration:none;transition:all .2s}
+.so-tabs .so-tools-link:hover{background:#faf9fb;color:#514a58}
 .so-impact-card{margin-right:0;padding-right:20px;border-right:0;border-radius:18px 0 0 18px}
 .so-calendar-card{position:relative;z-index:1;margin-left:0;width:auto;padding-left:20px;border-left:0;border-radius:0 18px 18px 0;box-shadow:inset 1px 0 #ececea,0 2px 9px #22251f04}
 .so-program-card{margin-left:12px}
-@media(min-width:701px) and (max-width:1100px){.so-header{height:46px;grid-template-columns:minmax(130px,1fr) auto minmax(210px,1fr);gap:10px}.so-tabs{grid-row:auto;grid-column:auto;justify-self:center}.so-tabs button{min-width:60px;height:34px;padding:0 8px;font-size:9px}.so-tabs .so-tools-link{min-width:56px;height:34px;padding:0 9px;font-size:9px}.so-header-actions{grid-column:auto;grid-row:auto}.so-account-button{min-width:170px;height:40px}.so-avatar{width:32px;height:32px}.so-icon-button{width:38px;height:38px}}
+.so-india-content{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(130px,.85fr);align-items:center;gap:8px;margin-top:8px}
+.so-india-map{display:grid;min-width:0;min-height:250px;place-items:center;overflow:hidden}
+.so-india-map svg{display:block;width:100%;height:auto;max-height:330px;overflow:visible}
+.so-india-state-panel{display:grid;min-width:0;gap:8px;align-self:stretch;padding:3px 0}
+.so-india-state-summary{display:grid;gap:3px;padding:0 1px 7px;border-bottom:1px solid #efefed}
+.so-india-state-summary strong{overflow:hidden;color:#59446f;font-size:11px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+.so-india-state-summary span{color:#999a93;font-size:7px}
+.so-india-state-list{display:grid;grid-template-columns:1fr;align-content:start;gap:3px;max-height:272px;overflow:auto;padding:1px 3px 2px 0;scrollbar-color:#d5c9df transparent;scrollbar-width:thin}
+.so-india-state-list button{min-width:0;padding:4px 5px;overflow:hidden;border:1px solid transparent;border-radius:5px;background:#f7f7f5;color:#70726b;font-size:7px;text-align:left;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.so-india-state-list button:hover{background:#f2edf7;color:#664a82}
+.so-india-state-list button.active{border-color:#e6ddec;background:#eee7f4;color:#694b85;font-weight:650}
+.so-map-attribution{display:block;margin-top:7px;color:#989a93;font-size:7px;text-align:right;text-decoration:none}
+.so-map-attribution:hover{color:#73578e;text-decoration:underline}
+@media(min-width:701px) and (max-width:1100px){.so-header{height:52px;grid-template-columns:minmax(130px,1fr) auto minmax(210px,1fr);gap:10px}.so-tabs{grid-row:auto;grid-column:auto;justify-self:center}.so-tabs button{min-width:60px;height:36px;padding:0 8px;font-size:10px}.so-tabs .so-tools-link{min-width:56px;height:36px;padding:0 9px;font-size:10px}.so-header-actions{grid-column:auto;grid-row:auto}.so-account-button{min-width:170px;height:42px}.so-avatar{width:34px;height:34px}.so-icon-button{width:40px;height:40px}}
 @media(max-width:700px){.so-tabs .so-tools-link{height:34px;min-width:0;flex:1;padding:0 8px;font-size:10px}}
-@media(max-width:1100px){.satvic-overview-page{padding:4px}.satvic-overview-frame{padding:12px 18px 8px}.so-top-grid{grid-template-columns:minmax(0,1.25fr) minmax(190px,.8fr) minmax(245px,1fr);grid-template-rows:minmax(300px,auto)}.so-top-grid{margin-top:12px}.so-impact-card,.so-calendar-card,.so-program-card,.so-content-card,.so-community-card,.so-global-card{padding:12px 14px}.so-line-chart{height:112px}.so-week-bars{min-height:130px}.so-calendar-feature{padding:7px}.so-bottom-grid>.so-card{min-height:210px}.so-world-map svg{max-height:155px}.so-footer{padding-top:8px}}
-@media(max-width:700px){.so-top-grid{grid-template-columns:1fr;grid-template-rows:auto;column-gap:12px}.so-impact-card{margin:0;padding:15px;border:1px solid #ececea;border-radius:18px}.so-calendar-card{margin:0;width:auto;padding:15px;border:1px solid #ececea;border-radius:18px;box-shadow:0 2px 9px #22251f04}.so-program-card{margin:0}.so-bottom-grid{grid-template-columns:1fr}.so-global-card{grid-column:auto}}
+@media(max-width:1100px){.satvic-overview-frame{padding:24px 24px 18px}.so-top-grid{grid-template-columns:minmax(0,1.25fr) minmax(190px,.8fr) minmax(245px,1fr);grid-template-rows:minmax(360px,auto)}.so-top-grid{margin-top:16px}.so-impact-card,.so-calendar-card,.so-program-card,.so-content-card,.so-community-card,.so-global-card{padding:17px 18px}.so-line-chart{height:132px}.so-week-bars{min-height:150px}.so-calendar-feature{padding:9px}.so-bottom-grid>.so-card{min-height:250px}.so-world-map svg{max-height:180px}.so-footer{padding-top:12px}}
+@media(max-width:700px){.satvic-overview-frame{min-height:100svh;padding:17px 14px 12px;border-radius:0;box-shadow:none}.so-top-grid{grid-template-columns:1fr;grid-template-rows:auto;column-gap:12px}.so-impact-card{margin:0;padding:15px;border:1px solid #ececea;border-radius:18px}.so-calendar-card{margin:0;width:auto;padding:15px;border:1px solid #ececea;border-radius:18px;box-shadow:0 2px 9px #22251f04}.so-program-card{margin:0}.so-bottom-grid{grid-template-columns:1fr}.so-global-card{grid-column:auto}.so-bell{display:grid}.so-india-content{grid-template-columns:minmax(0,1.1fr) minmax(150px,1fr);gap:7px}.so-india-map{min-height:250px}.so-india-map svg{max-height:340px}.so-india-state-list{max-height:310px}}

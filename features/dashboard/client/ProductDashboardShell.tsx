@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { signOut } from '@/features/auth/server/actions';
 import { getProduct, products, type ProductFeature, type ProductId } from '@/features/products/registry';
+import { getProfileAvatarSrc } from '@/features/auth/profile-avatar';
 
 const featureIcons: Record<ProductFeature['icon'], LucideIcon> = {
   plus: Plus,
@@ -36,6 +37,7 @@ const featureIcons: Record<ProductFeature['icon'], LucideIcon> = {
 type ProductDashboardShellProps = {
   productId: ProductId;
   accountEmail: string;
+  accountAvatar?: string;
   onNotice: (message: string) => void;
   onFeatureSelect?: (featureId: string) => void;
   initialFeatureId?: string;
@@ -48,6 +50,7 @@ type DashboardNotification = { id: string; title: string; description: string; k
 export default function ProductDashboardShell({
   productId,
   accountEmail,
+  accountAvatar = 'sage',
   onNotice,
   onFeatureSelect,
   initialFeatureId,
@@ -194,7 +197,7 @@ export default function ProductDashboardShell({
           <Bell size={19}/>{visibleNotifications.length > 0 && <span>{visibleNotifications.length > 9 ? '9+' : visibleNotifications.length}</span>}
         </button>
         <button type="button" className="rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => { setProductMenuOpen(false); setAccountMenuOpen(open => !open); }} title={accountName}>
-          <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span>
+          <span className="account-trigger-avatar"><img src={getProfileAvatarSrc(accountAvatar)} alt=""/></span>
         </button>
         <section className="product-drawer" aria-label="Satvic Studio and product switcher">
           <button type="button" className="drawer-workspace" aria-label="Open Satvic Studio dashboard" onClick={() => navigateToProduct('/dashboard')}>
@@ -207,7 +210,7 @@ export default function ProductDashboardShell({
             </button>)}
           </div>
           <button type="button" className="drawer-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)}>
-            <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span>
+            <span className="account-trigger-avatar"><img src={getProfileAvatarSrc(accountAvatar)} alt=""/></span>
             <span>{accountName}</span>
             <ChevronDown size={16} />
           </button>
@@ -218,7 +221,7 @@ export default function ProductDashboardShell({
         {!hideFeatureNavigation && <><div className="workspace-heading"><div className="workspace-product">{product.name}</div><div className="workspace-heading-actions"><button className="sidebar-shrink icon-btn" onClick={() => {const collapse = !featureRailCollapsed;setFeatureRailCollapsed(collapse);setProductRailCollapsed(collapse);}} aria-label={featureRailCollapsed ? 'Expand navigation' : 'Collapse navigation'} title={featureRailCollapsed ? 'Expand navigation' : 'Collapse navigation'}>{featureRailCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button><button className="icon-btn mobile-close" onClick={() => setNavOpen(false)} aria-label="Close navigation"><X size={18} /></button></div></div>
         {product.groups.map(group => <div className="product-nav-group" key={group.label || product.id}>{group.label && <div className="nav-label nav-label-spaced">{group.label}</div>}<nav className="main-nav">{group.features.map(feature => {const Icon = featureIcons[feature.icon];return <button key={feature.id} title={feature.label} className={`nav-item${activeFeatureId === feature.id ? ' active' : ''}`} onClick={() => chooseFeature(feature)}><Icon size={18} /><span>{feature.label}</span></button>})}</nav></div>)}</>}
         <div className="sidebar-spacer" />
-        {featureRailCollapsed && <button type="button" className="rail-account feature-rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)} title={accountName}><span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span></button>}
+        {featureRailCollapsed && <button type="button" className="rail-account feature-rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen(open => !open)} title={accountName}><span className="account-trigger-avatar"><img src={getProfileAvatarSrc(accountAvatar)} alt=""/></span></button>}
       </aside>
 
       {accountMenuOpen && <div className="account-menu account-menu-rail" role="menu"><button role="menuitem" onClick={() => {setAccountMenuOpen(false);onNotice('Account settings are ready for this workspace.')}}><Settings size={18} /><span>Settings</span></button><button type="button" role="menuitemcheckbox" aria-checked={false} className="account-product-toggle" onClick={toggleFounderOffice}><Building2 size={18} /><span>Founder Office</span><i className="account-toggle-track" aria-hidden="true"><i /></i></button><form action={signOut}><button role="menuitem" type="submit" className="account-logout"><LogOut size={18} /><span>Logout</span></button></form></div>}

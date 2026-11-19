@@ -3,6 +3,7 @@ import { getProduct } from '@/features/products/registry';
 import { createClient, hasSupabaseConfig } from '@/lib/supabase/server';
 import SatvicFluidDashboard from '@/features/products/satvic-fluid/client/SatvicFluidDashboard';
 import FounderOfficeDashboard from '@/features/products/founder-office/client/FounderOfficeDashboard';
+import { getProfileAvatarId } from '@/features/auth/profile-avatar';
 
 export default async function ProductDashboardPage({ params }: { params: Promise<{ productId: string }> }) {
   if (!hasSupabaseConfig()) redirect('/login?setup=missing');
@@ -17,6 +18,6 @@ export default async function ProductDashboardPage({ params }: { params: Promise
   const product = getProduct(productId);
   if (!product) notFound();
 
-  if (product.id === 'satvic-fluid') return <SatvicFluidDashboard initialAccountEmail={user.email ?? ''} />;
+  if (product.id === 'satvic-fluid') return <SatvicFluidDashboard initialAccountEmail={user.email ?? ''} initialAccountAvatar={getProfileAvatarId(user.user_metadata?.avatar_id)} />;
   return <FounderOfficeDashboard accountEmail={user.email ?? ''} />;
 }

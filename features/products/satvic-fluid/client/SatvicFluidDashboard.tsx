@@ -99,7 +99,7 @@ function readMediaDuration(file: File): Promise<number> {
   });
 }
 
-export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { initialAccountEmail?: string }) {
+export default function SatvicFluidDashboard({ initialAccountEmail = '', initialAccountAvatar = 'sage' }: { initialAccountEmail?: string; initialAccountAvatar?: string }) {
   const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
   const [accountEmail, setAccountEmail] = useState(initialAccountEmail);
@@ -544,6 +544,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '' }: { ini
     <ProductDashboardShell
       productId="satvic-fluid"
       accountEmail={accountEmail}
+      accountAvatar={initialAccountAvatar}
       onNotice={setNotice}
       initialFeatureId="generate-sarvam"
       onFeatureSelect={(featureId) => setActiveWorkflow(featureId as 'generate-sarvam' | 'start-review')}
