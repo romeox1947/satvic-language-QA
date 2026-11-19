@@ -429,6 +429,7 @@ export async function POST(request: Request) {
   let historyProjectName = '';
   let historySourceLanguage = '';
   let historyTargetLanguage = '';
+  let historyUserId = '';
   let historySupabase: Awaited<ReturnType<typeof createClient>> | null = null;
   try {
     const isJson = request.headers.get('content-type')?.includes('application/json');
@@ -439,6 +440,7 @@ export async function POST(request: Request) {
       historySupabase = await createClient();
       const { data: { user } } = await historySupabase.auth.getUser();
       if (!user) return NextResponse.json({ error: 'Sign in before saving this analysis.' }, { status: 401 });
+      historyUserId = user.id;
       historyNotificationEmail = user.email || '';
       const { data: savedJob } = await historySupabase.from('qa_jobs').select('id,original_blob_url,dubbed_blob_url').eq('id', historyJobId).eq('user_id', user.id).maybeSingle();
       if (!savedJob) return NextResponse.json({ error: 'This QA project does not belong to your account.' }, { status: 404 });
@@ -552,7 +554,7 @@ export async function POST(request: Request) {
     if (historyJobId && historySupabase) {
       report.originalVideoUrl = historyOriginalUrl;
       report.dubbedVideoUrl = historyDubbedUrl;
-      const stored = await put(`satvic-jobs/${crypto.randomUUID()}-qa-report.json`, JSON.stringify(report), { access: 'private', contentType: 'application/json', addRandomSuffix: true });
+      const stored = await put(`satvic-users/${historyUserId}/satvic-jobs/${crypto.randomUUID()}-qa-report.json`, JSON.stringify(report), { access: 'private', contentType: 'application/json', addRandomSuffix: true });
       await historySupabase.from('qa_jobs').update({ report_blob_url: stored.url, status: 'completed', issue_count: combinedFindings.length, error_message: null, updated_at: new Date().toISOString() }).eq('id', historyJobId);
       await sendGmailJobEmail({
         to: historyNotificationEmail,

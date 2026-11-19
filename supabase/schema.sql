@@ -50,3 +50,30 @@ alter table public.qa_jobs alter column original_blob_url drop not null;
 alter table public.qa_jobs add column if not exists original_b2_key text;
 alter table public.qa_jobs add column if not exists dubbed_b2_key text;
 alter table public.qa_jobs add column if not exists report_b2_key text;
+
+-- User-owned folders for grouping dubbed video projects.
+create table if not exists public.qa_folders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null check (char_length(name) between 1 and 80),
+  created_at timestamptz not null default now(),
+  unique (id, user_id)
+);
+
+create unique index if not exists qa_folders_user_name_idx on public.qa_folders (user_id, lower(name));
+alter table public.qa_folders enable row level security;
+drop policy if exists "Users can read their own folders" on public.qa_folders;
+drop policy if exists "Users can create their own folders" on public.qa_folders;
+create policy "Users can read their own folders" on public.qa_folders for select to authenticated using ((select auth.uid()) = user_id);
+create policy "Users can create their own folders" on public.qa_folders for insert to authenticated with check ((select auth.uid()) = user_id);
+grant select, insert on public.qa_folders to authenticated;
+
+alter table public.qa_jobs add column if not exists folder_id uuid;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'qa_jobs_folder_user_fkey') then
+    alter table public.qa_jobs add constraint qa_jobs_folder_user_fkey
+      foreign key (folder_id, user_id) references public.qa_folders (id, user_id);
+  end if;
+end $$;
+create index if not exists qa_jobs_folder_user_created_idx on public.qa_jobs (user_id, folder_id, created_at desc);
+notify pgrst, 'reload schema';

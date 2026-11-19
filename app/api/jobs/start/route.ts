@@ -23,7 +23,14 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in before starting a dubbing job.' }, { status: 401 });
-    const { data: job, error: insertError } = await supabase.from('qa_jobs').insert({ user_id: user.id, project_name: projectName, original_name: originalName, source_language: sourceLanguage, target_language: targetLanguage, original_blob_url: originalBlobUrl, status: 'queued' }).select('id').single();
+    const folderId = body.folderId == null ? null : String(body.folderId);
+    if (folderId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(folderId)) return Response.json({ error: 'Choose a valid folder.' }, { status: 400 });
+    if (folderId) {
+      const { data: folder, error: folderError } = await supabase.from('qa_folders').select('id').eq('id', folderId).eq('user_id', user.id).maybeSingle();
+      if (folderError) throw folderError;
+      if (!folder) return Response.json({ error: 'That folder does not belong to your account.' }, { status: 404 });
+    }
+    const { data: job, error: insertError } = await supabase.from('qa_jobs').insert({ user_id: user.id, folder_id: folderId, project_name: projectName, original_name: originalName, source_language: sourceLanguage, target_language: targetLanguage, original_blob_url: originalBlobUrl, status: 'queued' }).select('id').single();
     if (insertError || !job) throw insertError || new Error('Could not save this job to your history.');
     let run;
     try {

@@ -43,8 +43,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .rail-workspace-static, .rail-workspace-static:hover { background: transparent; cursor: default; }
 .rail-workspace.active { background: #efefed; }
 .rail-workspace-mark { display: grid; width: 40px; height: 40px; flex: none; place-items: center; }
-.rail-workspace-mark .brand-mark { width: 36px; height: 36px; overflow: hidden; border: 0; border-radius: 50%; background: transparent; }
-.rail-workspace-mark .satvic-org-mark { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.rail-workspace-mark .satvic-org-mark { display: block; width: 36px; height: 36px; object-fit: contain; }
 .rail-workspace-copy { display: grid; min-width: 0; flex: 1; gap: 3px; opacity: 0; transform: translateX(-5px); transition: opacity .24s ease, transform .3s ease; visibility: hidden; }
 .rail-workspace-copy b { overflow: hidden; color: #292a27; font: 500 14px/1.25 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
 .rail-workspace-copy small { overflow: hidden; color: #8a8c87; font: 400 12px/1.25 "Matter"; text-overflow: ellipsis; white-space: nowrap; }
@@ -1355,3 +1354,73 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .report-page-content .modal-close{display:none}
 .app-shell .report-page-content .detail-topline{margin-bottom:15px}
 @media(max-width:700px){.app-shell .report-page-backdrop{inset:58px 0 0 56px}.app-shell.product-rail-collapsed .report-page-backdrop{left:0}.app-shell.feature-rail-collapsed:not(.product-rail-collapsed) .report-page-backdrop{left:84px}.app-shell .report-page-content{padding:22px 16px 36px}.app-shell .report-page-content .report-back-button{margin-bottom:20px}}
+.app-shell .report-page-backdrop{inset:0 0 0 calc(64px + var(--feature-sidebar-width,282px));z-index:30;padding:22px 24px;background:#f3f5f2}
+.app-shell.product-rail-collapsed .report-page-backdrop{left:var(--feature-sidebar-width,282px)}
+.app-shell.feature-rail-collapsed:not(.product-rail-collapsed) .report-page-backdrop{left:148px}
+.app-shell.product-rail-collapsed.feature-rail-collapsed .report-page-backdrop{left:84px}
+.app-shell .report-page-content{box-sizing:border-box;width:min(1120px,100%);max-width:1120px;min-height:calc(100% - 4px);margin:2px auto;padding:30px clamp(22px,4vw,48px) 40px;border:1px solid #e8ebe6;border-radius:18px;background:#fff;box-shadow:0 12px 38px #29352b0b;overflow:visible}
+.app-shell.product-satvic-fluid .report-page-content{box-sizing:border-box;width:min(1120px,100%);max-width:1120px;min-height:calc(100% - 4px);max-height:none;margin:2px auto;padding:30px clamp(22px,4vw,48px) 40px;overflow:visible}
+.app-shell .report-page-content .report-back-button{margin-bottom:22px}
+.app-shell .report-page-content .detail-topline{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-right:0}
+.app-shell .report-page-content .detail-topline>.status-pill{margin-left:auto}
+.app-shell .report-page-content .archive-actions{display:flex;align-items:center;gap:8px}
+.app-shell .report-delete-button,.app-shell .report-delete-confirm button{display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:7px;padding:0 11px;border:1px solid #e6d7d5;border-radius:8px;background:#fff;color:#9a5149;font:500 11px "Matter";cursor:pointer}
+.app-shell .report-delete-button:hover{background:#fff6f5;border-color:#dabbb7}
+.app-shell .report-delete-confirm{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:7px;border:1px solid #ead6d3;border-radius:10px;background:#fff9f8;color:#6f4945;font:500 10px "Matter"}
+.app-shell .report-delete-confirm button{min-height:29px;padding:0 9px;border-color:#e5dedc;color:#62635d}
+.app-shell .report-delete-confirm .report-delete-confirm-action{border-color:#a64b43;background:#a64b43;color:#fff}
+.app-shell .report-delete-confirm button:disabled{opacity:.55;cursor:wait}
+@media(max-width:700px){.app-shell .report-page-backdrop{inset:0 0 0 56px;padding:10px;background:#f3f5f2}.app-shell.product-rail-collapsed .report-page-backdrop{left:0}.app-shell.feature-rail-collapsed:not(.product-rail-collapsed) .report-page-backdrop{left:84px}.app-shell .report-page-content{width:100%;min-height:100%;margin:0;padding:20px 16px 28px;border-radius:14px}.app-shell.product-satvic-fluid .report-page-content{width:100%;min-height:100%;max-height:none;margin:0;padding:20px 16px 28px;overflow:visible;border-radius:14px}.app-shell .report-page-content .detail-topline>.status-pill{margin-left:0}.app-shell .report-page-content .archive-actions{margin-left:auto}}
+.app-shell .workspace-folders{padding:0 16px 13px;border-bottom:1px solid #f0f1ed}
+.app-shell .workspace-folders-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.app-shell .workspace-folders-heading>span{color:#91948b;font:600 8px "Matter";letter-spacing:1.1px}
+.app-shell .workspace-folders-heading>button{display:flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid #e5e9e3;border-radius:7px;background:#fff;color:#536c53;font:500 9px "Matter";cursor:pointer}
+.app-shell .workspace-folders-heading>button:hover{background:#f3f7f2}
+.app-shell .workspace-folder-list{display:flex;gap:7px;overflow-x:auto;padding:1px 0 3px;scrollbar-width:thin}
+.app-shell .workspace-folder{display:flex;min-width:112px;max-width:205px;height:34px;align-items:center;gap:7px;padding:0 9px;border:1px solid #e8eae6;border-radius:8px;background:#fff;color:#6c7068;text-align:left;cursor:pointer}
+.app-shell .workspace-folder>svg{flex:none;color:#8a9b85}
+.app-shell .workspace-folder>span{overflow:hidden;flex:1;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+.app-shell .workspace-folder>small{color:#a1a49c;font-size:8px}
+.app-shell .workspace-folder.active{border-color:#c9d8c6;background:#f3f7f2;color:#405f43}
+.app-shell .workspace-folder.active>svg{color:#587d5c}
+.app-shell .workspace-folders-loading{align-self:center;color:#999c94;font-size:9px}
+.app-shell .project-actions-menu .project-folder-select{display:flex;min-height:34px;align-items:center;gap:8px;padding:0 9px;color:#7f8d79}
+.app-shell .project-actions-menu .project-folder-select select{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#5d625a;font:400 10px "Matter";cursor:pointer}
+.folder-create-backdrop{z-index:110}
+.app-shell .folder-create-modal{position:relative;width:min(100%,430px);padding:27px;border:1px solid #e7e9e4;border-radius:17px;background:#fff;box-shadow:0 22px 70px #20211f26;animation:modal-in .18s ease-out}
+.folder-create-icon{display:grid;width:40px;height:40px;place-items:center;margin-bottom:14px;border-radius:12px;background:#eef4ed;color:#5f805f}
+.app-shell .folder-create-modal h2{margin:7px 0 5px;color:#292d28;font:500 22px "Matter"}
+.app-shell .folder-create-modal .modal-intro{margin:0 0 17px}
+.app-shell .folder-create-modal .field-label{margin-bottom:0}
+.app-shell .folder-create-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.app-shell .folder-create-actions .secondary-btn,.app-shell .folder-create-actions .primary-btn{height:37px;font-size:10px}
+.folder-create-error{margin:11px 0 0}
+.app-shell .folder-create-actions button:disabled{opacity:.65;cursor:wait}
+.workflow-project-backdrop{z-index:110}
+.app-shell .workflow-project-modal{position:relative;width:min(100%,480px);max-height:min(82vh,720px);overflow:auto;padding:27px;border:1px solid #e7e9e4;border-radius:17px;background:#fff;box-shadow:0 22px 70px #20211f26;animation:modal-in .18s ease-out}
+.app-shell .workflow-project-modal h2{margin:7px 0 5px;color:#292d28;font:500 22px "Matter"}
+.app-shell .workflow-project-modal .modal-intro{margin:0 0 16px}
+.app-shell .workflow-project-options{display:grid;max-height:310px;gap:6px;overflow:auto;padding:2px}
+.app-shell .workflow-project-option{display:flex;min-height:55px;align-items:center;gap:11px;padding:8px 11px;border:1px solid #eaede8;border-radius:10px;background:#fff;color:#647164;text-align:left;cursor:pointer}
+.app-shell .workflow-project-option:hover{border-color:#cdd9cc;background:#f6f9f5}
+.app-shell .workflow-project-option>span{display:grid;min-width:0;flex:1;gap:3px}
+.app-shell .workflow-project-option>span b{overflow:hidden;color:#333a33;font:500 12px "Matter";text-overflow:ellipsis;white-space:nowrap}
+.app-shell .workflow-project-option>span small,.app-shell .workflow-project-option>small{color:#8b9188;font:400 9px "Matter"}
+.app-shell .workflow-project-option>svg:last-child{color:#a0a89e}
+.app-shell .workflow-project-empty,.app-shell .workflow-project-loading{display:flex;min-height:62px;align-items:center;justify-content:center;gap:8px;color:#858b82;font:400 10px "Matter"}
+.app-shell .workflow-project-create{display:flex;min-height:38px;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:12px;border:1px dashed #cbd8ca;border-radius:9px;background:#f9fbf8;color:#55775b;font:500 11px "Matter";cursor:pointer}
+.app-shell .workflow-project-create:hover{border-color:#91ad92;background:#f2f7f1}
+.app-shell .workflow-project-modal .field-label{margin-bottom:0}
+@media(max-width:700px){.app-shell .workflow-project-modal{padding:23px 19px}.app-shell .workflow-project-options{max-height:42vh}}
+@media(max-width:700px){.app-shell .workspace-folders{padding-right:11px;padding-left:11px}.app-shell .workspace-folder{min-width:100px}.app-shell .folder-create-modal{padding:23px 19px}}
+.app-shell .folder-overview-grid{display:grid;grid-template-columns:minmax(320px,.88fr) minmax(0,1.55fr);gap:14px;margin:0 0 15px}
+.app-shell .folder-overview-grid .so-global-card{grid-column:auto;min-height:370px;padding:18px 19px}
+.app-shell .folder-overview-grid .so-card-heading h2{font-size:14px}
+.app-shell .folder-overview-grid .so-india-content{grid-template-columns:minmax(0,1.2fr) minmax(115px,.8fr);gap:9px;margin-top:8px}
+.app-shell .folder-overview-grid .so-india-map{min-height:270px}
+.app-shell .folder-overview-grid .so-india-map svg{width:100%;max-height:315px}
+.app-shell .folder-overview-grid .so-india-state-list{max-height:280px}
+.app-shell .folder-overview-empty{min-height:370px;border:1px solid #e9ece7;border-radius:16px;background:#fff;box-shadow:0 2px 9px #22251f04}
+.app-shell .folder-work-grid{margin-top:0}
+@media(max-width:900px){.app-shell .folder-overview-grid{grid-template-columns:minmax(270px,.9fr) minmax(0,1.1fr)}}
+@media(max-width:700px){.app-shell .folder-overview-grid{grid-template-columns:1fr;gap:10px;margin-bottom:10px}.app-shell .folder-overview-grid .so-global-card{min-height:340px;padding:15px}.app-shell .folder-overview-grid .so-india-content{grid-template-columns:minmax(0,1.1fr) minmax(130px,.9fr)}.app-shell .folder-overview-grid .so-india-map{min-height:245px}.app-shell .folder-overview-empty{min-height:250px}}

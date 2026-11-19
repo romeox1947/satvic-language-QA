@@ -360,7 +360,7 @@
 .satvic-site .reward-orange{background:radial-gradient(ellipse at 22% 18%,rgba(255,255,255,.3),transparent 48%),linear-gradient(125deg,#ee9a57,#d87842)}
 .satvic-site .reward-green{background:radial-gradient(ellipse at 22% 18%,rgba(255,255,255,.32),transparent 48%),linear-gradient(125deg,#92c77c,#4f9b86)}
 .satvic-site .reward-card-top{display:flex;align-items:center;gap:11px;font:600 15px/1 var(--sans);letter-spacing:-.02em;text-transform:lowercase}
-.satvic-site .reward-card-top img{width:43px;height:43px;object-fit:cover;border-radius:50%;background:white}
+.satvic-site .reward-card-top img{width:43px;height:43px;object-fit:contain;border-radius:0;background:transparent;border:0}
 .satvic-site .reward-card-member{margin-left:auto;text-align:right;font:500 11px/1.6 var(--sans);letter-spacing:.06em}
 .satvic-site .reward-card-kicker{font:600 12px/1.2 var(--sans);letter-spacing:.12em}
 .satvic-site .reward-card-offer{max-width:88%}
@@ -401,7 +401,7 @@
 .satvic-site .reward-mint{background:linear-gradient(145deg,#47786c,#244f48)}
 .satvic-site .reward-deep{background:linear-gradient(145deg,#35675c,#173f39)}
 .satvic-site .reward-card-top{position:relative;z-index:1;gap:10px;font-size:15px;letter-spacing:0}
-.satvic-site .reward-card-top img{width:42px;height:42px;background:#fff;border:2px solid rgba(255,255,255,.92)}
+.satvic-site .reward-card-top img{width:42px;height:42px;object-fit:contain;background:transparent;border:0}
 .satvic-site .reward-card-member{font-size:11px;line-height:1.5;letter-spacing:.08em}
 .satvic-site .reward-card-offer{position:relative;z-index:1;max-width:100%}
 .satvic-site .reward-card-offer h3{font-size:clamp(28px,3vw,38px);line-height:1.06;margin:0 0 8px;letter-spacing:-.025em}
@@ -467,7 +467,7 @@
 
 .satvic-site .impact-heading-main{min-width:0}
 .satvic-site .impact-brand{display:flex;align-items:center;gap:10px;margin-bottom:18px;color:#173d39;font:600 15px/1 var(--sans);letter-spacing:-.02em}
-.satvic-site .impact-brand img{width:38px;height:38px;object-fit:cover;border-radius:50%;background:#d9eee7}
+.satvic-site .impact-brand img{width:38px;height:38px;object-fit:contain;border-radius:0;background:transparent}
 .satvic-site .impact-heading h2{font-size:clamp(46px,5.3vw,72px)}
 @media(max-width:700px){.satvic-site .impact-brand{font-size:14px;margin-bottom:13px}.satvic-site .impact-brand img{width:34px;height:34px}.satvic-site .impact-heading h2{font-size:46px}}
 

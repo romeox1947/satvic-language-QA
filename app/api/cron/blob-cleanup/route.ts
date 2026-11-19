@@ -6,6 +6,7 @@ export const maxDuration = 60;
 
 const RETENTION_MS = 24 * 60 * 60 * 1000;
 const BATCH_SIZE = 100;
+const BLOB_PREFIXES = ['satvic-users/', 'satvic-jobs/'] as const;
 
 function isAuthorized(request: Request) {
   const secret = process.env.CRON_SECRET?.trim();
@@ -35,19 +36,20 @@ export async function GET(request: Request) {
 
     const cutoff = Date.now() - RETENTION_MS;
     const expiredUrls: string[] = [];
-    let cursor: string | undefined;
-    let hasMore = true;
-
-    while (hasMore) {
-      const page = await list({ prefix: 'satvic-jobs/', limit: 1000, cursor });
-      for (const blob of page.blobs) {
-        // Reports are small and remain available in job history after video cleanup.
-        if (/qa-report.*\.json$/i.test(blob.pathname)) continue;
-        if (activeMedia.has(blob.url)) continue;
-        if (new Date(blob.uploadedAt).getTime() < cutoff) expiredUrls.push(blob.url);
+    for (const prefix of BLOB_PREFIXES) {
+      let cursor: string | undefined;
+      let hasMore = true;
+      while (hasMore) {
+        const page = await list({ prefix, limit: 1000, cursor });
+        for (const blob of page.blobs) {
+          // Reports are small and remain available in job history after video cleanup.
+          if (/qa-report.*\.json$/i.test(blob.pathname)) continue;
+          if (activeMedia.has(blob.url)) continue;
+          if (new Date(blob.uploadedAt).getTime() < cutoff) expiredUrls.push(blob.url);
+        }
+        hasMore = page.hasMore;
+        cursor = page.cursor;
       }
-      hasMore = page.hasMore;
-      cursor = page.cursor;
     }
 
     for (let index = 0; index < expiredUrls.length; index += BATCH_SIZE) {

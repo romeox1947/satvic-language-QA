@@ -121,11 +121,11 @@ async function checkSarvam(jobId: string) {
   return video?.download_url ? { ready: true, downloadUrl: video.download_url, progress: 100, step: 'Dub is ready; starting QA' } : { ready: false, progress: 90, step: 'Sarvam is rendering the dubbed video export' };
 }
 
-async function saveDub(downloadUrl: string) {
+async function saveDub(downloadUrl: string, userId: string) {
   'use step';
   const response = await fetch(downloadUrl, { cache: 'no-store', signal: AbortSignal.timeout(240_000) });
   if (!response.ok || !response.body) throw new Error(`Downloading the Sarvam dub failed (${response.status}).`);
-  const blob = await put(`satvic-jobs/${crypto.randomUUID()}-dub.mp4`, response.body, { access: 'private', contentType: 'video/mp4', addRandomSuffix: true, multipart: true });
+  const blob = await put(`satvic-users/${userId}/satvic-jobs/${crypto.randomUUID()}-dub.mp4`, response.body, { access: 'private', contentType: 'video/mp4', addRandomSuffix: true, multipart: true });
   return blob.url;
 }
 
@@ -162,7 +162,7 @@ async function runQa(input: JobInput, dubbedBlobUrl: string) {
     return { jobError: `QA returned HTTP ${response.status}, but the response was not JSON (${response.headers.get('content-type') || 'unknown content type'}): ${text.trim().slice(0, 1200) || 'empty response'}` };
   }
   const report = { ...body, generatedBySarvam: true, originalVideoUrl: input.originalBlobUrl, dubbedVideoUrl: dubbedBlobUrl };
-  const storedReport = await put(`satvic-jobs/${crypto.randomUUID()}-qa-report.json`, JSON.stringify(report), { access: 'private', contentType: 'application/json', addRandomSuffix: true });
+  const storedReport = await put(`satvic-users/${input.userId}/satvic-jobs/${crypto.randomUUID()}-qa-report.json`, JSON.stringify(report), { access: 'private', contentType: 'application/json', addRandomSuffix: true });
   return { reportBlobUrl: storedReport.url, dubbedBlobUrl, issueCount: Array.isArray(body.findings) ? body.findings.length : 0 };
 }
 
@@ -192,7 +192,7 @@ export async function generateAndReview(input: JobInput) {
     }
     if (!current.ready || !current.downloadUrl) throw new Error('Sarvam has not finished the dubbing export within 12 hours.');
     logPhase('sarvam-dub-and-export');
-    const dubbedBlobUrl = await saveDub(current.downloadUrl);
+    const dubbedBlobUrl = await saveDub(current.downloadUrl, input.userId);
     logPhase('store-dub-video');
     const result = await runQa(input, dubbedBlobUrl);
     logPhase('qa-and-report-storage');

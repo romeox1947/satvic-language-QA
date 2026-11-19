@@ -128,23 +128,40 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ru
   try {
     const { runId } = await params;
     if (!/^[\w-]{8,160}$/.test(runId)) return Response.json({ error: 'Invalid background job ID.' }, { status: 400 });
-    const body = await request.json().catch(() => null) as { projectName?: unknown } | null;
-    if (typeof body?.projectName !== 'string') return Response.json({ error: 'A project name is required.' }, { status: 400 });
-    const projectName = body.projectName.trim();
-    if (!projectName) return Response.json({ error: 'Project names cannot be empty.' }, { status: 400 });
-    if (projectName.length > 120) return Response.json({ error: 'Project names must be 120 characters or fewer.' }, { status: 400 });
+    const body = await request.json().catch(() => null) as { projectName?: unknown; folderId?: unknown } | null;
+    if (!body || (typeof body.projectName !== 'string' && !Object.prototype.hasOwnProperty.call(body, 'folderId'))) return Response.json({ error: 'A project name or folder is required.' }, { status: 400 });
+
+    const updates: { project_name?: string; folder_id?: string | null } = {};
+    if (typeof body.projectName === 'string') {
+      const projectName = body.projectName.trim();
+      if (!projectName) return Response.json({ error: 'Project names cannot be empty.' }, { status: 400 });
+      if (projectName.length > 120) return Response.json({ error: 'Project names must be 120 characters or fewer.' }, { status: 400 });
+      updates.project_name = projectName;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'folderId')) {
+      if (body.folderId !== null && (typeof body.folderId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.folderId))) {
+        return Response.json({ error: 'Choose a valid folder.' }, { status: 400 });
+      }
+      updates.folder_id = body.folderId as string | null;
+    }
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return Response.json({ error: 'Sign in to rename this project.' }, { status: 401 });
+    if (!user) return Response.json({ error: 'Sign in to update this project.' }, { status: 401 });
 
-    const update = supabase.from('qa_jobs').update({ project_name: projectName }).eq('user_id', user.id);
+    if (updates.folder_id) {
+      const { data: folder, error: folderError } = await supabase.from('qa_folders').select('id').eq('id', updates.folder_id).eq('user_id', user.id).maybeSingle();
+      if (folderError) throw folderError;
+      if (!folder) return Response.json({ error: 'That folder does not belong to your account.' }, { status: 404 });
+    }
+
+    const update = supabase.from('qa_jobs').update(updates).eq('user_id', user.id);
     const { data: job, error } = await (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId)
       ? update.eq('id', runId)
-      : update.eq('run_id', runId)).select('project_name').maybeSingle();
+      : update.eq('run_id', runId)).select('project_name, folder_id').maybeSingle();
     if (error) throw error;
     if (!job) return Response.json({ error: 'This project does not belong to your account.' }, { status: 404 });
-    return Response.json({ projectName: job.project_name });
+    return Response.json({ projectName: job.project_name, folderId: job.folder_id });
   } catch (error) {
     return Response.json({ error: errorMessage(error) }, { status: 500 });
   }

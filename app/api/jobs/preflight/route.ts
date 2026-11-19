@@ -5,7 +5,7 @@ import { createAdminClient } from '../../../../lib/supabase/admin';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const PREFIX = 'satvic-jobs/';
+const PREFIXES = ['satvic-users/', 'satvic-jobs/'] as const;
 const DEFAULT_LIMIT = 1024 * 1024 * 1024;
 const RESERVE = 50 * 1024 * 1024;
 const MIN_CLEANUP_AGE_MS = 10 * 60 * 1000;
@@ -22,13 +22,15 @@ async function inspectStorage() {
     if (job.dubbed_blob_url) activeUrls.add(job.dubbed_blob_url);
   }
   const blobs: BlobItem[] = [];
-  let cursor: string | undefined;
-  let hasMore = true;
-  while (hasMore) {
-    const page = await list({ prefix: PREFIX, limit: 1000, cursor });
-    blobs.push(...page.blobs.map(blob => ({ url: blob.url, pathname: blob.pathname, size: blob.size, uploadedAt: blob.uploadedAt })));
-    hasMore = page.hasMore;
-    cursor = page.cursor;
+  for (const prefix of PREFIXES) {
+    let cursor: string | undefined;
+    let hasMore = true;
+    while (hasMore) {
+      const page = await list({ prefix, limit: 1000, cursor });
+      blobs.push(...page.blobs.map(blob => ({ url: blob.url, pathname: blob.pathname, size: blob.size, uploadedAt: blob.uploadedAt })));
+      hasMore = page.hasMore;
+      cursor = page.cursor;
+    }
   }
   return { blobs, activeUrls };
 }

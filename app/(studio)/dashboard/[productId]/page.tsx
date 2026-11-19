@@ -18,6 +18,6 @@ export default async function ProductDashboardPage({ params }: { params: Promise
   const product = getProduct(productId);
   if (!product) notFound();
 
-  if (product.id === 'satvic-fluid') return <SatvicFluidDashboard initialAccountEmail={user.email ?? ''} initialAccountAvatar={getProfileAvatarId(user.user_metadata?.avatar_id)} />;
+  if (product.id === 'satvic-fluid') return <SatvicFluidDashboard initialAccountEmail={user.email ?? ''} initialAccountAvatar={getProfileAvatarId(user.user_metadata?.avatar_id)} initialAccountUserId={user.id} />;
   return <FounderOfficeDashboard accountEmail={user.email ?? ''} />;
 }

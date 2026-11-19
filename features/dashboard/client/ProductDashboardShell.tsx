@@ -193,7 +193,7 @@ export default function ProductDashboardShell({
     <main className={`app-shell product-${productId}${productRailCollapsed ? ' product-rail-collapsed' : ''}${featureRailCollapsed ? ' feature-rail-collapsed' : ''}${hideFeatureNavigation ? ' dashboard-home-shell' : ''}`}>
       <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products">
         <button type="button" className="rail-workspace" aria-label="Open product menu" aria-haspopup="true" aria-expanded={productMenuOpen} title="Satvic Studio and tools" onClick={() => { setProductMenuOpen(open => !open); setAccountMenuOpen(false); setNotificationOpen(false); }}>
-          <span className="rail-workspace-mark"><span className="brand-mark"><img className="satvic-org-mark" src="https://satvicmovement.org/images/favicon.png" alt="" aria-hidden="true" /></span></span>
+          <span className="rail-workspace-mark"><img className="satvic-org-mark" src="https://satvicmovement.org/images/favicon.png" alt="" aria-hidden="true" /></span>
         </button>
         <div className="rail-product-list" aria-label="Products">
           {visibleProducts.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`rail-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)} title={item.name}>
@@ -209,7 +209,7 @@ export default function ProductDashboardShell({
         </button>
         <section className="product-drawer" aria-label="Satvic Studio and product switcher">
           <button type="button" className="drawer-workspace" aria-label="Open Satvic Studio dashboard" onClick={() => navigateToProduct('/dashboard')}>
-            <span className="rail-workspace-mark"><span className="brand-mark"><img className="satvic-org-mark" src="https://satvicmovement.org/images/favicon.png" alt="" aria-hidden="true" /></span></span>
+            <span className="rail-workspace-mark"><img className="satvic-org-mark" src="https://satvicmovement.org/images/favicon.png" alt="" aria-hidden="true" /></span>
             <span><b>Satvic Studio</b><small>{workspaceName}</small></span>
           </button>
           <div className="drawer-product-list" aria-label="Products">
