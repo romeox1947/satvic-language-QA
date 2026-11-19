@@ -7,7 +7,7 @@ export async function GET() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in to view your folders.' }, { status: 401 });
-    const { data, error } = await supabase.from('qa_folders').select('id, name, created_at').eq('user_id', user.id).order('created_at', { ascending: true });
+    const { data, error } = await supabase.from('qa_folders').select('id, name, created_at, feedback_form_url').eq('user_id', user.id).order('created_at', { ascending: true });
     if (error) throw error;
     return Response.json({ folders: data || [] }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
@@ -24,12 +24,48 @@ export async function POST(request: Request) {
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
     if (!name) return Response.json({ error: 'Enter a folder name.' }, { status: 400 });
     if (name.length > 80) return Response.json({ error: 'Folder names must be 80 characters or fewer.' }, { status: 400 });
-    const { data, error } = await supabase.from('qa_folders').insert({ user_id: user.id, name }).select('id, name, created_at').single();
+    const { data, error } = await supabase.from('qa_folders').insert({ user_id: user.id, name }).select('id, name, created_at, feedback_form_url').single();
     if (error?.code === '23505') return Response.json({ error: 'You already have a folder with that name.' }, { status: 409 });
     if (error || !data) throw error || new Error('Could not create this folder.');
     return Response.json({ folder: data }, { status: 201, headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Could not create this folder.' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return Response.json({ error: 'Sign in before updating a folder.' }, { status: 401 });
+    const body = await request.json().catch(() => null) as { folderId?: unknown; feedbackFormUrl?: unknown } | null;
+    const folderId = typeof body?.folderId === 'string' ? body.folderId : '';
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(folderId)) {
+      return Response.json({ error: 'Choose a valid project folder.' }, { status: 400 });
+    }
+    const formValue = body?.feedbackFormUrl;
+    if (formValue !== null && typeof formValue !== 'string') {
+      return Response.json({ error: 'Enter a Google Forms link.' }, { status: 400 });
+    }
+    const input = typeof formValue === 'string' ? formValue.trim() : '';
+    if (input.length > 2000) return Response.json({ error: 'The form link is too long.' }, { status: 400 });
+    let feedbackFormUrl: string | null = null;
+    if (input) {
+      try {
+        const parsed = new URL(input);
+        if (parsed.protocol !== 'https:' || parsed.hostname !== 'docs.google.com' || !parsed.pathname.includes('/forms/')) throw new Error('invalid Google Form URL');
+        feedbackFormUrl = parsed.toString();
+      } catch {
+        return Response.json({ error: 'Enter a valid https://docs.google.com/forms link.' }, { status: 400 });
+      }
+    }
+    const { data, error } = await supabase.from('qa_folders').update({ feedback_form_url: feedbackFormUrl })
+      .eq('id', folderId).eq('user_id', user.id).select('id, name, created_at, feedback_form_url').maybeSingle();
+    if (error) throw error;
+    if (!data) return Response.json({ error: 'This folder was not found in your account.' }, { status: 404 });
+    return Response.json({ folder: data }, { headers: { 'cache-control': 'no-store' } });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : 'Could not save the Google Form link.' }, { status: 500 });
   }
 }
 
