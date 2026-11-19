@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Archive, ArrowRight, AudioLines, Bell, BookOpen, Brain, Building2, CalendarDays, Check, CheckCheck, ChevronDown,
@@ -61,7 +61,6 @@ export default function ProductDashboardShell({
   const [productRailCollapsed, setProductRailCollapsed] = useState(false);
   const [featureRailCollapsed, setFeatureRailCollapsed] = useState(false);
   const [productMenuOpen, setProductMenuOpen] = useState(false);
-  const productHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
@@ -100,23 +99,20 @@ export default function ProductDashboardShell({
     setNavOpen(false);
   };
 
-  const clearProductHoverTimer = () => {
-    if (productHoverTimer.current) clearTimeout(productHoverTimer.current);
-    productHoverTimer.current = null;
-  };
-  const openProductRail = (event: MouseEvent<HTMLElement>) => {
-    if (event.target instanceof Element && event.target.closest('.rail-account, .rail-notifications')) return;
-    clearProductHoverTimer();
-    setProductMenuOpen(true);
-  };
-  const closeProductRail = () => {
-    clearProductHoverTimer();
-    productHoverTimer.current = setTimeout(() => setProductMenuOpen(false), 240);
-  };
-
-  useEffect(() => () => {
-    if (productHoverTimer.current) clearTimeout(productHoverTimer.current);
-  }, []);
+  useEffect(() => {
+    if (!productMenuOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && !target.closest('.product-rail')) setProductMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setProductMenuOpen(false); };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [productMenuOpen]);
 
   useEffect(() => {
     router.prefetch('/dashboard/satvic-fluid');
@@ -128,7 +124,6 @@ export default function ProductDashboardShell({
   }, [founderOfficeEnabled, productId, router]);
 
   const navigateToProduct = (href: string) => {
-    clearProductHoverTimer();
     setNotificationOpen(false);
     setProductMenuOpen(false);
     router.push(href);
@@ -185,35 +180,27 @@ export default function ProductDashboardShell({
 
   return (
     <main className={`app-shell product-${productId}${productRailCollapsed ? ' product-rail-collapsed' : ''}${featureRailCollapsed ? ' feature-rail-collapsed' : ''}${hideFeatureNavigation ? ' dashboard-home-shell' : ''}`}>
-      <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products" onMouseEnter={openProductRail} onMouseLeave={closeProductRail} onFocusCapture={event => {
-        if (event.target instanceof Element && event.target.closest('.rail-account, .rail-notifications')) {
-          clearProductHoverTimer();
-          setProductMenuOpen(false);
-          return;
-        }
-        clearProductHoverTimer();
-        setProductMenuOpen(true);
-      }}>
-        <div className="rail-workspace rail-workspace-static" aria-label="Satvic Studio workspace" title="Satvic Studio">
+      <nav className={`product-rail${productMenuOpen ? ' product-rail-expanded' : ''}`} aria-label="Satvic products">
+        <button type="button" className="rail-workspace" aria-label="Open product menu" aria-haspopup="true" aria-expanded={productMenuOpen} title="Satvic Studio and tools" onClick={() => { setProductMenuOpen(open => !open); setAccountMenuOpen(false); setNotificationOpen(false); }}>
           <span className="rail-workspace-mark"><span className="brand-mark"><img className="satvic-org-mark" src="https://satvicmovement.org/images/favicon.png" alt="" aria-hidden="true" /></span></span>
-        </div>
+        </button>
         <div className="rail-product-list" aria-label="Products">
           {visibleProducts.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`rail-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)} title={item.name}>
             <span className="rail-product-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19} /> : <Building2 size={19} />}</span>
           </button>)}
         </div>
         <div className="rail-spacer" />
-        <button type="button" className="rail-notifications" aria-label={`Notifications, ${visibleNotifications.length} items`} aria-expanded={notificationOpen} title="Notifications" onMouseEnter={() => { clearProductHoverTimer(); setProductMenuOpen(false); }} onClick={() => { clearProductHoverTimer(); setProductMenuOpen(false); setAccountMenuOpen(false); setNotificationOpen(true); void loadNotifications(); }}>
+        <button type="button" className="rail-notifications" aria-label={`Notifications, ${visibleNotifications.length} items`} aria-expanded={notificationOpen} title="Notifications" onClick={() => { setProductMenuOpen(false); setAccountMenuOpen(false); setNotificationOpen(true); void loadNotifications(); }}>
           <Bell size={19}/>{visibleNotifications.length > 0 && <span>{visibleNotifications.length > 9 ? '9+' : visibleNotifications.length}</span>}
         </button>
-        <button type="button" className="rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onMouseEnter={() => { clearProductHoverTimer(); setProductMenuOpen(false); }} onClick={() => { clearProductHoverTimer(); setProductMenuOpen(false); setAccountMenuOpen(open => !open); }} title={accountName}>
+        <button type="button" className="rail-account" aria-label="Open account menu" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => { setProductMenuOpen(false); setAccountMenuOpen(open => !open); }} title={accountName}>
           <span className="account-trigger-avatar">{(accountName.slice(0, 1) || 'U').toUpperCase()}</span>
         </button>
         <section className="product-drawer" aria-label="Satvic Studio and product switcher">
-          <div className="drawer-workspace drawer-workspace-static">
+          <button type="button" className="drawer-workspace" aria-label="Open Satvic Studio dashboard" onClick={() => navigateToProduct('/dashboard')}>
             <span className="rail-workspace-mark"><span className="brand-mark"><img className="satvic-org-mark" src="https://satvicmovement.org/images/favicon.png" alt="" aria-hidden="true" /></span></span>
             <span><b>Satvic Studio</b><small>{workspaceName}</small></span>
-          </div>
+          </button>
           <div className="drawer-product-list" aria-label="Products">
             {visibleProducts.map(item => <button key={item.id} type="button" aria-current={!hideFeatureNavigation && item.id === productId ? 'page' : undefined} className={`drawer-product${!hideFeatureNavigation && item.id === productId ? ' active' : ''}`} onClick={() => navigateToProduct(item.href)}>
               <span className="product-menu-icon">{item.id === 'satvic-fluid' ? <AudioLines size={19} /> : <Building2 size={19}/>}</span><span><b>{item.name}</b><small>{item.description}</small></span>
