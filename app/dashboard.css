@@ -1549,6 +1549,8 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .folder-rename-trigger:hover{border-color:#cdd9cc;background:#f6f9f5}
 .app-shell .folder-delete-trigger{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #ead8d5;border-radius:9px;background:#fff;color:#a3554e;font:500 11px "Matter";white-space:nowrap;cursor:pointer}
 .app-shell .folder-delete-trigger:hover{border-color:#dfbcb6;background:#fff8f7}
+.app-shell .folder-cost-estimate-trigger{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #dce5dc;border-radius:9px;background:#f6faf5;color:#47644b;font:500 11px "Matter";white-space:nowrap;cursor:pointer;transition:background .16s,border-color .16s,transform .16s}
+.app-shell .folder-cost-estimate-trigger:hover,.app-shell .folder-cost-estimate-trigger[aria-expanded="true"]{transform:translateY(-1px);border-color:#b9ccb9;background:#edf5ec}
 .folder-delete-backdrop{z-index:120}
 .app-shell .folder-delete-modal{position:relative;width:min(100%,410px);padding:27px;border:1px solid #e7e9e4;border-radius:17px;background:#fff;box-shadow:0 22px 70px #20211f26;animation:modal-in .18s ease-out}
 .app-shell .folder-delete-icon{display:grid;width:40px;height:40px;place-items:center;margin-bottom:14px;border-radius:12px;background:#fbefed;color:#b65f56}
@@ -1559,7 +1561,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .folder-delete-actions .secondary-btn{border:1px solid #e2e6e0;background:#fff;color:#596359}
 .app-shell .folder-delete-confirm{border:1px solid #b96158;background:#b96158;color:#fff}
 .app-shell .folder-delete-actions button:disabled{opacity:.65;cursor:wait}
-@media(max-width:700px){.app-shell .welcome-actions{gap:6px}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn{width:40px;height:40px;min-height:40px;padding:0;overflow:hidden;font-size:0}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark-wrap{width:24px;height:24px}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark{width:18px;height:18px}.app-shell .folder-back-button,.app-shell .folder-rename-trigger,.app-shell .folder-delete-trigger{min-height:36px;padding:0 8px;font-size:9px}.app-shell .folder-delete-modal{padding:23px 19px}}
+@media(max-width:700px){.app-shell .welcome-actions{gap:6px;flex-wrap:wrap}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn{width:40px;height:40px;min-height:40px;padding:0;overflow:hidden;font-size:0}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark-wrap{width:24px;height:24px}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark{width:18px;height:18px}.app-shell .folder-back-button,.app-shell .folder-rename-trigger,.app-shell .folder-delete-trigger,.app-shell .folder-cost-estimate-trigger{min-height:36px;padding:0 8px;font-size:9px}.app-shell .folder-delete-modal{padding:23px 19px}}
 .app-shell .folder-library{min-height:260px;margin-top:15px}
 .app-shell .folder-library .panel-heading{gap:14px}
 .app-shell .folder-library .project-tools{position:static;width:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0}
@@ -1575,3 +1577,71 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .folder-library-empty>b{color:#414a40;font:500 13px "Matter"}
 .app-shell .folder-library-empty>span{max-width:300px;color:#8c9389;font-size:10px;line-height:1.5}
 @media(max-width:560px){.app-shell .folder-library .panel-heading{align-items:flex-start;flex-direction:column}.app-shell .folder-library .project-tools{width:100%;justify-content:flex-start}.app-shell .folder-library .search-box{flex:1;width:auto;min-width:0}.app-shell .folder-library .search-trigger>span{font-size:10px}}
+
+.app-shell.product-satvic-fluid .project-table-wrap{width:100%;overflow-x:auto;border-top:1px solid #eceeea}
+.app-shell.product-satvic-fluid .project-table{width:100%;min-width:760px;border-collapse:collapse;table-layout:auto;text-align:left}
+.app-shell.product-satvic-fluid .project-table th{height:48px;padding:0 16px;border-bottom:1px solid #e8eae6;color:#757a72;font:500 10px "Matter",sans-serif;white-space:nowrap}
+.app-shell.product-satvic-fluid .project-table td{height:64px;padding:8px 16px;border-bottom:1px solid #eceeea;color:#5b6058;font:400 11px "Matter",sans-serif;white-space:nowrap}
+.app-shell.product-satvic-fluid .project-table tbody tr:last-child td{border-bottom:0}
+.app-shell.product-satvic-fluid .project-table-row{cursor:pointer;transition:background .16s ease}
+.app-shell.product-satvic-fluid .project-table-row:hover{background:#f8f9f7}
+.app-shell.product-satvic-fluid .project-table-name{display:flex;min-width:210px;align-items:center;gap:12px}
+.app-shell.product-satvic-fluid .project-table-name>span{display:grid;min-width:0;gap:5px}
+.app-shell.product-satvic-fluid .project-table-name small{color:#92968f;font:400 10px "Matter",sans-serif}
+.app-shell.product-satvic-fluid .project-language-chip{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;background:#f2f3f1;color:#373a35;font:400 10px "Matter",sans-serif}
+.app-shell.product-satvic-fluid .project-created-cell{color:#7e827b!important}
+.app-shell.product-satvic-fluid .project-download-button{display:inline-flex;min-width:112px;height:36px;align-items:center;justify-content:center;gap:8px;padding:0 13px;border:0;border-radius:999px;background:#f0f1ef;color:#222420;font:500 11px "Matter",sans-serif;cursor:pointer}
+.app-shell.product-satvic-fluid .project-download-button:hover:not(:disabled){background:#e8e9e6}
+.app-shell.product-satvic-fluid .project-download-button:disabled{color:#a3a69f;cursor:not-allowed}
+.app-shell.product-satvic-fluid .project-table td:last-child{width:44px;padding-right:12px;padding-left:4px;overflow:visible}
+.app-shell.product-satvic-fluid .project-table td:last-child .project-actions{margin-left:0}
+.app-shell.product-satvic-fluid .project-table td[colspan]{height:180px;padding:0 18px;white-space:normal}
+.app-shell.product-satvic-fluid .project-table .empty-state{min-height:170px}
+@media(max-width:560px){.app-shell.product-satvic-fluid .project-table-wrap{margin:0}.app-shell.product-satvic-fluid .project-table{min-width:740px}.app-shell.product-satvic-fluid .project-table th,.app-shell.product-satvic-fluid .project-table td{padding-right:12px;padding-left:12px}}
+
+.cost-estimate-backdrop{position:fixed;z-index:125;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(30,34,29,.32);backdrop-filter:blur(5px);animation:cost-backdrop-in .2s ease both}
+.cost-estimate-backdrop.closing{animation:cost-backdrop-out .3s ease both}
+.cost-estimate-panel{display:flex;width:min(1040px,calc(100vw - 40px));height:min(820px,calc(100vh - 40px));min-height:0;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.88);border-radius:20px;background:#fff;box-shadow:0 28px 90px rgba(22,31,22,.25);animation:cost-dock-open .36s cubic-bezier(.2,.78,.22,1) both;will-change:transform,opacity,filter}
+.cost-estimate-backdrop.closing .cost-estimate-panel{animation:cost-dock-close .3s cubic-bezier(.42,0,.85,.25) both}
+.cost-estimate-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:25px 28px 18px;border-bottom:1px solid #edf0eb}
+.cost-estimate-header h2{margin:5px 0 5px;color:#303830;font:500 23px/1.2 "Matter",sans-serif}
+.cost-estimate-header p{margin:0;color:#858c82;font:400 11px/1.5 "Matter",sans-serif}
+.cost-estimate-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;padding:16px 24px}
+.cost-estimate-summary article{display:grid;gap:5px;padding:13px 15px;border:1px solid #e7ece5;border-radius:12px;background:#f9fbf8}
+.cost-estimate-summary article>span{color:#7e887c;font:500 10px "Matter",sans-serif}
+.cost-estimate-summary article>b{color:#29362b;font:500 20px/1.1 "Matter",sans-serif}
+.cost-estimate-summary article>small{color:#9ba198;font:400 9px "Matter",sans-serif}
+.cost-estimate-table-wrap{min-height:160px;flex:1;overflow:auto;margin:0 24px;border:1px solid #eaede8;border-radius:12px}
+.cost-estimate-table{width:100%;min-width:700px;border-collapse:collapse;text-align:left}
+.cost-estimate-table th{position:sticky;top:0;z-index:1;height:42px;padding:0 13px;border-bottom:1px solid #e8ece6;background:#f8faf7;color:#737c71;font:500 10px "Matter",sans-serif;white-space:nowrap}
+.cost-estimate-table td{height:56px;padding:8px 13px;border-bottom:1px solid #eef0ec;color:#4d554b;font:400 10px "Matter",sans-serif;white-space:nowrap}
+.cost-estimate-table tbody tr:last-child td{border-bottom:0}
+.cost-estimate-table td:first-child{min-width:180px;white-space:normal}
+.cost-estimate-table td:first-child b{display:block;max-width:270px;overflow:hidden;color:#343a33;font:500 11px "Matter",sans-serif;text-overflow:ellipsis;white-space:nowrap}
+.cost-estimate-table td:first-child small{display:block;margin-top:4px;color:#959b92;font:400 9px "Matter",sans-serif}
+.cost-estimate-table td select{max-width:155px;height:31px;padding:0 8px;border:1px solid #e3e8e0;border-radius:7px;background:#fff;color:#4d584c;font:400 10px "Matter",sans-serif}
+.cost-duration-field{display:flex;width:105px;height:32px;align-items:center;gap:5px;padding:0 8px;border:1px solid #e1e7df;border-radius:7px;background:#fff;color:#858c82}
+.cost-duration-field input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#303830;font:400 10px "Matter",sans-serif}
+.cost-duration-field span{font:400 9px "Matter",sans-serif}
+.cost-estimate-table .cost-empty{height:150px;color:#8b9288;text-align:center}
+.cost-rate-details{flex:none;max-height:225px;overflow:auto;margin:13px 24px 0;padding:0 2px;color:#677165}
+.cost-rate-details summary{display:flex;align-items:center;gap:8px;padding:8px 0;color:#52644f;font:500 10px "Matter",sans-serif;cursor:pointer;list-style:none}
+.cost-rate-details summary::-webkit-details-marker{display:none}
+.cost-rate-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;padding:7px 0 12px}
+.cost-rate-grid label{display:grid;gap:5px;color:#828a7e;font:400 9px "Matter",sans-serif}
+.cost-rate-grid input{width:100%;height:30px;padding:0 8px;border:1px solid #e3e8e0;border-radius:7px;background:#fff;color:#3c453a;font:400 10px "Matter",sans-serif}
+.cost-tech-list{display:grid;gap:5px;padding:4px 0 8px}
+.cost-tech-list span{color:#777f74;font:400 9px/1.45 "Matter",sans-serif}
+.cost-tech-list b{color:#465345;font-weight:500}
+.cost-rate-note{margin:4px 0;color:#969c92;font:400 9px/1.4 "Matter",sans-serif}
+.cost-source-links{display:flex;gap:12px;padding:3px 0 6px}
+.cost-source-links a{color:#587455;font:500 9px "Matter",sans-serif;text-decoration:underline;text-underline-offset:2px}
+.cost-estimate-footer{display:flex;min-height:58px;align-items:center;justify-content:space-between;gap:12px;padding:10px 24px;border-top:1px solid #edf0eb;color:#92998f;font:400 9px "Matter",sans-serif}
+.cost-estimate-footer button{min-width:82px;height:34px;border:1px solid #dfe5dd;border-radius:8px;background:#fff;color:#4d594c;font:500 10px "Matter",sans-serif;cursor:pointer}
+.cost-estimate-footer button:hover{background:#f7faf6}
+@keyframes cost-backdrop-in{from{opacity:0}to{opacity:1}}
+@keyframes cost-backdrop-out{from{opacity:1}to{opacity:0}}
+@keyframes cost-dock-open{from{opacity:.25;transform:scale(.025);filter:blur(4px)}to{opacity:1;transform:scale(1);filter:blur(0)}}
+@keyframes cost-dock-close{from{opacity:1;transform:scale(1);filter:blur(0)}to{opacity:.2;transform:scale(.025);filter:blur(4px)}}
+@media(max-width:700px){.cost-estimate-backdrop{padding:10px}.cost-estimate-panel{width:calc(100vw - 20px);height:calc(100vh - 20px);border-radius:15px}.cost-estimate-header{padding:19px 17px 13px}.cost-estimate-header h2{font-size:19px}.cost-estimate-summary{grid-template-columns:1fr 1fr;gap:7px;padding:11px 14px}.cost-estimate-summary article{padding:10px}.cost-estimate-summary article:last-child{grid-column:1/-1}.cost-estimate-summary article>b{font-size:17px}.cost-estimate-table-wrap{margin:0 14px}.cost-rate-details{margin:10px 14px 0}.cost-rate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cost-estimate-footer{padding:9px 14px}}
+@media(prefers-reduced-motion:reduce){.cost-estimate-backdrop,.cost-estimate-backdrop.closing,.cost-estimate-panel,.cost-estimate-backdrop.closing .cost-estimate-panel{animation-duration:.01ms}}

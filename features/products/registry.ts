@@ -3,7 +3,7 @@ export type ProductId = 'satvic-fluid' | 'founder-office';
 export type ProductFeature = {
   id: string;
   label: string;
-  icon: 'plus' | 'workflow' | 'projects' | 'review' | 'languages' | 'book' | 'settings' | 'home' | 'focus' | 'decisions' | 'notes' | 'roadmap' | 'brain' | 'voice' | 'meeting' | 'people' | 'idea' | 'memory';
+  icon: 'plus' | 'workflow' | 'projects' | 'review' | 'languages' | 'book' | 'settings' | 'home' | 'focus' | 'decisions' | 'notes' | 'roadmap' | 'brain' | 'voice' | 'meeting' | 'people' | 'idea' | 'memory' | 'calculator';
 };
 
 export type ProductDefinition = {
@@ -24,6 +24,7 @@ export const products: ProductDefinition[] = [
       { label: '', features: [
         { id: 'generate-sarvam', label: 'Generate with Sarvam', icon: 'plus' },
         { id: 'start-review', label: 'Start a review', icon: 'workflow' },
+        { id: 'cost-estimate', label: 'Cost estimate', icon: 'calculator' },
       ] },
     ],
   },

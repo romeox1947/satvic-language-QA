@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Archive, ArrowRight, AudioLines, Bell, BookOpen, Brain, Building2, CalendarDays, Check, CheckCheck, ChevronDown,
+  Archive, ArrowRight, AudioLines, Bell, BookOpen, Brain, Building2, CalendarDays, Calculator, Check, CheckCheck, ChevronDown,
   FileText, Globe2, LayoutDashboard, Lightbulb, ListChecks, LogOut, Menu, MessageSquare,
   PanelLeftClose,
   PanelLeftOpen, Plus, Settings, Settings2, Trash2, X, type LucideIcon,
@@ -34,6 +34,7 @@ const featureIcons: Record<ProductFeature['icon'], LucideIcon> = {
   people: Users,
   idea: Lightbulb,
   memory: Archive,
+  calculator: Calculator,
 };
 
 type ProductDashboardShellProps = {

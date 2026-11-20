@@ -37,6 +37,7 @@ type Segment = { start: number; end: number; text: string; words?: { start: numb
 type Transcript = { transcript: string; segments: Segment[]; detectedLanguage: string; engine: string };
 type AudioFinding = { severity: 'critical' | 'review' | 'info'; title: string; detail: string; category?: string; sourceStart?: number; sourceEnd?: number; dubStart?: number; dubEnd?: number; sourceStartSegment?: number; sourceEndSegment?: number; dubStartSegment?: number; dubEndSegment?: number; evidenceStatus?: 'cross-checked' | 'audio-only' | 'transcript-only'; sourceQuote?: string; dubQuote?: string };
 type QaCheckpoint = {
+  kind?: 'qa-checkpoint';
   originalResult?: Transcript;
   dubbedResult?: Transcript;
   backTranslation?: string;
@@ -456,10 +457,11 @@ export async function POST(request: Request) {
   const persistCheckpoint = () => {
     if (!historyJobId || !historySupabase || !historyUserId) return Promise.resolve();
     checkpointSave = checkpointSave.then(async () => {
+      checkpoint.kind = 'qa-checkpoint';
       const stored = await put(`satvic-users/${historyUserId}/satvic-jobs/${historyJobId}-qa-checkpoint-${crypto.randomUUID()}.json`, JSON.stringify(checkpoint), { access: 'private', contentType: 'application/json', addRandomSuffix: false });
       const previousCheckpointUrl = checkpointUrl;
       checkpointUrl = stored.url;
-      const { error } = await historySupabase.from('qa_jobs').update({ qa_checkpoint_blob_url: checkpointUrl, updated_at: new Date().toISOString() }).eq('id', historyJobId).eq('user_id', historyUserId);
+      const { error } = await historySupabase.from('qa_jobs').update({ report_blob_url: checkpointUrl, updated_at: new Date().toISOString() }).eq('id', historyJobId).eq('user_id', historyUserId);
       if (error) throw error;
       if (previousCheckpointUrl && previousCheckpointUrl !== checkpointUrl) await deleteBlob(previousCheckpointUrl).catch(error => console.warn('[api/analyze] Could not remove an old checkpoint blob.', error));
     });
@@ -477,19 +479,28 @@ export async function POST(request: Request) {
       historySupabase = workflowAuthorized ? createAdminClient() : await createClient();
       const user = workflowAuthorized ? null : (await historySupabase.auth.getUser()).data.user;
       if (!workflowAuthorized && !user) return NextResponse.json({ error: 'Sign in before saving this analysis.' }, { status: 401 });
-      const { data: savedJob } = await historySupabase.from('qa_jobs').select('id,user_id,original_blob_url,dubbed_blob_url,qa_checkpoint_blob_url').eq('id', historyJobId).eq('user_id', user?.id || json.userId || '').maybeSingle();
-      if (!savedJob) return NextResponse.json({ error: 'This QA project does not belong to your account.' }, { status: 404 });
+      let savedJobQuery = historySupabase.from('qa_jobs').select('id,user_id,original_blob_url,dubbed_blob_url,report_blob_url').eq('id', historyJobId);
+      if (!workflowAuthorized && user) savedJobQuery = savedJobQuery.eq('user_id', user.id);
+      const { data: savedJob, error: savedJobError } = await savedJobQuery.maybeSingle();
+      if (savedJobError) throw savedJobError;
+      if (!savedJob) return NextResponse.json({ error: 'This QA project was not found.' }, { status: 404 });
+      if (workflowAuthorized && (!json.userId || savedJob.user_id !== json.userId)) return NextResponse.json({ error: 'The background QA request did not match this project owner.' }, { status: 403 });
       if (String(json.originalBlobUrl || '') !== savedJob.original_blob_url || String(json.dubbedBlobUrl || '') !== savedJob.dubbed_blob_url) return NextResponse.json({ error: 'The uploaded media does not match this saved QA project.' }, { status: 400 });
       historyUserId = savedJob.user_id;
       historyNotificationEmail = user?.email || String(json.notificationEmail || '');
       historyOriginalUrl = savedJob.original_blob_url;
       historyDubbedUrl = savedJob.dubbed_blob_url || '';
-      checkpointUrl = savedJob.qa_checkpoint_blob_url || '';
+      checkpointUrl = savedJob.report_blob_url || '';
       if (checkpointUrl) {
         try {
           const cached = await getBlob(checkpointUrl, { access: 'private' });
-          if (cached) checkpoint = JSON.parse(await new Response(cached.stream).text()) as QaCheckpoint;
+          if (cached) {
+            const parsed = JSON.parse(await new Response(cached.stream).text()) as QaCheckpoint;
+            if (parsed.kind === 'qa-checkpoint') checkpoint = parsed;
+            else checkpointUrl = '';
+          }
         } catch (error) {
+          checkpointUrl = '';
           console.warn('[api/analyze] Could not load the saved QA checkpoint; recomputing missing stages.', error);
         }
       }
@@ -639,7 +650,6 @@ export async function POST(request: Request) {
       await historySupabase.from('qa_jobs').update({ report_blob_url: stored.url, status: 'completed', issue_count: combinedFindings.length, error_message: null, updated_at: new Date().toISOString() }).eq('id', historyJobId);
       if (checkpointUrl) {
         await deleteBlob(checkpointUrl).catch(error => console.warn('[api/analyze] Could not remove the completed QA checkpoint.', error));
-        await historySupabase.from('qa_jobs').update({ qa_checkpoint_blob_url: null }).eq('id', historyJobId).eq('user_id', historyUserId);
       }
       if (!historyManagedByWorkflow) await sendGmailJobEmail({
         to: historyNotificationEmail,
