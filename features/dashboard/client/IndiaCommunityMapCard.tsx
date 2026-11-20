@@ -13,7 +13,7 @@ export type IndiaMapProject = {
 
 const neutralState = '#dfe3df';
 const statusColors = {
-  review: '#aaa7ed',
+  review: '#5950cc',
   failed: '#e9aaa5',
   processing: '#ad91d1',
   ready: '#6e9b72',
