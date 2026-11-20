@@ -1282,6 +1282,10 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-satvic-fluid .status-pill.failed { background: #fcefee; color: #b94b4b; }
 .app-shell.product-satvic-fluid .status-pill.failed i { background: #b94b4b; }
 .app-shell.product-satvic-fluid .project-issues.failed { color: #b94b4b; }
+.app-shell.product-satvic-fluid .status-pill.in-progress { background: #eee7f8; color: #7551a4; }
+.app-shell.product-satvic-fluid .status-pill.in-progress i { background: #8b68b8; }
+.app-shell.product-satvic-fluid .status-pill.needs-review { background: #f0efff; color: #5950cc; }
+.app-shell.product-satvic-fluid .status-pill.needs-review i { background: #5950cc; }
 .app-shell.product-satvic-fluid .status-pill.ready { background: #e6f1e5; color: #315f39; }
 .app-shell.product-satvic-fluid .status-pill.ready i { background: #356f40; }
 .app-shell.product-satvic-fluid .project-row:has(.status-pill.ready) .project-issues { color: #356f40; }
@@ -1340,8 +1344,8 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .spotlight-result-copy>small{display:flex;align-items:center;gap:5px;color:#999b94;font-size:9px;white-space:nowrap}
 .spotlight-result-copy>small i{font-style:normal;color:#c5c7c1}
 .spotlight-status{flex:none;padding:5px 8px;border-radius:20px;background:#f2f3f1;color:#85877f;font-size:8px;white-space:nowrap}
-.spotlight-status.needs-review{background:#fbf1e9;color:#ad8054}
-.spotlight-status.in-progress{background:#f0edf6;color:#806b9c}
+.spotlight-status.needs-review{background:#f0efff;color:#5950cc}
+.spotlight-status.in-progress{background:#eee7f8;color:#7551a4}
 .spotlight-status.ready{background:#edf4ed;color:#5e8563}
 .spotlight-status.failed{background:#fbefed;color:#b56d62}
 .spotlight-result-arrow{flex:none;color:#b3b7ae}
