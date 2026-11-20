@@ -1710,7 +1710,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .cost-total-costing{display:flex;flex-direction:column;gap:5px;margin-top:12px;padding:13px 0;border-top:1px solid #dfe7dc}
 .cost-total-costing span{color:#4f6851;font:500 11px "Matter",sans-serif}
 .cost-total-costing b{color:#263d2b;font:600 26px "Matter",sans-serif}
-.cost-wise-rate{color:#7c8579;font:400 10px/1.5 "Matter",sans-serif}
+.cost-exchange-rate{color:#7c8579;font:400 10px/1.5 "Matter",sans-serif}
 .cost-estimate-project-detail{display:grid;gap:14px;padding:18px 25px 12px}
 .cost-estimate-project-detail .cost-estimate-summary{padding:0}
 .cost-detail-field{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;color:#657061;font:500 11px "Matter",sans-serif}
