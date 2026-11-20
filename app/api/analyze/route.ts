@@ -40,12 +40,17 @@ type QaCheckpoint = {
   kind?: 'qa-checkpoint';
   originalResult?: Transcript;
   dubbedResult?: Transcript;
+  originalTranscriptionJobId?: string;
+  dubbedTranscriptionJobId?: string;
+  audioReviewChunks?: Record<string, AudioFinding[]>;
+  audioReviewChunkCount?: number;
   backTranslation?: string;
   sourceAudio?: { data: string; mime_type: string };
   dubAudio?: { data: string; mime_type: string };
   textFindings?: AudioFinding[];
   audioFindings?: AudioFinding[];
   textReviewComplete?: boolean;
+  textReviewAttempted?: boolean;
   audioReviewComplete?: boolean;
   transcriptCrossCheckError?: string | null;
 };
@@ -163,31 +168,69 @@ async function extractCompactAudio(file: File): Promise<{ data: string; mime_typ
   }
 }
 
-async function transcribeWithSarvam(file: File, languageCode: string, key: string): Promise<Transcript> {
-  const audioFile = await extractAudioForSarvam(file);
-  const fileName = audioFile.name.replace(/[^\w.-]/g, '_').slice(-100) || 'media.mp3';
-  const job = await sarvamJson('/speech-to-text/job/v1', key, { job_parameters: { model: 'saaras:v4', mode: 'transcribe', language_code: languageCode, with_timestamps: true } });
-  if (!job.job_id) throw new Error('Sarvam did not return a transcription job ID.');
-  const linkResponse = await sarvamJson('/speech-to-text/job/v1/upload-files', key, { job_id: job.job_id, files: [fileName] });
-  const uploadUrl = linkResponse.upload_urls?.[fileName]?.file_url || linkResponse.upload_urls?.[fileName]?.url;
-  if (!uploadUrl) throw new Error('Sarvam did not return a media upload URL.');
-  const uploaded = await fetch(uploadUrl, { method: 'PUT', body: new Uint8Array(await audioFile.arrayBuffer()), headers: { 'content-type': audioFile.type || 'audio/mpeg', 'x-ms-blob-type': 'BlockBlob' } });
-  if (!uploaded.ok) throw new Error(`Sarvam media upload failed (${uploaded.status}).`);
-  await sarvamJson(`/speech-to-text/job/v1/${encodeURIComponent(job.job_id)}/start`, key, {});
-  const deadline = Date.now() + 25 * 60 * 1000;
+async function sliceCompactAudio(audio: { data: string; mime_type: string }, startSeconds: number, durationSeconds: number) {
+  if (!ffmpegPath) throw new Error('The bundled FFmpeg executable is unavailable for audio review.');
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'satvic-audio-chunk-'));
+  const inputPath = path.join(directory, 'input.mp3');
+  const outputPath = path.join(directory, 'chunk.mp3');
+  try {
+    await writeFile(inputPath, Buffer.from(audio.data, 'base64'));
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(ffmpegPath!, ['-nostdin', '-y', '-ss', String(startSeconds), '-i', inputPath, '-t', String(durationSeconds), '-map', '0:a:0', '-vn', '-ac', '1', '-ar', '24000', '-b:a', '48k', '-f', 'mp3', outputPath], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+      let diagnostic = '';
+      child.stderr?.on('data', chunk => { diagnostic = `${diagnostic}${chunk}`.slice(-1200); });
+      child.once('error', reject);
+      child.once('close', code => code === 0 ? resolve() : reject(new Error(`Could not prepare an audio review segment. ${diagnostic.trim().split('\n').slice(-2).join(' ')}`)));
+    });
+    const bytes = await readFile(outputPath);
+    if (!bytes.length) return null;
+    return { data: bytes.toString('base64'), mime_type: 'audio/mp3' };
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function transcribeWithSarvam(
+  file: File,
+  languageCode: string,
+  key: string,
+  resumeJobId?: string,
+  onJobStarted?: (jobId: string) => Promise<void>,
+  onJobFailed?: () => Promise<void>,
+): Promise<Transcript> {
+  let jobId = resumeJobId || '';
+  if (!jobId) {
+    const audioFile = await extractAudioForSarvam(file);
+    const fileName = audioFile.name.replace(/[^\w.-]/g, '_').slice(-100) || 'media.mp3';
+    const job = await sarvamJson('/speech-to-text/job/v1', key, { job_parameters: { model: 'saaras:v4', mode: 'transcribe', language_code: languageCode, with_timestamps: true } });
+    if (!job.job_id) throw new Error('Sarvam did not return a transcription job ID.');
+    jobId = String(job.job_id);
+    const linkResponse = await sarvamJson('/speech-to-text/job/v1/upload-files', key, { job_id: jobId, files: [fileName] });
+    const uploadUrl = linkResponse.upload_urls?.[fileName]?.file_url || linkResponse.upload_urls?.[fileName]?.url;
+    if (!uploadUrl) throw new Error('Sarvam did not return a media upload URL.');
+    const uploaded = await fetch(uploadUrl, { method: 'PUT', body: new Uint8Array(await audioFile.arrayBuffer()), headers: { 'content-type': audioFile.type || 'audio/mpeg', 'x-ms-blob-type': 'BlockBlob' } });
+    if (!uploaded.ok) throw new Error(`Sarvam media upload failed (${uploaded.status}).`);
+    await sarvamJson(`/speech-to-text/job/v1/${encodeURIComponent(jobId)}/start`, key, {});
+    await onJobStarted?.(jobId);
+  }
+  // Leave time for Vercel to save a resumable checkpoint before its 300s limit.
+  const deadline = Date.now() + 210_000;
   let status: Json = {};
   while (Date.now() < deadline) {
     await new Promise(resolve => setTimeout(resolve, 5000));
-    const response = await fetch(`${SARVAM}/speech-to-text/job/v1/${encodeURIComponent(job.job_id)}/status`, { headers: { 'api-subscription-key': key }, cache: 'no-store' });
+    const response = await fetch(`${SARVAM}/speech-to-text/job/v1/${encodeURIComponent(jobId)}/status`, { headers: { 'api-subscription-key': key }, cache: 'no-store', signal: AbortSignal.timeout(15_000) });
     status = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(`Sarvam status check returned ${response.status}: ${providerError(status)}`);
     if (status.job_state === 'Completed' || status.job_state === 'PartiallyCompleted') break;
-    if (status.job_state === 'Failed') throw new Error(providerError(status.error_message ?? status) || 'Sarvam transcription failed.');
+    if (status.job_state === 'Failed') {
+      await onJobFailed?.();
+      throw new Error(providerError(status.error_message ?? status) || 'Sarvam transcription failed.');
+    }
   }
-  if (!['Completed', 'PartiallyCompleted'].includes(status.job_state)) throw new Error('Sarvam transcription timed out. Try shorter media or check your Sarvam dashboard.');
+  if (!['Completed', 'PartiallyCompleted'].includes(status.job_state)) throw new Error('Sarvam transcription is still processing. Its job ID is saved; QA will resume polling the same job without creating another transcription.');
   const outputNames = (status.job_details || []).flatMap((detail: Json) => detail.outputs || []).map((output: Json) => output.file_name).filter(Boolean);
   if (!outputNames.length) throw new Error('Sarvam completed without returning a transcript file.');
-  const downloadInfo = await sarvamJson('/speech-to-text/job/v1/download-files', key, { job_id: job.job_id, files: outputNames });
+  const downloadInfo = await sarvamJson('/speech-to-text/job/v1/download-files', key, { job_id: jobId, files: outputNames });
   const resultUrl = downloadInfo.download_urls?.[outputNames[0]]?.file_url || downloadInfo.download_urls?.[outputNames[0]]?.url;
   if (!resultUrl) throw new Error('Sarvam did not return a transcript download link.');
   const resultResponse = await fetch(resultUrl, { cache: 'no-store' });
@@ -326,6 +369,12 @@ function locatePhrase(segments: Segment[], phrase: string) {
 function formatSegments(segments: Segment[]) {
   return segments.map((segment, index) => `[${index}] ${segment.start.toFixed(1)}-${segment.end.toFixed(1)}s: ${segment.text}`).join('\n').slice(0, 14000);
 }
+function formatSegmentsRange(segments: Segment[], start: number, end: number) {
+  return segments.map((segment, index) => ({ segment, index }))
+    .filter(({ segment }) => segment.end >= start && segment.start <= end)
+    .map(({ segment, index }) => `[${index}] ${segment.start.toFixed(1)}-${segment.end.toFixed(1)}s: ${segment.text}`)
+    .join('\n').slice(0, 9000);
+}
 
 function segmentRange(segments: Segment[], startIndex: unknown, endIndex: unknown, startTime: unknown, endTime: unknown) {
   if (!segments.length) return { start: typeof startTime === 'number' && Number.isFinite(startTime) ? Math.max(0, startTime) : undefined, end: typeof endTime === 'number' && Number.isFinite(endTime) ? Math.max(0, endTime) : undefined };
@@ -353,7 +402,7 @@ ${sourceText}
 
 DUB (${targetLanguage}) — complete ordered transcript segments:
 ${dubText}`;
-  const response = await geminiRequest({ model, input: prompt, response_format: { type: 'text', mime_type: 'application/json', schema: transcriptFindingsSchema }, generation_config: { max_output_tokens: 8192 } }, key, 5 * 60 * 1000);
+  const response = await geminiRequest({ model, input: prompt, response_format: { type: 'text', mime_type: 'application/json', schema: transcriptFindingsSchema }, generation_config: { max_output_tokens: 8192 } }, key, 150_000);
   const usedModel = response.headers.get('x-satvic-gemini-model');
   if (usedModel) modelsUsed.add(usedModel);
   const payload = await response.json().catch(() => ({}));
@@ -392,21 +441,23 @@ ${dubText}`;
   }
   return [...findingsByKey.values()];
 }
-async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudio: { data: string; mime_type: string }, dubAudio: { data: string; mime_type: string }, sourceLanguage: string, targetLanguage: string, modelsUsed: Set<string>): Promise<AudioFinding[]> {
+async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudio: { data: string; mime_type: string }, dubAudio: { data: string; mime_type: string }, sourceLanguage: string, targetLanguage: string, modelsUsed: Set<string>, clipStart: number, clipEnd: number): Promise<AudioFinding[]> {
   const key = process.env.GEMINI_API_KEY?.trim();
   if (!key) return [] as AudioFinding[];
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
+  const [sourceClip, dubClip] = await Promise.all([sliceCompactAudio(sourceAudio, clipStart, clipEnd - clipStart), sliceCompactAudio(dubAudio, clipStart, clipEnd - clipStart)]);
+  if (!sourceClip || !dubClip) return [];
   const body = {
     model,
     input: [
-      { type: 'text', text: `You are an audio dubbing quality reviewer. You can listen to BOTH attached audio tracks. Track 1 is the original ${sourceLanguage}; track 2 is the finished dub in ${targetLanguage}. Compare the spoken meaning, not just the transcripts. The timestamped transcripts below help locate speech; audio is the evidence. Find EVERY distinct issue and each separate occurrence; do not stop after one or combine separate times. Check changed meaning, omissions/additions, each quantity and unit, and claims changed from below to above a limit. Flag clear English words or phrases used instead of the selected target language as Language mixing; ignore proper names, brands, and common loanwords. Do not judge health or nutrition safety without a trusted reference. ${targetLanguageReviewNote(targetLanguage)} Do not label a regional accent as wrong just because it differs; only flag if it affects intelligibility or brief requirements. For each issue give the exact start and end time in BOTH tracks where possible (seconds from each track's start), a category, severity (critical/review/info), a plain-English explanation that states what the source says and what the dub says, with short quotes. Return the zero-based start/end segment indexes for the closest transcript segments (sourceStartSegment, sourceEndSegment, dubStartSegment, dubEndSegment). Use transcript segments as timing anchors. Do not invent issues or exact quotes. If audio or transcripts are unclear, state the uncertainty instead of guessing. Output JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Language mixing|Pronunciation/intelligibility|Accent/voice|Pacing/timing|Audio quality|Other","title":"short actionable issue","detail":"what the source says and what the dub says","sourceQuote":"short source phrase","dubQuote":"short target-language phrase heard","sourceStart":0,"sourceEnd":1,"dubStart":0,"dubEnd":1,"sourceStartSegment":0,"sourceEndSegment":0,"dubStartSegment":0,"dubEndSegment":0}]}. If no concrete issue is audible, return {"findings":[]}.\n\nSOURCE TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(source.segments)}\n\nDUB TRANSCRIPT SEGMENTS (seconds):\n${formatSegments(dub.segments)}\n\nFull source transcript: ${source.transcript.slice(0, 8000)}\n\nFull dub transcript: ${dub.transcript.slice(0, 8000)}` },
-      { type: 'audio', data: sourceAudio.data, mime_type: sourceAudio.mime_type },
-      { type: 'audio', data: dubAudio.data, mime_type: dubAudio.mime_type },
+      { type: 'text', text: `You are reviewing only audio from ${clipStart.toFixed(1)} to ${clipEnd.toFixed(1)} seconds. You are an audio dubbing quality reviewer. You can listen to BOTH attached audio tracks. Track 1 is the original ${sourceLanguage}; track 2 is the finished dub in ${targetLanguage}. Compare the spoken meaning, not just the transcripts. The timestamped transcripts below help locate speech; audio is the evidence. Find EVERY distinct issue and each separate occurrence; do not stop after one or combine separate times. Check changed meaning, omissions/additions, each quantity and unit, and claims changed from below to above a limit. Flag clear English words or phrases used instead of the selected target language as Language mixing; ignore proper names, brands, and common loanwords. Do not judge health or nutrition safety without a trusted reference. ${targetLanguageReviewNote(targetLanguage)} Do not label a regional accent as wrong just because it differs; only flag if it affects intelligibility or brief requirements. For each issue give the exact start and end time in BOTH tracks where possible (seconds from each track's start), a category, severity (critical/review/info), a plain-English explanation that states what the source says and what the dub says, with short quotes. Return the zero-based start/end segment indexes for the closest transcript segments (sourceStartSegment, sourceEndSegment, dubStartSegment, dubEndSegment). Use transcript segments as timing anchors. Do not invent issues or exact quotes. If audio or transcripts are unclear, state the uncertainty instead of guessing. Output JSON only: {"findings":[{"severity":"critical|review|info","category":"Meaning|Omission/addition|Numbers/names|Language mixing|Pronunciation/intelligibility|Accent/voice|Pacing/timing|Audio quality|Other","title":"short actionable issue","detail":"what the source says and what the dub says","sourceQuote":"short source phrase","dubQuote":"short target-language phrase heard","sourceStart":0,"sourceEnd":1,"dubStart":0,"dubEnd":1,"sourceStartSegment":0,"sourceEndSegment":0,"dubStartSegment":0,"dubEndSegment":0}]}. If no concrete issue is audible, return {"findings":[]}.\n\nSOURCE TRANSCRIPT SEGMENTS (seconds):\n${formatSegmentsRange(source.segments, clipStart, clipEnd)}\n\nDUB TRANSCRIPT SEGMENTS (seconds):\n${formatSegmentsRange(dub.segments, clipStart, clipEnd)}\n\nFull source transcript: ${source.transcript.slice(0, 8000)}\n\nFull dub transcript: ${dub.transcript.slice(0, 8000)}` },
+      { type: 'audio', data: sourceClip.data, mime_type: sourceClip.mime_type },
+      { type: 'audio', data: dubClip.data, mime_type: dubClip.mime_type },
     ],
   };
   const requestBytes = Buffer.byteLength(JSON.stringify(body));
   if (requestBytes > 18 * 1024 * 1024) throw new Error('The two audio tracks are too long for one AI listening review. Use shorter clips (about 20 minutes or less) and analyze the video in parts.');
-  const response = await geminiRequest({ ...body, response_format: { type: 'text', mime_type: 'application/json', schema: audioFindingsSchema }, generation_config: { max_output_tokens: 4096 } }, key, 10 * 60 * 1000);
+  const response = await geminiRequest({ ...body, response_format: { type: 'text', mime_type: 'application/json', schema: audioFindingsSchema }, generation_config: { max_output_tokens: 4096 } }, key, 165_000);
   const usedModel = response.headers.get('x-satvic-gemini-model');
   if (usedModel) modelsUsed.add(usedModel);
   const payload = await response.json().catch(() => ({}));
@@ -420,8 +471,12 @@ async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudi
   }
   if (!Array.isArray(parsed.findings)) return [];
   return parsed.findings.filter((item: Json) => item?.title && item?.detail && ['critical', 'review', 'info'].includes(item.severity)).map((item: Json): AudioFinding => {
-    const sourceRange = segmentRange(source.segments, item.sourceStartSegment, item.sourceEndSegment, item.sourceStart, item.sourceEnd);
-    const dubRange = segmentRange(dub.segments, item.dubStartSegment, item.dubEndSegment, item.dubStart, item.dubEnd);
+    const sourceRange = Number.isInteger(item.sourceStartSegment)
+      ? segmentRange(source.segments, item.sourceStartSegment, item.sourceEndSegment, undefined, undefined)
+      : { start: item.sourceStart != null && Number.isFinite(Number(item.sourceStart)) ? clipStart + Number(item.sourceStart) : undefined, end: item.sourceEnd != null && Number.isFinite(Number(item.sourceEnd)) ? clipStart + Number(item.sourceEnd) : undefined };
+    const dubRange = Number.isInteger(item.dubStartSegment)
+      ? segmentRange(dub.segments, item.dubStartSegment, item.dubEndSegment, undefined, undefined)
+      : { start: item.dubStart != null && Number.isFinite(Number(item.dubStart)) ? clipStart + Number(item.dubStart) : undefined, end: item.dubEnd != null && Number.isFinite(Number(item.dubEnd)) ? clipStart + Number(item.dubEnd) : undefined };
     return {
       severity: item.severity, title: String(item.title).slice(0, 140), detail: String(item.detail).slice(0, 1000),
       category: String(item.category || 'Other'), sourceQuote: String(item.sourceQuote || '').slice(0, 300), dubQuote: String(item.dubQuote || '').slice(0, 300), sourceStart: sourceRange.start, sourceEnd: sourceRange.end,
@@ -554,13 +609,27 @@ export async function POST(request: Request) {
     if (!originalResult || !dubbedResult) {
       markStage(dubbedResult ? 'Transcribing source with Sarvam' : 'Transcribing source and dubbed media with Sarvam');
       updateAnalysisProgress(progressId, stage, 24);
+      const transcriptionJobCallbacks = (track: 'original' | 'dubbed') => ({
+        onJobStarted: async (jobId: string) => {
+          if (track === 'original') checkpoint.originalTranscriptionJobId = jobId;
+          else checkpoint.dubbedTranscriptionJobId = jobId;
+          await persistCheckpoint();
+        },
+        onJobFailed: async () => {
+          if (track === 'original') delete checkpoint.originalTranscriptionJobId;
+          else delete checkpoint.dubbedTranscriptionJobId;
+          await persistCheckpoint();
+        },
+      });
+      const originalCallbacks = transcriptionJobCallbacks('original');
+      const dubbedCallbacks = transcriptionJobCallbacks('dubbed');
       if (dubbedResult && !checkpoint.dubbedResult) {
         checkpoint.dubbedResult = dubbedResult;
         await persistCheckpoint();
       }
       const [newOriginalResult, newDubResult] = await Promise.all([
-        originalResult ? Promise.resolve(originalResult) : transcribeWithSarvam(original, source.sarvam, key).then(async result => { originalResult = result; checkpoint.originalResult = result; await persistCheckpoint(); return result; }),
-        dubbedResult ? Promise.resolve(dubbedResult) : transcribeWithSarvam(dubbed, target.sarvam, key).then(async result => { dubbedResult = result; checkpoint.dubbedResult = result; await persistCheckpoint(); return result; }),
+        originalResult ? Promise.resolve(originalResult) : transcribeWithSarvam(original, source.sarvam, key, checkpoint.originalTranscriptionJobId, originalCallbacks.onJobStarted, originalCallbacks.onJobFailed).then(async result => { originalResult = result; checkpoint.originalResult = result; delete checkpoint.originalTranscriptionJobId; await persistCheckpoint(); return result; }),
+        dubbedResult ? Promise.resolve(dubbedResult) : transcribeWithSarvam(dubbed, target.sarvam, key, checkpoint.dubbedTranscriptionJobId, dubbedCallbacks.onJobStarted, dubbedCallbacks.onJobFailed).then(async result => { dubbedResult = result; checkpoint.dubbedResult = result; delete checkpoint.dubbedTranscriptionJobId; await persistCheckpoint(); return result; }),
       ]);
       originalResult = newOriginalResult;
       dubbedResult = newDubResult;
@@ -587,7 +656,11 @@ export async function POST(request: Request) {
     if (formatSegments(originalResult.segments).length > 14000 || formatSegments(dubbedResult.segments).length > 14000) reviewCoverageWarnings.push('Timestamped segment context for audio review was truncated.');
     if (!originalResult.segments.length) reviewCoverageWarnings.push('The source transcript has no timing data, so source-side issue locations may be unavailable.');
     if (!dubbedResult.segments.length) reviewCoverageWarnings.push('The dub transcript has no timing data, so dub-side issue locations and transcript playback are unavailable.');
-    const transcriptReview = checkpoint.textReviewComplete ? Promise.resolve() : geminiTranscriptReview(originalResult, dubbedResult, sourceLanguage, targetLanguage, transcriptModelsUsed)
+    const transcriptReview = checkpoint.textReviewComplete || checkpoint.textReviewAttempted ? Promise.resolve() : (async () => {
+      checkpoint.textReviewAttempted = true;
+      await persistCheckpoint();
+      return geminiTranscriptReview(originalResult, dubbedResult, sourceLanguage, targetLanguage, transcriptModelsUsed);
+    })()
       .then(async findings => {
         textFindings = findings;
         checkpoint.textFindings = findings;
@@ -603,12 +676,34 @@ export async function POST(request: Request) {
         checkpoint.transcriptCrossCheckError = transcriptCrossCheckError;
         await persistCheckpoint();
       });
-    const audioReview = checkpoint.audioReviewComplete ? Promise.resolve(checkpoint.audioFindings || []) : geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage, audioModelsUsed).then(async findings => {
-      checkpoint.audioFindings = findings;
-      checkpoint.audioReviewComplete = true;
+    const audioReview = checkpoint.audioReviewComplete ? Promise.resolve(checkpoint.audioFindings || []) : (async () => {
+      const chunkSeconds = 30;
+      const duration = Math.max(
+        originalResult.segments[originalResult.segments.length - 1]?.end || 0,
+        dubbedResult.segments[dubbedResult.segments.length - 1]?.end || 0,
+      );
+      if (!duration) throw new Error('Sarvam transcripts did not include timing data, so audio QA cannot be split into resumable checkpoints.');
+      const chunkCount = Math.ceil(duration / chunkSeconds);
+      checkpoint.audioReviewChunks ||= {};
+      checkpoint.audioReviewChunkCount = chunkCount;
       await persistCheckpoint();
-      return findings;
-    });
+      for (let index = 0; index < chunkCount; index += 1) {
+        const chunkKey = String(index);
+        if (Object.prototype.hasOwnProperty.call(checkpoint.audioReviewChunks, chunkKey)) continue;
+        const start = index * chunkSeconds;
+        const end = Math.min(duration, start + chunkSeconds);
+        markStage(`Gemini listening review ${index + 1}/${chunkCount}`);
+        updateAnalysisProgress(progressId, stage, Math.min(95, 82 + Math.floor((index / chunkCount) * 12)));
+        const findings = await geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage, audioModelsUsed, start, end);
+        checkpoint.audioReviewChunks[chunkKey] = findings;
+        checkpoint.audioFindings = Object.values(checkpoint.audioReviewChunks).flat();
+        await persistCheckpoint();
+      }
+      checkpoint.audioReviewComplete = true;
+      checkpoint.audioFindings = Object.values(checkpoint.audioReviewChunks).flat();
+      await persistCheckpoint();
+      return checkpoint.audioFindings;
+    })();
     const [, aiFindings] = await Promise.all([transcriptReview, audioReview]);
     const audioFindings = aiFindings.map(item => ({
       ...item,
@@ -665,8 +760,9 @@ export async function POST(request: Request) {
   } catch (error) {
     console.info(`[api/analyze] stage=${stage} failedAfterMs=${Date.now() - stageStartedAt}`);
     const message = error instanceof Error ? error.message : providerError(error as Json);
+    const resumableProviderIssue = /timeout|timed out|deadline|rate.?limit|returned 429/i.test(message);
     if (historyJobId && historySupabase) {
-      await historySupabase.from('qa_jobs').update({ status: 'failed', error_message: message.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
+      await historySupabase.from('qa_jobs').update({ status: resumableProviderIssue ? 'running' : 'failed', error_message: message.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
       if (!historyManagedByWorkflow) await sendGmailJobEmail({
         to: historyNotificationEmail,
         outcome: 'failed',
@@ -679,7 +775,7 @@ export async function POST(request: Request) {
     }
     updateAnalysisProgress(progressId, 'Analysis stopped', 100, 'error', message);
     console.error(`[api/analyze] ${stage} failed: ${message || 'Unknown analysis error.'}`);
-    const status = /returned 503/.test(message) ? 503 : /returned 429/.test(message) ? 429 : 502;
-    return NextResponse.json({ error: `${stage}: ${message || 'Unknown analysis error.'}` }, { status });
+    const status = /rate.?limit|returned 429/i.test(message) ? 429 : resumableProviderIssue ? 504 : /returned 503/.test(message) ? 503 : 502;
+    return NextResponse.json({ error: `${resumableProviderIssue ? 'QA checkpoint retry: ' : ''}${stage}: ${message || 'Unknown analysis error.'}` }, { status });
   }
 }
