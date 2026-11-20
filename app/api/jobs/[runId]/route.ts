@@ -134,7 +134,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in to delete this project.' }, { status: 401 });
-    const lookup = supabase.from('qa_jobs').select('id,status,original_blob_url,dubbed_blob_url,report_blob_url,original_b2_key,dubbed_b2_key,report_b2_key').eq('user_id', user.id);
+    const lookup = supabase.from('qa_jobs').select('id,status,original_blob_url,dubbed_blob_url,report_blob_url,qa_checkpoint_blob_url,original_b2_key,dubbed_b2_key,report_b2_key').eq('user_id', user.id);
     const { data: job, error: lookupError } = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId)
       ? await lookup.eq('id', runId).maybeSingle()
       : await lookup.eq('run_id', runId).maybeSingle();
@@ -142,7 +142,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     if (!job) return Response.json({ error: 'This project was not found in your account.' }, { status: 404 });
     if (job.status === 'queued' || job.status === 'running') return Response.json({ error: 'This project is still processing. Wait for it to finish before deleting it.' }, { status: 409 });
 
-    const blobUrls = [job.original_blob_url, job.dubbed_blob_url, job.report_blob_url].filter((value): value is string => Boolean(value));
+    const blobUrls = [job.original_blob_url, job.dubbed_blob_url, job.report_blob_url, job.qa_checkpoint_blob_url].filter((value): value is string => Boolean(value));
     if (blobUrls.length && !process.env.BLOB_READ_WRITE_TOKEN) return Response.json({ error: 'Vercel Blob is not configured, so this project’s stored files cannot be deleted safely.' }, { status: 503 });
     if (blobUrls.length) await del([...new Set(blobUrls)]);
 

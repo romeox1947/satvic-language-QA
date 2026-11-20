@@ -152,14 +152,14 @@ async function runQa(input: JobInput, dubbedBlobUrl: string, dubbedSubtitleSrt: 
   try {
     response = await fetch(`${appUrl}/api/analyze`, {
       method: 'POST', headers,
-      body: JSON.stringify({ originalBlobUrl: input.originalBlobUrl, dubbedBlobUrl, dubbedSubtitleSrt, originalName: input.originalName, projectName: input.projectName, sourceLanguage: input.sourceLanguage, targetLanguage: input.targetLanguage }),
+      body: JSON.stringify({ originalBlobUrl: input.originalBlobUrl, dubbedBlobUrl, dubbedSubtitleSrt, originalName: input.originalName, projectName: input.projectName, sourceLanguage: input.sourceLanguage, targetLanguage: input.targetLanguage, historyJobId: input.dbJobId, userId: input.userId, notificationEmail: input.notificationEmail }),
       signal: AbortSignal.timeout(295_000),
     });
   } catch (error) {
     const detail = errorText(error);
     const timedOut = /timeout|timed out|abort/i.test(detail);
     return { jobError: timedOut
-      ? 'QA request timed out after about 5 minutes. Vercel Hobby limits this QA function to 300 seconds; try a shorter video or split the video into shorter clips.'
+      ? 'QA reached Vercel’s 5-minute request limit. Your saved dub is safe. Retry QA to continue from the last saved checkpoint; no new dub will be created.'
       : `Could not reach the QA API at ${appUrl}/api/analyze: ${detail}`, dubbedBlobUrl };
   }
   const { body, text } = await readResponse(response);

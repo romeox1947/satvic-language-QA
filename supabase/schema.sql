@@ -26,12 +26,15 @@ create table if not exists public.qa_jobs (
   original_blob_url text not null,
   dubbed_blob_url text,
   report_blob_url text,
+  qa_checkpoint_blob_url text,
   status text not null default 'queued' check (status in ('queued', 'running', 'completed', 'failed')),
   issue_count integer not null default 0,
   error_message text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.qa_jobs add column if not exists qa_checkpoint_blob_url text;
 
 alter table public.qa_jobs enable row level security;
 drop policy if exists "Users can read their own QA jobs" on public.qa_jobs;

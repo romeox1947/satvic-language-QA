@@ -4,10 +4,11 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
-import { get as getBlob } from '@vercel/blob';
+import { del as deleteBlob, get as getBlob } from '@vercel/blob';
 import { updateAnalysisProgress } from './progress-store';
 import { put } from '@vercel/blob';
 import { createClient } from '../../../lib/supabase/server';
+import { createAdminClient } from '../../../lib/supabase/admin';
 import { sendGmailJobEmail } from '../../../lib/email/gmail';
 import { appUrl } from '../../../lib/app-url';
 
@@ -35,6 +36,18 @@ function targetLanguageReviewNote(language: string) {
 type Segment = { start: number; end: number; text: string; words?: { start: number; end: number; text: string }[] };
 type Transcript = { transcript: string; segments: Segment[]; detectedLanguage: string; engine: string };
 type AudioFinding = { severity: 'critical' | 'review' | 'info'; title: string; detail: string; category?: string; sourceStart?: number; sourceEnd?: number; dubStart?: number; dubEnd?: number; sourceStartSegment?: number; sourceEndSegment?: number; dubStartSegment?: number; dubEndSegment?: number; evidenceStatus?: 'cross-checked' | 'audio-only' | 'transcript-only'; sourceQuote?: string; dubQuote?: string };
+type QaCheckpoint = {
+  originalResult?: Transcript;
+  dubbedResult?: Transcript;
+  backTranslation?: string;
+  sourceAudio?: { data: string; mime_type: string };
+  dubAudio?: { data: string; mime_type: string };
+  textFindings?: AudioFinding[];
+  audioFindings?: AudioFinding[];
+  textReviewComplete?: boolean;
+  audioReviewComplete?: boolean;
+  transcriptCrossCheckError?: string | null;
+};
 type Json = Record<string, any>;
 const transcriptFindingsSchema = {
   type: 'object',
@@ -435,23 +448,51 @@ export async function POST(request: Request) {
   let historySourceLanguage = '';
   let historyTargetLanguage = '';
   let historyUserId = '';
-  let historySupabase: Awaited<ReturnType<typeof createClient>> | null = null;
+  let historyManagedByWorkflow = false;
+  let historySupabase: any = null;
+  let checkpoint: QaCheckpoint = {};
+  let checkpointSave = Promise.resolve();
+  let checkpointUrl = '';
+  const persistCheckpoint = () => {
+    if (!historyJobId || !historySupabase || !historyUserId) return Promise.resolve();
+    checkpointSave = checkpointSave.then(async () => {
+      const stored = await put(`satvic-users/${historyUserId}/satvic-jobs/${historyJobId}-qa-checkpoint-${crypto.randomUUID()}.json`, JSON.stringify(checkpoint), { access: 'private', contentType: 'application/json', addRandomSuffix: false });
+      const previousCheckpointUrl = checkpointUrl;
+      checkpointUrl = stored.url;
+      const { error } = await historySupabase.from('qa_jobs').update({ qa_checkpoint_blob_url: checkpointUrl, updated_at: new Date().toISOString() }).eq('id', historyJobId).eq('user_id', historyUserId);
+      if (error) throw error;
+      if (previousCheckpointUrl && previousCheckpointUrl !== checkpointUrl) await deleteBlob(previousCheckpointUrl).catch(error => console.warn('[api/analyze] Could not remove an old checkpoint blob.', error));
+    });
+    return checkpointSave;
+  };
   try {
     const isJson = request.headers.get('content-type')?.includes('application/json');
     const form = isJson ? null : await request.formData();
     const json: Json = isJson ? await request.json() : {};
     historyJobId = String(json.historyJobId || '');
     if (historyJobId) {
-      historySupabase = await createClient();
-      const { data: { user } } = await historySupabase.auth.getUser();
-      if (!user) return NextResponse.json({ error: 'Sign in before saving this analysis.' }, { status: 401 });
-      historyUserId = user.id;
-      historyNotificationEmail = user.email || '';
-      const { data: savedJob } = await historySupabase.from('qa_jobs').select('id,original_blob_url,dubbed_blob_url').eq('id', historyJobId).eq('user_id', user.id).maybeSingle();
+      const internalToken = request.headers.get('x-workflow-internal');
+      const workflowAuthorized = Boolean(process.env.WORKFLOW_INTERNAL_TOKEN && internalToken === process.env.WORKFLOW_INTERNAL_TOKEN);
+      historyManagedByWorkflow = workflowAuthorized;
+      historySupabase = workflowAuthorized ? createAdminClient() : await createClient();
+      const user = workflowAuthorized ? null : (await historySupabase.auth.getUser()).data.user;
+      if (!workflowAuthorized && !user) return NextResponse.json({ error: 'Sign in before saving this analysis.' }, { status: 401 });
+      const { data: savedJob } = await historySupabase.from('qa_jobs').select('id,user_id,original_blob_url,dubbed_blob_url,qa_checkpoint_blob_url').eq('id', historyJobId).eq('user_id', user?.id || json.userId || '').maybeSingle();
       if (!savedJob) return NextResponse.json({ error: 'This QA project does not belong to your account.' }, { status: 404 });
       if (String(json.originalBlobUrl || '') !== savedJob.original_blob_url || String(json.dubbedBlobUrl || '') !== savedJob.dubbed_blob_url) return NextResponse.json({ error: 'The uploaded media does not match this saved QA project.' }, { status: 400 });
+      historyUserId = savedJob.user_id;
+      historyNotificationEmail = user?.email || String(json.notificationEmail || '');
       historyOriginalUrl = savedJob.original_blob_url;
       historyDubbedUrl = savedJob.dubbed_blob_url || '';
+      checkpointUrl = savedJob.qa_checkpoint_blob_url || '';
+      if (checkpointUrl) {
+        try {
+          const cached = await getBlob(checkpointUrl, { access: 'private' });
+          if (cached) checkpoint = JSON.parse(await new Response(cached.stream).text()) as QaCheckpoint;
+        } catch (error) {
+          console.warn('[api/analyze] Could not load the saved QA checkpoint; recomputing missing stages.', error);
+        }
+      }
     }
     progressId = String(form?.get('progressId') || '');
     markStage('Checking uploaded videos');
@@ -462,11 +503,17 @@ export async function POST(request: Request) {
       const originalBlobUrl = String(json.originalBlobUrl || '');
       const dubbedBlobUrl = String(json.dubbedBlobUrl || '');
       if (!originalBlobUrl.startsWith('https://') || !dubbedBlobUrl.startsWith('https://')) return NextResponse.json({ error: 'Both uploaded Blob URLs are required.' }, { status: 400 });
-      const [originalBlob, dubbedBlob] = await Promise.all([getBlob(originalBlobUrl, { access: 'private' }), getBlob(dubbedBlobUrl, { access: 'private' })]);
-      if (!originalBlob || !dubbedBlob) return NextResponse.json({ error: 'One of the uploaded private videos is missing.' }, { status: 404 });
-      const [originalBytes, dubbedBytes] = await Promise.all([new Response(originalBlob.stream).arrayBuffer(), new Response(dubbedBlob.stream).arrayBuffer()]);
-      original = new File([originalBytes], String(json.originalName || 'source.mp4'), { type: originalBlob.blob.contentType || 'video/mp4' });
-      dubbed = new File([dubbedBytes], 'dub.mp4', { type: dubbedBlob.blob.contentType || 'video/mp4' });
+      const canReuseAllMediaEvidence = Boolean(checkpoint.originalResult && checkpoint.dubbedResult && checkpoint.sourceAudio && checkpoint.dubAudio);
+      if (canReuseAllMediaEvidence) {
+        original = new File([''], String(json.originalName || 'source.mp4'), { type: 'video/mp4' });
+        dubbed = new File([''], 'dub.mp4', { type: 'video/mp4' });
+      } else {
+        const [originalBlob, dubbedBlob] = await Promise.all([getBlob(originalBlobUrl, { access: 'private' }), getBlob(dubbedBlobUrl, { access: 'private' })]);
+        if (!originalBlob || !dubbedBlob) return NextResponse.json({ error: 'One of the uploaded private videos is missing.' }, { status: 404 });
+        const [originalBytes, dubbedBytes] = await Promise.all([new Response(originalBlob.stream).arrayBuffer(), new Response(dubbedBlob.stream).arrayBuffer()]);
+        original = new File([originalBytes], String(json.originalName || 'source.mp4'), { type: originalBlob.blob.contentType || 'video/mp4' });
+        dubbed = new File([dubbedBytes], 'dub.mp4', { type: dubbedBlob.blob.contentType || 'video/mp4' });
+      }
     }
     const sourceLanguage = String(form?.get('sourceLanguage') || json.sourceLanguage || 'Hindi');
     const targetLanguage = String(form?.get('targetLanguage') || json.targetLanguage || 'Tamil');
@@ -475,12 +522,12 @@ export async function POST(request: Request) {
     historyTargetLanguage = targetLanguage;
     if (!(original instanceof File) || !(dubbed instanceof File)) return NextResponse.json({ error: 'Choose both the original and dubbed media.' }, { status: 400 });
     if (!historyProjectName) historyProjectName = original.name.replace(/\.[^.]+$/, '');
-    if (!original.size || !dubbed.size) return NextResponse.json({ error: 'One of the selected files is empty.' }, { status: 400 });
+    if ((!original.size || !dubbed.size) && !(checkpoint.sourceAudio && checkpoint.dubAudio && checkpoint.originalResult && checkpoint.dubbedResult)) return NextResponse.json({ error: 'One of the selected files is empty.' }, { status: 400 });
     if (original.size > 450 * 1024 * 1024 || dubbed.size > 450 * 1024 * 1024) return NextResponse.json({ error: 'Each media file must be smaller than 450 MB for this local server.' }, { status: 413 });
     const source = LANGUAGES[sourceLanguage]; const target = LANGUAGES[targetLanguage];
     if (!source || !target) return NextResponse.json({ error: 'That language pair is not enabled yet.' }, { status: 400 });
 
-    if (historyJobId) await sendGmailJobEmail({
+    if (historyJobId && !historyManagedByWorkflow) await sendGmailJobEmail({
       to: historyNotificationEmail,
       outcome: 'started',
       projectName: historyProjectName,
@@ -491,39 +538,66 @@ export async function POST(request: Request) {
     });
 
     const dubbedSubtitleSrt = typeof json.dubbedSubtitleSrt === 'string' && json.dubbedSubtitleSrt.length <= 2_000_000 ? json.dubbedSubtitleSrt : '';
-    markStage(dubbedSubtitleSrt ? 'Transcribing source and loading Sarvam dub captions' : 'Transcribing source and dubbed media with Sarvam');
-    updateAnalysisProgress(progressId, stage, 24);
-    const [originalResult, sarvamDubTranscript] = await Promise.all([
-      transcribeWithSarvam(original, source.sarvam, key),
-      dubbedSubtitleSrt ? Promise.resolve(null) : transcribeWithSarvam(dubbed, target.sarvam, key),
-    ]);
-    const dubbedResult = (dubbedSubtitleSrt && parseSarvamSrt(dubbedSubtitleSrt, target.sarvam)) || sarvamDubTranscript;
-    if (!dubbedResult) throw new Error('Sarvam subtitle export did not contain readable timestamped captions, and dubbed-video transcription was unavailable.');
+    let originalResult = checkpoint.originalResult;
+    let dubbedResult = checkpoint.dubbedResult || (dubbedSubtitleSrt && parseSarvamSrt(dubbedSubtitleSrt, target.sarvam)) || undefined;
+    if (!originalResult || !dubbedResult) {
+      markStage(dubbedResult ? 'Transcribing source with Sarvam' : 'Transcribing source and dubbed media with Sarvam');
+      updateAnalysisProgress(progressId, stage, 24);
+      if (dubbedResult && !checkpoint.dubbedResult) {
+        checkpoint.dubbedResult = dubbedResult;
+        await persistCheckpoint();
+      }
+      const [newOriginalResult, newDubResult] = await Promise.all([
+        originalResult ? Promise.resolve(originalResult) : transcribeWithSarvam(original, source.sarvam, key).then(async result => { originalResult = result; checkpoint.originalResult = result; await persistCheckpoint(); return result; }),
+        dubbedResult ? Promise.resolve(dubbedResult) : transcribeWithSarvam(dubbed, target.sarvam, key).then(async result => { dubbedResult = result; checkpoint.dubbedResult = result; await persistCheckpoint(); return result; }),
+      ]);
+      originalResult = newOriginalResult;
+      dubbedResult = newDubResult;
+    }
+    if (!originalResult || !dubbedResult) throw new Error('Sarvam did not return both source and dubbed transcripts.');
     markStage('Preparing transcript and audio evidence');
     updateAnalysisProgress(progressId, stage, 66);
     const [backTranslation, [sourceAudio, dubAudio]] = await Promise.all([
-      backTranslate(dubbedResult.transcript, source.sarvam, target.sarvam, key),
-      Promise.all([extractCompactAudio(original), extractCompactAudio(dubbed)]),
+      checkpoint.backTranslation !== undefined ? Promise.resolve(checkpoint.backTranslation) : backTranslate(dubbedResult.transcript, source.sarvam, target.sarvam, key),
+      checkpoint.sourceAudio && checkpoint.dubAudio ? Promise.resolve([checkpoint.sourceAudio, checkpoint.dubAudio] as const) : Promise.all([extractCompactAudio(original), extractCompactAudio(dubbed)]),
     ]);
+    checkpoint.backTranslation = backTranslation;
+    checkpoint.sourceAudio = sourceAudio;
+    checkpoint.dubAudio = dubAudio;
+    await persistCheckpoint();
     markStage('Gemini checking transcript and audio in parallel');
     updateAnalysisProgress(progressId, stage, 82);
-    let textFindings: AudioFinding[] = [];
+    let textFindings: AudioFinding[] = checkpoint.textFindings || [];
     const transcriptModelsUsed = new Set<string>();
     const audioModelsUsed = new Set<string>();
-    let transcriptCrossCheckAvailable = true;
-    let transcriptCrossCheckError: string | null = null;
+    let transcriptCrossCheckAvailable = checkpoint.textReviewComplete === true;
+    let transcriptCrossCheckError: string | null = checkpoint.transcriptCrossCheckError || null;
     const reviewCoverageWarnings: string[] = [];
     if (formatSegments(originalResult.segments).length > 14000 || formatSegments(dubbedResult.segments).length > 14000) reviewCoverageWarnings.push('Timestamped segment context for audio review was truncated.');
     if (!originalResult.segments.length) reviewCoverageWarnings.push('The source transcript has no timing data, so source-side issue locations may be unavailable.');
     if (!dubbedResult.segments.length) reviewCoverageWarnings.push('The dub transcript has no timing data, so dub-side issue locations and transcript playback are unavailable.');
-    const transcriptReview = geminiTranscriptReview(originalResult, dubbedResult, sourceLanguage, targetLanguage, transcriptModelsUsed)
-      .then(findings => { textFindings = findings; })
-      .catch(error => {
+    const transcriptReview = checkpoint.textReviewComplete ? Promise.resolve() : geminiTranscriptReview(originalResult, dubbedResult, sourceLanguage, targetLanguage, transcriptModelsUsed)
+      .then(async findings => {
+        textFindings = findings;
+        checkpoint.textFindings = findings;
+        checkpoint.textReviewComplete = true;
+        checkpoint.transcriptCrossCheckError = null;
+        transcriptCrossCheckAvailable = true;
+        await persistCheckpoint();
+      })
+      .catch(async error => {
         transcriptCrossCheckAvailable = false;
         transcriptCrossCheckError = error instanceof Error ? error.message.slice(0, 500) : 'Unknown Gemini error';
         console.warn(`[api/analyze] Transcript cross-check unavailable: ${transcriptCrossCheckError}`);
+        checkpoint.transcriptCrossCheckError = transcriptCrossCheckError;
+        await persistCheckpoint();
       });
-    const audioReview = geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage, audioModelsUsed);
+    const audioReview = checkpoint.audioReviewComplete ? Promise.resolve(checkpoint.audioFindings || []) : geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage, audioModelsUsed).then(async findings => {
+      checkpoint.audioFindings = findings;
+      checkpoint.audioReviewComplete = true;
+      await persistCheckpoint();
+      return findings;
+    });
     const [, aiFindings] = await Promise.all([transcriptReview, audioReview]);
     const audioFindings = aiFindings.map(item => ({
       ...item,
@@ -563,7 +637,11 @@ export async function POST(request: Request) {
       report.dubbedVideoUrl = historyDubbedUrl;
       const stored = await put(`satvic-users/${historyUserId}/satvic-jobs/${crypto.randomUUID()}-qa-report.json`, JSON.stringify(report), { access: 'private', contentType: 'application/json', addRandomSuffix: true });
       await historySupabase.from('qa_jobs').update({ report_blob_url: stored.url, status: 'completed', issue_count: combinedFindings.length, error_message: null, updated_at: new Date().toISOString() }).eq('id', historyJobId);
-      await sendGmailJobEmail({
+      if (checkpointUrl) {
+        await deleteBlob(checkpointUrl).catch(error => console.warn('[api/analyze] Could not remove the completed QA checkpoint.', error));
+        await historySupabase.from('qa_jobs').update({ qa_checkpoint_blob_url: null }).eq('id', historyJobId).eq('user_id', historyUserId);
+      }
+      if (!historyManagedByWorkflow) await sendGmailJobEmail({
         to: historyNotificationEmail,
         outcome: 'completed',
         projectName: historyProjectName,
@@ -579,7 +657,7 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : providerError(error as Json);
     if (historyJobId && historySupabase) {
       await historySupabase.from('qa_jobs').update({ status: 'failed', error_message: message.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
-      await sendGmailJobEmail({
+      if (!historyManagedByWorkflow) await sendGmailJobEmail({
         to: historyNotificationEmail,
         outcome: 'failed',
         projectName: historyProjectName || 'Video QA',
