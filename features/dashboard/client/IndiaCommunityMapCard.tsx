@@ -97,7 +97,8 @@ export default function IndiaCommunityMapCard({ projects = [], compact = false, 
     <div className="so-india-map" role="group" aria-label="Select an Indian state to filter project videos" onClick={event => {
       if (!(event.target instanceof Element)) return;
       const stateName = event.target.closest('path')?.querySelector('title')?.textContent?.split(' Â· ')[0];
-      if (stateName && stateList.some(state => state.name === stateName)) selectState(stateName);
+      const matchedState = stateList.find(state => stateName?.startsWith(state.name));
+      if (matchedState) selectState(matchedState.name);
     }} dangerouslySetInnerHTML={{ __html: mapSvg }}/>
     {activeState && <div className="so-india-filter-note"><span>Showing {activeState} videos</span><button type="button" onClick={() => { if (selectedState === undefined) setLocalSelectedState(''); onStateSelect?.(null); }}>Clear filter</button></div>}
   </article>;
@@ -110,7 +111,8 @@ export default function IndiaCommunityMapCard({ projects = [], compact = false, 
       <div className="so-india-map" aria-label="Interactive map of India's states and union territories" onClick={event => {
         if (!(event.target instanceof Element)) return;
         const stateName = event.target.closest('path')?.querySelector('title')?.textContent?.split(' · ')[0];
-        if (stateName && stateList.some(state => state.name === stateName)) selectState(stateName);
+        const matchedState = stateList.find(state => stateName?.startsWith(state.name));
+        if (matchedState) selectState(matchedState.name);
       }} dangerouslySetInnerHTML={{ __html: mapSvg }}/>
       <div className="so-india-state-panel">
         <div className="so-india-state-summary"><strong>{selectedState}</strong><span>{stateList.length} states &amp; union territories</span></div>
