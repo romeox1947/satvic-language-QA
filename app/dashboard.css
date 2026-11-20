@@ -1523,6 +1523,9 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 @media(max-width:900px){.app-shell .folder-overview-grid{grid-template-columns:minmax(270px,.9fr) minmax(0,1.1fr)}}
 @media(max-width:700px){.app-shell .folder-overview-grid{grid-template-columns:1fr;gap:10px;margin-bottom:10px}.app-shell .folder-overview-grid .so-global-card{min-height:340px;padding:15px}.app-shell .folder-overview-grid .so-india-content{grid-template-columns:minmax(0,1.1fr) minmax(130px,.9fr)}.app-shell .folder-overview-grid .so-india-map{min-height:245px}.app-shell .folder-overview-empty{min-height:250px}.app-shell .feedback-calendar-card{min-height:340px;padding:15px}.app-shell .feedback-calendar-grid{gap:4px}.app-shell .feedback-day,.app-shell .feedback-day-spacer{min-height:36px}}
 .app-shell .welcome-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex:none}
+.app-shell.product-satvic-fluid .welcome-actions > .primary-btn{min-height:44px;height:44px;padding:0 16px;gap:9px;font-size:12px;line-height:1}
+.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark-wrap{width:25px;height:25px}
+.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark{width:19px;height:19px}
 .app-shell .folder-back-button{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #e2e7e0;border-radius:9px;background:#fff;color:#596359;font:500 11px "Matter";white-space:nowrap;cursor:pointer}
 .app-shell .folder-back-button:hover{border-color:#cdd9cc;background:#f6f9f5}
 .app-shell .folder-rename-trigger{display:inline-flex;min-height:39px;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid #e2e7e0;border-radius:9px;background:#fff;color:#596359;font:500 11px "Matter";white-space:nowrap;cursor:pointer}
@@ -1539,7 +1542,7 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .folder-delete-actions .secondary-btn{border:1px solid #e2e6e0;background:#fff;color:#596359}
 .app-shell .folder-delete-confirm{border:1px solid #b96158;background:#b96158;color:#fff}
 .app-shell .folder-delete-actions button:disabled{opacity:.65;cursor:wait}
-@media(max-width:700px){.app-shell .welcome-actions{gap:6px}.app-shell .folder-back-button,.app-shell .folder-rename-trigger,.app-shell .folder-delete-trigger{min-height:36px;padding:0 8px;font-size:9px}.app-shell .folder-delete-modal{padding:23px 19px}}
+@media(max-width:700px){.app-shell .welcome-actions{gap:6px}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn{width:40px;height:40px;min-height:40px;padding:0;overflow:hidden;font-size:0}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark-wrap{width:24px;height:24px}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark{width:18px;height:18px}.app-shell .folder-back-button,.app-shell .folder-rename-trigger,.app-shell .folder-delete-trigger{min-height:36px;padding:0 8px;font-size:9px}.app-shell .folder-delete-modal{padding:23px 19px}}
 .app-shell .folder-library{min-height:260px;margin-top:15px}
 .app-shell .folder-library .panel-heading{gap:14px}
 .app-shell .folder-library .project-tools{position:static;width:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0}
