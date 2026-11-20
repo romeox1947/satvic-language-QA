@@ -172,6 +172,9 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
   const [costEstimateOpen, setCostEstimateOpen] = useState(false);
   const [costEstimateClosing, setCostEstimateClosing] = useState(false);
   const [costEstimatePage, setCostEstimatePage] = useState(false);
+  const [wiseUsdInrRate, setWiseUsdInrRate] = useState<number | null>(null);
+  const [wiseRateTime, setWiseRateTime] = useState<string | null>(null);
+  const [wiseRateLoading, setWiseRateLoading] = useState(false);
   const [costEstimateSelectedFolderId, setCostEstimateSelectedFolderId] = useState<string | null>(null);
   const [costDockOrigin, setCostDockOrigin] = useState({ x: 500, y: 380 });
   const costEstimateButtonRef = useRef<HTMLButtonElement>(null);
@@ -624,6 +627,30 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     window.addEventListener('keydown', onKeyDown);
     return () => { document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', onKeyDown); };
   }, [costEstimateOpen]);
+
+  useEffect(() => {
+    if (!costEstimatePage && !costEstimateOpen) return;
+    let active = true;
+    setWiseRateLoading(true);
+    fetch('/api/cost-estimate/exchange-rate', { cache: 'no-store' })
+      .then(async response => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Wise exchange rate unavailable.');
+        return payload as { rate: number; time: string };
+      })
+      .then(payload => {
+        if (!active || !Number.isFinite(payload.rate)) return;
+        setWiseUsdInrRate(payload.rate);
+        setWiseRateTime(payload.time);
+      })
+      .catch(() => {
+        if (!active) return;
+        setWiseUsdInrRate(null);
+        setWiseRateTime(null);
+      })
+      .finally(() => { if (active) setWiseRateLoading(false); });
+    return () => { active = false; };
+  }, [costEstimatePage, costEstimateOpen]);
 
   useEffect(() => {
     if (!projectMenuId) return;
@@ -1096,7 +1123,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
             <header className="welcome-row"><div><h1>Cost estimate</h1><p className="welcome-subtitle">Estimate provider costs across every project in your workspace.</p></div></header>
             <section className="cost-steps-panel panel" aria-labelledby="cost-steps-title"><div className="panel-heading"><div><div className="section-kicker">COST ESTIMATE</div><h2 id="cost-steps-title">How the estimate works</h2></div></div><ol className="cost-steps-list"><li><b>1. Set video length</b><span>Uses measured source duration when available. Enter or adjust minutes for each video.</span></li><li><b>2. Select workflow</b><span>Sarvam dubbing includes dubbing, transcription, translation, and Gemini review. Existing dub review skips dubbing.</span></li><li><b>3. Estimate Sarvam</b><span>Applies the editable dubbing, Saaras transcription, and translation rates.</span></li><li><b>4. Estimate Gemini</b><span>Uses editable input and output token assumptions for transcript and audio review.</span></li></ol></section>
             <section className="cost-workspace-grid" aria-label="Project folder cost estimates"><div className="cost-projects-panel panel"><div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h2>Project folders <span className="heading-count">{folderCostEstimates.length}</span></h2></div><span className="cost-workspace-caption">Select a folder to see its videos and estimate.</span></div><div className="cost-project-table-wrap"><table className="cost-project-table"><thead><tr><th>Project folder</th><th>Videos</th><th>Estimated spend</th><th aria-label="Open folder estimate"/></tr></thead><tbody>{foldersLoading ? <tr><td colSpan={4} className="cost-empty">Loading project folders…</td></tr> : folderCostEstimates.length ? folderCostEstimates.map(item=><tr key={item.folder.id} tabIndex={0} onClick={event=>openCostEstimator(item.folder.id,event.currentTarget)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openCostEstimator(item.folder.id,event.currentTarget)}}}><td><b>{item.folder.name}</b><small>Project folder</small></td><td>{item.rows.length} {item.rows.length===1?'video':'videos'}</td><td><b>{formatEstimate(item.totals.sarvamInr,'INR')}</b><small>{formatEstimate(item.totals.geminiUsd,'USD')}</small></td><td><ArrowRight size={16}/></td></tr>) : <tr><td colSpan={4} className="cost-empty">Create a project folder to estimate its videos.</td></tr>}</tbody></table></div></div>
-              <aside className="cost-spend-panel panel"><div className="section-kicker">WORKSPACE TOTAL</div><h2>Total estimated spend</h2><p>Combined estimates for videos saved inside your project folders.</p><div className="cost-spend-total"><span>Sarvam</span><b>{formatEstimate(costEstimateTotals.sarvamInr,'INR')}</b></div><div className="cost-spend-total"><span>Gemini</span><b>{formatEstimate(costEstimateTotals.geminiUsd,'USD')}</b></div><div className="cost-spend-meta"><span>{costEstimateTotals.minutes.toFixed(1)} video minutes</span><b>{costEstimateTotals.estimatedCount} / {costEstimateRows.length} estimated</b></div><button type="button" className="cost-rates-link" onClick={()=>{setCostEstimateSelectedFolderId(null);setCostEstimateOpen(true)}}><Calculator size={15}/> Edit rates and assumptions</button></aside>
+              <aside className="cost-spend-panel panel"><div className="section-kicker">WORKSPACE TOTAL</div><h2>Total estimated spend</h2><p>Combined estimates for videos saved inside your project folders.</p><div className="cost-spend-total"><span>Sarvam</span><b>{formatEstimate(costEstimateTotals.sarvamInr,'INR')}</b></div><div className="cost-spend-total"><span>Gemini</span><b>{formatEstimate(costEstimateTotals.geminiUsd,'USD')}<small className="cost-converted-value">≈ {wiseUsdInrRate === null ? (wiseRateLoading ? 'Loading Wise rate…' : 'Wise rate unavailable') : formatEstimate(costEstimateTotals.geminiUsd * wiseUsdInrRate,'INR')}</small></b></div><div className="cost-spend-meta"><span>{costEstimateTotals.minutes.toFixed(1)} video minutes</span><b>{costEstimateTotals.estimatedCount} / {costEstimateRows.length} estimated</b></div><div className="cost-total-costing"><span>Total costing</span><b>{wiseUsdInrRate === null ? '—' : formatEstimate(costEstimateTotals.sarvamInr + costEstimateTotals.geminiUsd * wiseUsdInrRate,'INR')}</b></div><div className="cost-wise-rate">{wiseUsdInrRate === null ? (wiseRateLoading ? 'Fetching live USD → INR rate from Wise…' : 'Live Wise rate unavailable. Configure WISE_API_TOKEN.') : `Wise: 1 USD = ₹${wiseUsdInrRate.toFixed(4)}${wiseRateTime ? ` · ${new Date(wiseRateTime).toLocaleString()}` : ''}`}</div><button type="button" className="cost-rates-link" onClick={()=>{setCostEstimateSelectedFolderId(null);setCostEstimateOpen(true)}}><Calculator size={15}/> Total costing</button></aside>
             </section>
           </section>}
           {!costEstimatePage && <section className="welcome-row"><div><h1>{activeFolderId ? folders.find(folder=>folder.id===activeFolderId)?.name : isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{activeFolderId ? 'Dub videos and QA findings saved in this project.' : isSarvamWorkflow ? 'Create a dub in your target language, then review it.' : 'Compare an existing dub with its original.'}</p></div><div className="welcome-actions">{activeFolderId && <><button type="button" className="folder-back-button" onClick={()=>{setActiveFolderId(null);setActiveTab('All projects')}}><ArrowLeft size={15}/> Back to projects</button><button type="button" className="folder-rename-trigger" onClick={()=>{setRenameFolderName(folders.find(folder=>folder.id===activeFolderId)?.name || '');setRenameFolderError('');setRenameFolderOpen(true)}}><Pencil size={14}/> Rename folder</button><button type="button" className="folder-delete-trigger" onClick={()=>setFolderDeleteConfirmOpen(true)}><Trash2 size={14}/> Delete folder</button><button ref={costEstimateButtonRef} type="button" className="folder-cost-estimate-trigger" onClick={event=>openCostEstimator(activeFolderId,event.currentTarget)}><Calculator size={15}/> Cost estimate</button></>}<button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={17}/>} {workflow.action}</button></div></section>}

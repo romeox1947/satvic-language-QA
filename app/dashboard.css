@@ -1640,6 +1640,8 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .cost-estimate-table td select{max-width:155px;height:31px;padding:0 8px;border:1px solid #e3e8e0;border-radius:7px;background:#fff;color:#4d584c;font:400 10px "Matter",sans-serif}
 .cost-duration-field{display:flex;width:105px;height:32px;align-items:center;gap:5px;padding:0 8px;border:1px solid #e1e7df;border-radius:7px;background:#fff;color:#858c82}
 .cost-duration-field input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#303830;font:400 10px "Matter",sans-serif}
+.cost-duration-field input[type=number]{appearance:textfield;-moz-appearance:textfield}
+.cost-duration-field input[type=number]::-webkit-outer-spin-button,.cost-duration-field input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .cost-duration-field span{font:400 9px "Matter",sans-serif}
 .cost-estimate-table .cost-empty{height:150px;color:#8b9288;text-align:center}
 .cost-rate-details{flex:none;max-height:225px;overflow:auto;margin:13px 24px 0;padding:0 2px;color:#677165}
@@ -1704,6 +1706,11 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .cost-spend-meta b{color:#586255;font-weight:500}
 .cost-rates-link{display:flex;align-items:center;justify-content:center;gap:7px;min-height:37px;margin-top:12px;border:1px solid #e1e8df;border-radius:9px;background:#f8faf7;color:#4f6851;font:500 10px "Matter",sans-serif;cursor:pointer}
 .cost-rates-link:hover{background:#eff5ed}
+.cost-converted-value{display:block;margin-top:4px;color:#6f7c6d;font:400 11px "Matter",sans-serif}
+.cost-total-costing{display:flex;flex-direction:column;gap:5px;margin-top:12px;padding:13px 0;border-top:1px solid #dfe7dc}
+.cost-total-costing span{color:#4f6851;font:500 11px "Matter",sans-serif}
+.cost-total-costing b{color:#263d2b;font:600 26px "Matter",sans-serif}
+.cost-wise-rate{color:#7c8579;font:400 10px/1.5 "Matter",sans-serif}
 .cost-estimate-project-detail{display:grid;gap:14px;padding:18px 25px 12px}
 .cost-estimate-project-detail .cost-estimate-summary{padding:0}
 .cost-detail-field{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;color:#657061;font:500 11px "Matter",sans-serif}
