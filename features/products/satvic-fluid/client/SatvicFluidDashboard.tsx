@@ -4,7 +4,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadPresigned } from '@vercel/blob/client';
 import ProductDashboardShell from '@/features/dashboard/client/ProductDashboardShell';
-import IndiaCommunityMapCard from '@/features/dashboard/client/IndiaCommunityMapCard';
+import IndiaCommunityMapCard, { languagesForIndiaState } from '@/features/dashboard/client/IndiaCommunityMapCard';
 import FeedbackCalendarCard from '@/features/dashboard/client/FeedbackCalendarCard';
 import {
   Activity, AlertCircle, ArrowDown, ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCheck,
@@ -108,6 +108,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
   const [folders, setFolders] = useState<ProjectFolder[]>([]);
   const [foldersLoading, setFoldersLoading] = useState(true);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [selectedMapState, setSelectedMapState] = useState<string | null>(null);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [folderSaving, setFolderSaving] = useState(false);
@@ -310,8 +311,9 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     const matchQuery = `${p.title} ${p.target} ${p.source}`.toLowerCase().includes(query.toLowerCase());
     const matchTab = activeTab === 'All projects' || (activeTab === 'Needs review' && p.status === 'Needs review') || (activeTab === 'In progress' && p.status === 'In progress') || (activeTab === 'Ready' && p.status === 'Ready') || (activeTab === 'Failed' && p.status === 'Failed');
     const matchFolder = activeFolderId ? !p.isExample && p.folderId === activeFolderId : true;
-    return matchQuery && matchTab && matchFolder;
-  }), [projects, query, activeTab, activeFolderId]);
+    const matchMapState = !selectedMapState || languagesForIndiaState(selectedMapState).includes(p.target);
+    return matchQuery && matchTab && matchFolder && matchMapState;
+  }), [projects, query, activeTab, activeFolderId, selectedMapState]);
 
   const folderProjects = activeFolderId ? projects.filter(project => project.folderId === activeFolderId && !project.isExample) : projects.filter(project => !project.isExample);
   const searchFolders = useMemo(() => {
@@ -869,7 +871,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       <section className="welcome-row"><div><h1>{activeFolderId ? folders.find(folder=>folder.id===activeFolderId)?.name : isSarvamWorkflow ? 'Generate with Sarvam' : 'Start a review'}</h1><p className="welcome-subtitle">{activeFolderId ? 'Dub videos and QA findings saved in this project.' : isSarvamWorkflow ? 'Create a dub in your target language, then review it.' : 'Compare an existing dub with its original.'}</p></div><div className="welcome-actions">{activeFolderId && <><button type="button" className="folder-back-button" onClick={()=>{setActiveFolderId(null);setActiveTab('All projects')}}><ArrowLeft size={15}/> Back to projects</button><button type="button" className="folder-rename-trigger" onClick={()=>{setRenameFolderName(folders.find(folder=>folder.id===activeFolderId)?.name || '');setRenameFolderError('');setRenameFolderOpen(true)}}><Pencil size={14}/> Rename folder</button><button type="button" className="folder-delete-trigger" onClick={()=>setFolderDeleteConfirmOpen(true)}><Trash2 size={14}/> Delete folder</button></>}<button className="primary-btn" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={17}/>} {workflow.action}</button></div></section>
 
 
-      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard projects={folderProjects} compact/><FeedbackCalendarCard folderId={activeFolderId} formUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_form_url} sheetUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_sheet_url} onSaveFormLinks={saveFolderFeedbackLinks}/></section>}
+      {activeFolderId && <section className="folder-overview-grid" aria-label="Project overview"><IndiaCommunityMapCard projects={folderProjects} compact selectedState={selectedMapState} onStateSelect={setSelectedMapState}/><FeedbackCalendarCard folderId={activeFolderId} formUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_form_url} sheetUrl={folders.find(folder => folder.id === activeFolderId)?.feedback_sheet_url} onSaveFormLinks={saveFolderFeedbackLinks}/></section>}
 
       {!activeFolderId && <section className="qa-flow" aria-labelledby="qa-flow-title"><div className="qa-flow-heading"><div className="qa-flow-title"><span className={`qa-flow-brand${isSarvamWorkflow ? ' sarvam' : ' review'}`}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={19}/>}</span><div><div className="section-kicker">{workflow.eyebrow}</div><h2 id="qa-flow-title">{workflow.title}</h2></div></div><span className="qa-flow-time"><Clock3 size={15}/> 4 steps</span></div><ol className="qa-flow-steps">{workflow.steps.map(([title,description],index)=>{const StepIcon=workflowStepIcons[index];return <li key={title}><span className="qa-step-number">0{index+1}</span><span className="qa-step-icon" aria-hidden="true"><StepIcon size={15}/></span><div><b>{title}</b><p>{description}</p></div></li>})}</ol><button className="qa-flow-action" onClick={openActiveWorkflow}>{isSarvamWorkflow ? <SarvamLogoMark/> : <FileAudio size={16}/>} Open upload <ArrowRight size={15}/></button></section>}
 

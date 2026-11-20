@@ -37,6 +37,10 @@ const targetStates: Record<string, string[]> = {
 type Props = { projects?: IndiaMapProject[]; compact?: boolean };
 type MapStatus = 'review' | 'failed' | 'processing' | 'ready';
 
+export function languagesForIndiaState(stateName: string): string[] {
+  return Object.entries(targetStates).filter(([, states]) => states.includes(stateName)).map(([language]) => language);
+}
+
 function statusForState(stateName: string, projects: IndiaMapProject[]): MapStatus | null {
   const languages = Object.entries(targetStates).filter(([, states]) => states.includes(stateName)).map(([language]) => language);
   const stateProjects = projects.filter(project => languages.includes(project.target) && project.status !== 'Example');
@@ -61,8 +65,14 @@ function statusTitle(stateName: string, status: string | null) {
   return `${stateName} · No dub activity`;
 }
 
-export default function IndiaCommunityMapCard({ projects = [], compact = false }: Props) {
-  const [selectedState, setSelectedState] = useState('Maharashtra');
+export default function IndiaCommunityMapCard({ projects = [], compact = false, selectedState, onStateSelect }: Props & { selectedState?: string | null; onStateSelect?: (state: string | null) => void }) {
+  const [localSelectedState, setLocalSelectedState] = useState('Maharashtra');
+  const activeState = selectedState === undefined ? localSelectedState : selectedState;
+  const selectState = (state: string) => {
+    const next = activeState === state ? null : state;
+    if (selectedState === undefined) setLocalSelectedState(next || '');
+    onStateSelect?.(next);
+  };
   const mapSvg = useMemo(() => {
     const svg = renderIndiaSvg({
       level: 'state',
@@ -72,7 +82,7 @@ export default function IndiaCommunityMapCard({ projects = [], compact = false }
       stateStyle: { stroke: '#ffffff', strokeWidth: 1.8 },
       stateFill: name => {
         if (compact) return statusColors[statusForState(name, projects) || 'neutral'];
-        return name === selectedState ? '#8963ad' : neutralState;
+        return !compact && name === activeState ? '#8963ad' : neutralState;
       },
     });
     if (!compact) return svg;
@@ -80,11 +90,16 @@ export default function IndiaCommunityMapCard({ projects = [], compact = false }
       const status = statusForState(name, projects);
       return `<title>${statusTitle(name, status)}</title>`;
     });
-  }, [compact, projects, selectedState]);
+  }, [compact, projects, activeState]);
 
   if (compact) return <article className="so-card so-global-card so-india-card so-india-status-card">
     <div className="so-card-heading"><h2>Dub status across India</h2></div>
-    <div className="so-india-map" role="img" aria-label="Map of India showing dubbing project status by state" dangerouslySetInnerHTML={{ __html: mapSvg }}/>
+    <div className="so-india-map" role="group" aria-label="Select an Indian state to filter project videos" onClick={event => {
+      if (!(event.target instanceof Element)) return;
+      const stateName = event.target.closest('path')?.querySelector('title')?.textContent?.split(' Â· ')[0];
+      if (stateName && stateList.some(state => state.name === stateName)) selectState(stateName);
+    }} dangerouslySetInnerHTML={{ __html: mapSvg }}/>
+    {activeState && <div className="so-india-filter-note"><span>Showing {activeState} videos</span><button type="button" onClick={() => { if (selectedState === undefined) setLocalSelectedState(''); onStateSelect?.(null); }}>Clear filter</button></div>}
   </article>;
 
   return <article className="so-card so-global-card so-india-card">
@@ -95,12 +110,12 @@ export default function IndiaCommunityMapCard({ projects = [], compact = false }
       <div className="so-india-map" aria-label="Interactive map of India's states and union territories" onClick={event => {
         if (!(event.target instanceof Element)) return;
         const stateName = event.target.closest('path')?.querySelector('title')?.textContent?.split(' · ')[0];
-        if (stateName && stateList.some(state => state.name === stateName)) setSelectedState(stateName);
+        if (stateName && stateList.some(state => state.name === stateName)) selectState(stateName);
       }} dangerouslySetInnerHTML={{ __html: mapSvg }}/>
       <div className="so-india-state-panel">
         <div className="so-india-state-summary"><strong>{selectedState}</strong><span>{stateList.length} states &amp; union territories</span></div>
         <div className="so-india-state-list" aria-label="Choose a state">
-          {stateList.map(state => <button key={state.slug} type="button" className={selectedState === state.name ? 'active' : ''} aria-pressed={selectedState === state.name} onClick={() => setSelectedState(state.name)}>{state.name}</button>)}
+          {stateList.map(state => <button key={state.slug} type="button" className={activeState === state.name ? 'active' : ''} aria-pressed={activeState === state.name} onClick={() => selectState(state.name)}>{state.name}</button>)}
         </div>
       </div>
     </div>
