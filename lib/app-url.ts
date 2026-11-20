@@ -1,4 +1,4 @@
-const PRODUCTION_APP_URL = 'https://satvic-language-qa.vercel.app';
+const PRODUCTION_APP_URL = 'https://satvic-studio.vercel.app';
 
 export function appUrl(): string {
   if (process.env.VERCEL) return PRODUCTION_APP_URL;
