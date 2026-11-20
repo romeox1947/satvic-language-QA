@@ -303,7 +303,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
         if (response.ok && body.report) setReport(body.report as AnalysisReport);
         else if (body.status === 'running') setNotice('This job is still running on the server. Check back here after it completes.');
         else if (body.status === 'failed' || !response.ok) {
-          if (body.status === 'failed' && body.dubbedVideoUrl) setDetails(current => current?.jobId === details.jobId ? { ...current, dubbedVideoUrl: body.dubbedVideoUrl } : current);
+          if (body.status === 'failed' && body.dubbedVideoUrl) setDetails(current => current && current.jobId === details.jobId ? { ...current, dubbedVideoUrl: body.dubbedVideoUrl } : current);
           setNotice(body.error || 'This job failed. Open the project for details.');
         }
       })
