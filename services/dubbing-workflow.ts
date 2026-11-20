@@ -160,7 +160,7 @@ async function runQa(input: JobInput, dubbedBlobUrl: string, dubbedSubtitleSrt: 
     const timedOut = /timeout|timed out|abort/i.test(detail);
     return { jobError: timedOut
       ? 'QA request timed out after about 5 minutes. Vercel Hobby limits this QA function to 300 seconds; try a shorter video or split the video into shorter clips.'
-      : `Could not reach the QA API at ${appUrl}/api/analyze: ${detail}` };
+      : `Could not reach the QA API at ${appUrl}/api/analyze: ${detail}`, dubbedBlobUrl };
   }
   const { body, text } = await readResponse(response);
   if (!response.ok) {
@@ -168,10 +168,10 @@ async function runQa(input: JobInput, dubbedBlobUrl: string, dubbedSubtitleSrt: 
     const message = detail || response.statusText || 'No response details were returned.';
     // The API has already completed and returned an error. Retrying it would rerun
     // transcription and AI review, potentially repeating substantial provider work.
-    return { jobError: `QA failed (HTTP ${response.status}): ${message}` };
+    return { jobError: `QA failed (HTTP ${response.status}): ${message}`, dubbedBlobUrl };
   }
   if (!body) {
-    return { jobError: `QA returned HTTP ${response.status}, but the response was not JSON (${response.headers.get('content-type') || 'unknown content type'}): ${text.trim().slice(0, 1200) || 'empty response'}` };
+    return { jobError: `QA returned HTTP ${response.status}, but the response was not JSON (${response.headers.get('content-type') || 'unknown content type'}): ${text.trim().slice(0, 1200) || 'empty response'}`, dubbedBlobUrl };
   }
   const report = { ...body, generatedBySarvam: true, originalVideoUrl: input.originalBlobUrl, dubbedVideoUrl: dubbedBlobUrl };
   const storedReport = await put(`satvic-users/${input.userId}/satvic-jobs/${crypto.randomUUID()}-qa-report.json`, JSON.stringify(report), { access: 'private', contentType: 'application/json', addRandomSuffix: true });
@@ -182,6 +182,7 @@ export async function generateAndReview(input: JobInput) {
   'use workflow';
   const workflowStartedAt = Date.now();
   let phaseStartedAt = workflowStartedAt;
+  let savedDubbedBlobUrl: string | null = null;
   const logPhase = (phase: string) => {
     console.info(`[dubbing-workflow] job=${input.dbJobId} phase=${phase} durationMs=${Date.now() - phaseStartedAt}`);
     phaseStartedAt = Date.now();
@@ -196,22 +197,27 @@ export async function generateAndReview(input: JobInput) {
     const { jobId } = await startSarvam(input);
     logPhase('sarvam-upload-and-start');
     const deadline = Date.now() + 12 * 60 * 60 * 1000;
+    let pollCount = 0;
     let current = { ready: false, progress: 0, step: 'Sarvam is creating the dub' } as Awaited<ReturnType<typeof checkSarvam>>;
     while (Date.now() < deadline) {
-      await sleep('30s');
+      await sleep(pollCount < 6 ? '5s' : '10s');
       current = await checkSarvam(jobId);
+      pollCount += 1;
       if (current.ready && current.downloadUrl) break;
     }
     if (!current.ready || !current.downloadUrl) throw new Error('Sarvam has not finished the dubbing export within 12 hours.');
     logPhase('sarvam-dub-and-export');
-    const dubbedBlobUrl = await saveDub(current.downloadUrl, input.userId);
-    const dubbedSubtitleSrt = await downloadSubtitle('subtitleDownloadUrl' in current ? current.subtitleDownloadUrl || null : null);
+    const [dubbedBlobUrl, dubbedSubtitleSrt] = await Promise.all([
+      saveDub(current.downloadUrl, input.userId),
+      downloadSubtitle('subtitleDownloadUrl' in current ? current.subtitleDownloadUrl || null : null),
+    ]);
+    savedDubbedBlobUrl = dubbedBlobUrl;
     logPhase('store-dub-video');
     const result = await runQa(input, dubbedBlobUrl, dubbedSubtitleSrt);
     logPhase('qa-and-report-storage');
     console.info(`[dubbing-workflow] job=${input.dbJobId} totalDurationMs=${Date.now() - workflowStartedAt}`);
     if ('jobError' in result && typeof result.jobError === 'string') {
-      await updateHistory(input, { status: 'failed', error_message: result.jobError });
+      await updateHistory(input, { dubbed_blob_url: result.dubbedBlobUrl || savedDubbedBlobUrl, status: 'failed', error_message: result.jobError });
       await sendJobEmail(input, 'failed', result.jobError);
       return result;
     }
@@ -221,7 +227,7 @@ export async function generateAndReview(input: JobInput) {
   } catch (error) {
     console.info(`[dubbing-workflow] job=${input.dbJobId} failedPhaseDurationMs=${Date.now() - phaseStartedAt} totalDurationMs=${Date.now() - workflowStartedAt}`);
     const jobError = errorText(error);
-    await updateHistory(input, { status: 'failed', error_message: jobError });
+    await updateHistory(input, { ...(savedDubbedBlobUrl ? { dubbed_blob_url: savedDubbedBlobUrl } : {}), status: 'failed', error_message: jobError });
     await sendJobEmail(input, 'failed', jobError);
     return { jobError };
   }

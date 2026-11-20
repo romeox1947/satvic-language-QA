@@ -66,7 +66,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     if (job.status === 'completed') {
       return await completedResponse(job, runId);
     }
-    if (job.status === 'failed') return Response.json({ runId, status: 'failed', error: job.error_message || 'This job failed.', stage: 'Job failed' }, { headers: { 'cache-control': 'no-store' } });
+    if (job.status === 'failed') return Response.json({
+      runId,
+      status: 'failed',
+      error: job.error_message || 'This job failed.',
+      stage: 'Job failed',
+      dubbedVideoUrl: job.dubbed_b2_key
+        ? `/api/jobs/${encodeURIComponent(runId)}/b2/media?track=dub`
+        : job.dubbed_blob_url ? `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(job.dubbed_blob_url)}` : null,
+    }, { headers: { 'cache-control': 'no-store' } });
     if (!job.run_id) {
       return Response.json({ runId, status: job.status, stage: 'AI is reviewing both audio tracks' }, { headers: { 'cache-control': 'no-store' } });
     }

@@ -15,7 +15,7 @@ const neutralState = '#dfe3df';
 const statusColors = {
   review: '#5950cc',
   failed: '#e9aaa5',
-  processing: '#ad91d1',
+  processing: '#8b68b8',
   ready: '#6e9b72',
   neutral: neutralState,
 };

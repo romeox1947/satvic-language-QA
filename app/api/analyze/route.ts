@@ -499,33 +499,32 @@ export async function POST(request: Request) {
     ]);
     const dubbedResult = (dubbedSubtitleSrt && parseSarvamSrt(dubbedSubtitleSrt, target.sarvam)) || sarvamDubTranscript;
     if (!dubbedResult) throw new Error('Sarvam subtitle export did not contain readable timestamped captions, and dubbed-video transcription was unavailable.');
-    markStage('Checking transcript and back-translation');
+    markStage('Preparing transcript and audio evidence');
     updateAnalysisProgress(progressId, stage, 66);
-    const backTranslation = await backTranslate(dubbedResult.transcript, source.sarvam, target.sarvam, key);
-    markStage('Preparing both audio tracks for AI listening');
-    updateAnalysisProgress(progressId, stage, 73);
-    const [sourceAudio, dubAudio] = await Promise.all([extractCompactAudio(original), extractCompactAudio(dubbed)]);
-    markStage('Gemini checking transcript meaning');
+    const [backTranslation, [sourceAudio, dubAudio]] = await Promise.all([
+      backTranslate(dubbedResult.transcript, source.sarvam, target.sarvam, key),
+      Promise.all([extractCompactAudio(original), extractCompactAudio(dubbed)]),
+    ]);
+    markStage('Gemini checking transcript and audio in parallel');
     updateAnalysisProgress(progressId, stage, 82);
     let textFindings: AudioFinding[] = [];
     const transcriptModelsUsed = new Set<string>();
     const audioModelsUsed = new Set<string>();
     let transcriptCrossCheckAvailable = true;
     let transcriptCrossCheckError: string | null = null;
-    try {
-    textFindings = await geminiTranscriptReview(originalResult, dubbedResult, sourceLanguage, targetLanguage, transcriptModelsUsed);
-    } catch (error) {
-      transcriptCrossCheckAvailable = false;
-      transcriptCrossCheckError = error instanceof Error ? error.message.slice(0, 500) : 'Unknown Gemini error';
-      console.warn(`[api/analyze] Transcript cross-check unavailable: ${transcriptCrossCheckError}`);
-    }
     const reviewCoverageWarnings: string[] = [];
     if (formatSegments(originalResult.segments).length > 14000 || formatSegments(dubbedResult.segments).length > 14000) reviewCoverageWarnings.push('Timestamped segment context for audio review was truncated.');
     if (!originalResult.segments.length) reviewCoverageWarnings.push('The source transcript has no timing data, so source-side issue locations may be unavailable.');
     if (!dubbedResult.segments.length) reviewCoverageWarnings.push('The dub transcript has no timing data, so dub-side issue locations and transcript playback are unavailable.');
-    markStage('Gemini listening to both audio tracks');
-    updateAnalysisProgress(progressId, stage, 88);
-    const aiFindings = await geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage, audioModelsUsed);
+    const transcriptReview = geminiTranscriptReview(originalResult, dubbedResult, sourceLanguage, targetLanguage, transcriptModelsUsed)
+      .then(findings => { textFindings = findings; })
+      .catch(error => {
+        transcriptCrossCheckAvailable = false;
+        transcriptCrossCheckError = error instanceof Error ? error.message.slice(0, 500) : 'Unknown Gemini error';
+        console.warn(`[api/analyze] Transcript cross-check unavailable: ${transcriptCrossCheckError}`);
+      });
+    const audioReview = geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage, audioModelsUsed);
+    const [, aiFindings] = await Promise.all([transcriptReview, audioReview]);
     const audioFindings = aiFindings.map(item => ({
       ...item,
       evidenceStatus: textFindings.some(check => phrasesSupportSameFinding(item, check)) ? 'cross-checked' as const : 'audio-only' as const,

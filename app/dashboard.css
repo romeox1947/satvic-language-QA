@@ -1290,6 +1290,11 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-satvic-fluid .status-pill.ready i { background: #356f40; }
 .app-shell.product-satvic-fluid .project-row:has(.status-pill.ready) .project-issues { color: #356f40; }
 .app-shell.product-satvic-fluid .job-failure { display: flex; align-items: flex-start; gap: 11px; margin: 10px 0 16px; padding: 14px 16px; border: 1px solid #f0d9d7; border-radius: 12px; background: #fdf6f5; color: #b94b4b; }
+.app-shell.product-satvic-fluid .failed-dub-available{display:grid;gap:10px;margin:12px 0 18px;padding:14px;border:1px solid #dfe7df;border-radius:12px;background:#f8faf7}
+.app-shell.product-satvic-fluid .failed-dub-available b{color:#30342f;font:500 13px/1.35 "Matter"}
+.app-shell.product-satvic-fluid .failed-dub-available p{margin:4px 0 0;color:#747970;font:400 11px/1.45 "Matter"}
+.app-shell.product-satvic-fluid .failed-dub-available video{width:100%;max-height:330px;border-radius:9px;background:#171816}
+.app-shell.product-satvic-fluid .failed-dub-available .secondary-btn{width:max-content;min-height:36px;padding:0 12px;border-color:#d9e2d9;background:#fff;color:#465d49}
 .app-shell.product-satvic-fluid .job-failure > div { min-width: 0; }
 .app-shell.product-satvic-fluid .job-failure b { color: #30312e; font: 500 13px/1.4 "Matter"; }
 .app-shell.product-satvic-fluid .job-failure p { margin: 4px 0 0; color: #686963; font: 400 12px/1.5 "Matter"; overflow-wrap: anywhere; }
