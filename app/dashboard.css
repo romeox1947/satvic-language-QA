@@ -1684,9 +1684,11 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .cost-project-table tbody tr:hover,.cost-project-table tbody tr:focus-visible{outline:0;background:#f5f8f3}
 .cost-project-table tbody tr:last-child td{border-bottom:0}
 .cost-estimate-folder-detail{display:flex;min-height:0;flex-direction:column;gap:12px;padding:14px 25px 0;overflow:hidden}
-.cost-estimate-folder-detail>.cost-estimate-summary{grid-template-columns:1fr 1fr;padding:0}
+.cost-estimate-folder-detail>.cost-estimate-summary{grid-template-columns:repeat(3,minmax(0,1fr));padding:0}
 .cost-estimate-folder-detail>.cost-estimate-summary article{min-height:88px;padding:13px 16px}
 .cost-estimate-folder-detail>.cost-estimate-summary article>b{font-size:21px}
+.cost-estimate-folder-detail>.cost-estimate-summary .cost-total-card{border-color:#d6e5d4;background:#f3f8f1}
+.cost-estimate-folder-detail>.cost-estimate-summary .cost-total-card>b{color:#315b38}
 .cost-estimate-folder-detail>.cost-estimate-table-wrap{min-height:120px;max-height:min(42vh,420px);flex:1;margin:0;overflow:auto}
 .cost-estimate-folder-detail .cost-estimate-table{min-width:690px}
 .cost-estimate-folder-detail .cost-estimate-table td select{max-width:145px}
