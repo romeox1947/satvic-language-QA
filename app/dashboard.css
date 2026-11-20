@@ -1645,9 +1645,114 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .cost-estimate-footer{display:flex;min-height:58px;align-items:center;justify-content:space-between;gap:12px;padding:10px 24px;border-top:1px solid #edf0eb;color:#92998f;font:400 9px "Matter",sans-serif}
 .cost-estimate-footer button{min-width:82px;height:34px;border:1px solid #dfe5dd;border-radius:8px;background:#fff;color:#4d594c;font:500 10px "Matter",sans-serif;cursor:pointer}
 .cost-estimate-footer button:hover{background:#f7faf6}
+.cost-dashboard-page{display:grid;gap:18px;padding-bottom:26px}
+.cost-dashboard-page>.welcome-row{margin:0}
+.cost-steps-panel{padding:20px 23px 22px}
+.cost-steps-panel .panel-heading{margin-bottom:17px}
+.cost-steps-panel h2,.cost-projects-panel h2{margin:5px 0 0;color:#303830;font:500 20px/1.2 "Matter",sans-serif}
+.cost-steps-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:0;padding:0;list-style:none}
+.cost-steps-list li{display:grid;align-content:start;gap:8px;min-height:96px;padding:8px 18px;border-right:1px solid #e8ece6}
+.cost-steps-list li:first-child{padding-left:0}
+.cost-steps-list li:last-child{padding-right:0;border-right:0}
+.cost-steps-list b{color:#343c34;font:500 13px "Matter",sans-serif}
+.cost-steps-list span{color:#838b80;font:400 11px/1.55 "Matter",sans-serif}
+.cost-workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:stretch}
+.cost-projects-panel,.cost-spend-panel{min-width:0;min-height:420px;padding:21px 22px}
+.cost-projects-panel .panel-heading{margin-bottom:15px}
+.cost-workspace-caption{align-self:center;color:#858c82;font:400 10px "Matter",sans-serif}
+.cost-project-table-wrap{overflow:auto;border:1px solid #e9ede7;border-radius:11px}
+.cost-project-table{width:100%;border-collapse:collapse;text-align:left}
+.cost-project-table th{height:39px;padding:0 12px;border-bottom:1px solid #e8ece6;background:#f8faf7;color:#778074;font:500 9px "Matter",sans-serif;white-space:nowrap}
+.cost-project-table td{height:59px;padding:9px 12px;border-bottom:1px solid #eef0ec;color:#687064;font:400 10px "Matter",sans-serif;white-space:nowrap}
+.cost-project-table tbody tr{cursor:pointer;transition:background .14s ease}
+.cost-project-table tbody tr:hover,.cost-project-table tbody tr:focus-visible{outline:0;background:#f5f8f3}
+.cost-project-table tbody tr:last-child td{border-bottom:0}
+.cost-project-table td:first-child{min-width:170px}
+.cost-project-table td:first-child b,.cost-project-table td:first-child small,.cost-project-table td:nth-child(4) small{display:block}
+.cost-project-table td:first-child b{overflow:hidden;color:#343b34;font:500 11px "Matter",sans-serif;text-overflow:ellipsis}
+.cost-project-table td:first-child small,.cost-project-table td:nth-child(4) small{margin-top:4px;color:#8b9288;font:400 9px "Matter",sans-serif}
+.cost-project-table td:nth-child(4) b{color:#343b34;font:500 10px "Matter",sans-serif}
+.cost-project-table td:last-child{width:35px;color:#899287;text-align:right}
+.cost-project-table .cost-empty{height:180px;color:#8b9288;text-align:center}
+.cost-spend-panel{display:flex;flex-direction:column;align-items:stretch}
+.cost-spend-panel h2{margin:7px 0 5px;color:#303830;font:500 19px/1.25 "Matter",sans-serif}
+.cost-spend-panel>p{margin:0 0 20px;color:#858c82;font:400 10px/1.5 "Matter",sans-serif}
+.cost-spend-total{display:flex;flex-direction:column;gap:5px;padding:15px 0;border-top:1px solid #edf0eb}
+.cost-spend-total span{color:#858c82;font:400 10px "Matter",sans-serif}
+.cost-spend-total b{color:#303830;font:500 22px "Matter",sans-serif}
+.cost-spend-meta{display:grid;gap:5px;margin-top:auto;padding:13px 0;border-top:1px solid #edf0eb;color:#858c82;font:400 9px "Matter",sans-serif}
+.cost-spend-meta b{color:#586255;font-weight:500}
+.cost-rates-link{display:flex;align-items:center;justify-content:center;gap:7px;min-height:37px;margin-top:12px;border:1px solid #e1e8df;border-radius:9px;background:#f8faf7;color:#4f6851;font:500 10px "Matter",sans-serif;cursor:pointer}
+.cost-rates-link:hover{background:#eff5ed}
+.cost-estimate-project-detail{display:grid;gap:14px;padding:18px 25px 12px}
+.cost-estimate-project-detail .cost-estimate-summary{padding:0}
+.cost-detail-field{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:16px;color:#657061;font:500 11px "Matter",sans-serif}
+.cost-detail-field select{height:38px;padding:0 11px;border:1px solid #e0e6de;border-radius:8px;background:#fff;color:#3f4b3e;font:400 11px "Matter",sans-serif}
+.cost-detail-field .cost-duration-field{height:38px}
+@media(max-width:900px){.cost-workspace-grid{grid-template-columns:minmax(0,1fr) 250px}.cost-steps-list li{padding:8px 12px}}
+@media(max-width:700px){.cost-workspace-grid{grid-template-columns:1fr}.cost-projects-panel,.cost-spend-panel{min-height:0;padding:16px}.cost-steps-list{grid-template-columns:1fr 1fr;row-gap:12px}.cost-steps-list li:nth-child(2){border-right:0}.cost-steps-list li:nth-child(3){padding-left:0}.cost-steps-panel{padding:16px}.cost-workspace-caption{display:none}.cost-project-table{min-width:610px}.cost-detail-field{grid-template-columns:1fr;gap:7px}.cost-estimate-project-detail{padding:14px}}
 @keyframes cost-backdrop-in{from{opacity:0}to{opacity:1}}
 @keyframes cost-backdrop-out{from{opacity:1}to{opacity:0}}
 @keyframes cost-dock-open{from{opacity:.25;transform:scale(.025);filter:blur(4px)}to{opacity:1;transform:scale(1);filter:blur(0)}}
 @keyframes cost-dock-close{from{opacity:1;transform:scale(1);filter:blur(0)}to{opacity:.2;transform:scale(.025);filter:blur(4px)}}
 @media(max-width:700px){.cost-estimate-backdrop{padding:10px}.cost-estimate-panel{width:calc(100vw - 20px);height:calc(100vh - 20px);border-radius:15px}.cost-estimate-header{padding:19px 17px 13px}.cost-estimate-header h2{font-size:19px}.cost-estimate-summary{grid-template-columns:1fr 1fr;gap:7px;padding:11px 14px}.cost-estimate-summary article{padding:10px}.cost-estimate-summary article:last-child{grid-column:1/-1}.cost-estimate-summary article>b{font-size:17px}.cost-estimate-table-wrap{margin:0 14px}.cost-rate-details{margin:10px 14px 0}.cost-rate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cost-estimate-footer{padding:9px 14px}}
 @media(prefers-reduced-motion:reduce){.cost-estimate-backdrop,.cost-estimate-backdrop.closing,.cost-estimate-panel,.cost-estimate-backdrop.closing .cost-estimate-panel{animation-duration:.01ms}}
+
+/* Refined cost estimate dock: use the same quiet greens, ink and Matter type as the workspace. */
+.cost-estimate-backdrop{background:rgba(31,39,31,.24);backdrop-filter:blur(3px)}
+.cost-estimate-panel{width:min(790px,calc(100vw - 40px));height:auto;max-height:min(820px,calc(100vh - 40px));border:1px solid #e5ebe3;border-radius:18px;background:#fbfcfa;box-shadow:0 24px 70px rgba(29,42,29,.18)}
+.cost-estimate-header{align-items:center;padding:28px 30px 23px;background:#fff;border-bottom:1px solid #e8ede6}
+.cost-estimate-header .section-kicker{display:flex;align-items:center;gap:8px;color:#58735a;font:600 10px/1 "Matter",sans-serif;letter-spacing:.12em}
+.cost-estimate-header .section-kicker:before{width:18px;height:1px;background:#87a18a;content:""}
+.cost-estimate-header h2{margin:11px 0 7px;color:#27342a;font:500 27px/1.18 "Matter",sans-serif;letter-spacing:-.035em}
+.cost-estimate-header p{max-width:550px;color:#778176;font:400 13px/1.55 "Matter",sans-serif}
+.cost-estimate-header .icon-btn{width:38px;height:38px;border:1px solid #e6ebe4;border-radius:10px;background:#fff;color:#5b675b}
+.cost-estimate-project-detail{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px 20px;padding:23px 30px 20px}
+.cost-detail-field{grid-template-columns:1fr;gap:8px;color:#657263;font:500 11px "Matter",sans-serif}
+.cost-detail-field>span{text-transform:uppercase;letter-spacing:.075em;font-size:9px;font-weight:600;color:#818b7f}
+.cost-detail-field select,.cost-detail-field .cost-duration-field{width:100%;height:44px;border-color:#e2e8df;border-radius:9px;background:#fff;color:#354337;font:400 13px "Matter",sans-serif}
+.cost-detail-field select{padding:0 12px}
+.cost-detail-field .cost-duration-field{padding:0 12px}
+.cost-detail-field .cost-duration-field input{font:500 14px "Matter",sans-serif}
+.cost-estimate-project-detail .cost-estimate-summary{grid-column:1/-1;grid-template-columns:1fr 1fr;gap:12px;padding:0}
+.cost-estimate-project-detail .cost-estimate-summary article{gap:7px;min-height:112px;padding:17px 19px;border:1px solid #e1e9df;border-radius:12px;background:#f5f8f3}
+.cost-estimate-project-detail .cost-estimate-summary article>span{color:#687868;font:500 10px "Matter",sans-serif;letter-spacing:.04em}
+.cost-estimate-project-detail .cost-estimate-summary article>b{color:#304832;font:500 25px/1.1 "Matter",sans-serif;letter-spacing:-.025em}
+.cost-estimate-project-detail .cost-estimate-summary article>small{color:#788677;font:400 10px "Matter",sans-serif}
+.cost-rate-details{max-height:280px;margin:0 30px;padding:0 15px;border:1px solid #e4eae2;border-radius:11px;background:#fff}
+.cost-rate-details summary{min-height:44px;color:#506a51;font:500 11px "Matter",sans-serif}
+.cost-rate-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:10px 0 16px;border-top:1px solid #edf0eb}
+.cost-rate-grid label{gap:7px;color:#768174;font:500 10px "Matter",sans-serif}
+.cost-rate-grid input{height:37px;padding:0 10px;border-color:#e1e7df;border-radius:8px;color:#344236;font:400 12px "Matter",sans-serif}
+.cost-tech-list{gap:8px;padding:9px 0 12px}
+.cost-tech-list span{color:#727d70;font:400 11px/1.5 "Matter",sans-serif}
+.cost-tech-list b{color:#435b44;font-weight:600}
+.cost-rate-note{margin:7px 0;color:#858d82;font:400 10px/1.5 "Matter",sans-serif}
+.cost-source-links{gap:16px;padding:7px 0 12px}
+.cost-source-links a{color:#4f7451;font:500 10px "Matter",sans-serif}
+.cost-estimate-footer{min-height:65px;margin-top:18px;padding:12px 30px;border-top:1px solid #e8ede6;background:#fff;color:#7f897d;font:400 10px "Matter",sans-serif}
+.cost-estimate-footer button{min-width:94px;height:38px;border-color:#446b49;border-radius:9px;background:#456e4b;color:#fff;font:500 12px "Matter",sans-serif;transition:background .16s ease,transform .16s ease}
+.cost-estimate-footer button:hover{transform:translateY(-1px);background:#385e3e}
+.cost-estimate-panel{animation:cost-dock-open .3s cubic-bezier(.2,.72,.25,1) both}
+.cost-estimate-backdrop.closing .cost-estimate-panel{animation:cost-dock-close .24s cubic-bezier(.45,0,.9,.35) both}
+@keyframes cost-dock-open{from{opacity:0;transform:scale(.94);filter:blur(1px)}to{opacity:1;transform:scale(1);filter:blur(0)}}
+@keyframes cost-dock-close{from{opacity:1;transform:scale(1);filter:blur(0)}to{opacity:0;transform:scale(.96);filter:blur(1px)}}
+@media(max-width:700px){.cost-estimate-panel{width:calc(100vw - 20px);max-height:calc(100vh - 20px);height:auto;border-radius:15px}.cost-estimate-header{padding:21px 19px 17px}.cost-estimate-header h2{font-size:22px}.cost-estimate-header p{font-size:12px}.cost-estimate-project-detail{grid-template-columns:1fr;gap:13px;padding:17px 19px}.cost-estimate-project-detail .cost-estimate-summary{grid-column:auto;grid-template-columns:1fr 1fr}.cost-estimate-project-detail .cost-estimate-summary article{min-height:98px;padding:13px}.cost-estimate-project-detail .cost-estimate-summary article>b{font-size:20px}.cost-rate-details{margin:0 19px}.cost-rate-grid{grid-template-columns:1fr 1fr}.cost-estimate-footer{margin-top:14px;padding:10px 19px}}
+.cost-dashboard-page .welcome-row h1{color:#2d3a2f;font:500 30px/1.15 "Matter",sans-serif;letter-spacing:-.035em}
+.cost-dashboard-page .welcome-subtitle{color:#788276;font:400 14px/1.5 "Matter",sans-serif}
+.cost-steps-panel,.cost-projects-panel,.cost-spend-panel{border-color:#e6ebe4;border-radius:14px;box-shadow:0 5px 22px rgba(43,61,42,.035)}
+.cost-steps-panel h2,.cost-projects-panel h2{font-size:21px;letter-spacing:-.025em}
+.cost-steps-list b{color:#344636;font-size:14px}
+.cost-steps-list span{color:#748072;font-size:12px;line-height:1.55}
+.cost-workspace-caption{color:#788276;font-size:11px}
+.cost-project-table th{height:44px;background:#f6f8f4;color:#687567;font-size:10px;letter-spacing:.045em;text-transform:uppercase}
+.cost-project-table td{height:64px;color:#626c60;font-size:11px}
+.cost-project-table td:first-child b{color:#303a31;font-size:12px}
+.cost-project-table td:first-child small,.cost-project-table td:nth-child(4) small{color:#7c8779;font-size:10px}
+.cost-project-table td:nth-child(4) b{color:#3e6743;font-size:12px}
+.cost-spend-panel h2{font-size:21px;letter-spacing:-.025em}
+.cost-spend-panel>p{color:#788276;font-size:11px}
+.cost-spend-total span{color:#6f7c6d;font-size:11px}
+.cost-spend-total b{color:#355b3a;font-size:25px}
+.cost-spend-meta{color:#758071;font-size:10px}
+.cost-rates-link{min-height:40px;border-color:#dce6da;background:#f6f9f4;color:#456a48;font-size:11px}
