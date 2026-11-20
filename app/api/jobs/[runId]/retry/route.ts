@@ -1,6 +1,7 @@
 import { getRun, start } from 'workflow/api';
 import { createClient } from '../../../../../lib/supabase/server';
 import { retryQualityReview } from '../../../../../services/dubbing-workflow';
+import { recoverSavedDubForJob } from '../../../../../lib/jobs/recover-saved-dub';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -16,7 +17,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ru
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in before retrying QA.' }, { status: 401 });
     const byId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId);
-    const lookup = supabase.from('qa_jobs').select('id,run_id,project_name,original_name,source_language,target_language,original_blob_url,dubbed_blob_url,status').eq('user_id', user.id);
+    const lookup = supabase.from('qa_jobs').select('id,run_id,project_name,original_name,source_language,target_language,original_blob_url,dubbed_blob_url,status,updated_at').eq('user_id', user.id);
     const { data: job, error: lookupError } = byId ? await lookup.eq('id', runId).maybeSingle() : await lookup.eq('run_id', runId).maybeSingle();
     if (lookupError) throw lookupError;
     if (!job) return Response.json({ error: 'This project was not found in your account.' }, { status: 404 });
@@ -34,6 +35,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ru
           }
         }
       } catch { /* Return a clear response if the previous workflow output has expired. */ }
+    }
+    if (!dubbedBlobUrl && process.env.BLOB_READ_WRITE_TOKEN) {
+      dubbedBlobUrl = await recoverSavedDubForJob({ userId: user.id, jobId: job.id, originalBlobUrl: job.original_blob_url, updatedAt: job.updated_at });
+      if (dubbedBlobUrl) await supabase.from('qa_jobs').update({ dubbed_blob_url: dubbedBlobUrl }).eq('id', job.id).eq('user_id', user.id);
     }
     if (!dubbedBlobUrl) return Response.json({ error: 'The saved dub could not be recovered for this older job. No new Sarvam dub was started.' }, { status: 409 });
     if (!job.original_blob_url) return Response.json({ error: 'The original video is no longer available for QA.' }, { status: 409 });

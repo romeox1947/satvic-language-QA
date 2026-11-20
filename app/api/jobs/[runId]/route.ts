@@ -3,6 +3,7 @@ import { del, get } from '@vercel/blob';
 import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { createClient } from '../../../../lib/supabase/server';
 import { getB2Client, getB2Config } from '../../../../lib/b2/client';
+import { recoverSavedDubForJob } from '../../../../lib/jobs/recover-saved-dub';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -55,7 +56,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in to view this job.' }, { status: 401 });
-    const jobLookup = supabase.from('qa_jobs').select('id,run_id,project_name,status,report_blob_url,error_message,original_blob_url,dubbed_blob_url,original_b2_key,dubbed_b2_key,report_b2_key').eq('user_id', user.id);
+    const jobLookup = supabase.from('qa_jobs').select('id,run_id,project_name,status,report_blob_url,error_message,original_blob_url,dubbed_blob_url,original_b2_key,dubbed_b2_key,report_b2_key,updated_at').eq('user_id', user.id);
     const { data: job, error: jobError } = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(runId)
       ? await jobLookup.eq('id', runId).maybeSingle()
       : await jobLookup.eq('run_id', runId).maybeSingle();
@@ -82,6 +83,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
             }
           }
         } catch { /* Keep the failure details available if workflow output has expired. */ }
+      }
+      if (!dubbedBlobUrl && process.env.BLOB_READ_WRITE_TOKEN) {
+        try {
+          dubbedBlobUrl = await recoverSavedDubForJob({ userId: user.id, jobId: job.id, originalBlobUrl: job.original_blob_url, updatedAt: job.updated_at });
+          if (dubbedBlobUrl) await supabase.from('qa_jobs').update({ dubbed_blob_url: dubbedBlobUrl }).eq('id', job.id).eq('user_id', user.id);
+        } catch (error) {
+          console.warn('[api/jobs] Could not recover the stored dub from Blob.', error);
+        }
       }
       return Response.json({
         runId,

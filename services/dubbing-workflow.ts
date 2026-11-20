@@ -133,11 +133,11 @@ async function downloadSubtitle(downloadUrl: string | null) {
   }
 }
 
-async function saveDub(downloadUrl: string, userId: string) {
+async function saveDub(downloadUrl: string, userId: string, jobId: string) {
   'use step';
   const response = await fetch(downloadUrl, { cache: 'no-store', signal: AbortSignal.timeout(240_000) });
   if (!response.ok || !response.body) throw new Error(`Downloading the Sarvam dub failed (${response.status}).`);
-  const blob = await put(`satvic-users/${userId}/satvic-jobs/${crypto.randomUUID()}-dub.mp4`, response.body, { access: 'private', contentType: 'video/mp4', addRandomSuffix: true, multipart: true });
+  const blob = await put(`satvic-users/${userId}/satvic-jobs/${jobId}-dub.mp4`, response.body, { access: 'private', contentType: 'video/mp4', addRandomSuffix: true, multipart: true });
   return blob.url;
 }
 
@@ -208,7 +208,7 @@ export async function generateAndReview(input: JobInput) {
     if (!current.ready || !current.downloadUrl) throw new Error('Sarvam has not finished the dubbing export within 12 hours.');
     logPhase('sarvam-dub-and-export');
     const [dubbedBlobUrl, dubbedSubtitleSrt] = await Promise.all([
-      saveDub(current.downloadUrl, input.userId),
+      saveDub(current.downloadUrl, input.userId, input.dbJobId),
       downloadSubtitle('subtitleDownloadUrl' in current ? current.subtitleDownloadUrl || null : null),
     ]);
     savedDubbedBlobUrl = dubbedBlobUrl;
