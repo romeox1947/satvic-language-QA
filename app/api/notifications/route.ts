@@ -90,7 +90,7 @@ export async function GET() {
         id,
         title: job.status === 'failed' ? 'Video dubbing and QA needs attention' : 'Video dubbing and QA complete',
         description: job.status === 'failed' ? `${job.project_name}: ${job.error_message || 'Open the project to review the issue.'}` : `${job.project_name} is ready. ${job.issue_count} finding${job.issue_count === 1 ? '' : 's'} to review.`,
-        kind: 'Satvic Tools',
+        kind: 'Satvic Studio',
         createdAt: job.updated_at || job.created_at,
         href: `/dashboard/satvic-fluid?qaRunId=${encodeURIComponent(runId)}`,
       }];

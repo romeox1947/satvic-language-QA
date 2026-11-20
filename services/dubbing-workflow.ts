@@ -85,7 +85,7 @@ async function startSarvam(input: JobInput) {
   const bytes = new Uint8Array(await new Response(blob.stream).arrayBuffer());
   const createdResponse = await fetch(`${SARVAM}/jobs`, {
     method: 'POST', headers: { 'api-subscription-key': key, 'content-type': 'application/json' },
-    body: JSON.stringify({ src_lang: lang[input.sourceLanguage], target_langs: [lang[input.targetLanguage]], export_options: ['video'], voice_cloning: true, num_speakers: 1, register: 'modern-colloquial', job_name: input.projectName.slice(0, 120) || input.originalName, editor_flow: false }),
+    body: JSON.stringify({ src_lang: lang[input.sourceLanguage], target_langs: [lang[input.targetLanguage]], export_options: ['video', 'srt'], voice_cloning: true, num_speakers: 1, register: 'modern-colloquial', job_name: input.projectName.slice(0, 120) || input.originalName, editor_flow: false }),
   });
   const created = await createdResponse.json().catch(() => ({}));
   if (!createdResponse.ok) throw new Error(`Sarvam could not create the dubbing job (${createdResponse.status}): ${created.message || created.detail || 'Unknown error'}`);
@@ -116,9 +116,23 @@ async function checkSarvam(jobId: string) {
   if (!exportResponse.ok) throw new Error(`Sarvam export status returned ${exportResponse.status}.`);
   const exports = exportBody.data?.exports || [];
   const video = exports.find((item: Json) => item.export_type === 'video' && item.status === 'completed' && !item.is_stale);
+  const subtitles = exports.find((item: Json) => item.export_type === 'srt' && item.status === 'completed' && !item.is_stale);
   const failed = exports.find((item: Json) => item.export_type === 'video' && item.status === 'failed');
   if (failed) throw new Error(failed.error_message || 'Sarvam could not render the dubbed video.');
-  return video?.download_url ? { ready: true, downloadUrl: video.download_url, progress: 100, step: 'Dub is ready; starting QA' } : { ready: false, progress: 90, step: 'Sarvam is rendering the dubbed video export' };
+  return video?.download_url ? { ready: true, downloadUrl: video.download_url, subtitleDownloadUrl: subtitles?.download_url || null, progress: 100, step: 'Dub is ready; starting QA' } : { ready: false, progress: 90, step: 'Sarvam is rendering the dubbed video export' };
+}
+
+async function downloadSubtitle(downloadUrl: string | null) {
+  'use step';
+  if (!downloadUrl) return null;
+  try {
+    const response = await fetch(downloadUrl, { cache: 'no-store', signal: AbortSignal.timeout(60_000) });
+    if (!response.ok) return null;
+    const text = await response.text();
+    return text.length <= 2_000_000 ? text : null;
+  } catch {
+    return null;
+  }
 }
 
 async function saveDub(downloadUrl: string, userId: string) {
@@ -129,7 +143,7 @@ async function saveDub(downloadUrl: string, userId: string) {
   return blob.url;
 }
 
-async function runQa(input: JobInput, dubbedBlobUrl: string) {
+async function runQa(input: JobInput, dubbedBlobUrl: string, dubbedSubtitleSrt: string | null) {
   'use step';
   const appUrl = appBaseUrl();
   if (!appUrl) throw new Error('APP_BASE_URL is missing. Set it to your deployed Vercel URL so the workflow can start QA.');
@@ -140,7 +154,7 @@ async function runQa(input: JobInput, dubbedBlobUrl: string) {
   try {
     response = await fetch(`${appUrl}/api/analyze`, {
       method: 'POST', headers,
-      body: JSON.stringify({ originalBlobUrl: input.originalBlobUrl, dubbedBlobUrl, originalName: input.originalName, projectName: input.projectName, sourceLanguage: input.sourceLanguage, targetLanguage: input.targetLanguage }),
+      body: JSON.stringify({ originalBlobUrl: input.originalBlobUrl, dubbedBlobUrl, dubbedSubtitleSrt, originalName: input.originalName, projectName: input.projectName, sourceLanguage: input.sourceLanguage, targetLanguage: input.targetLanguage }),
       signal: AbortSignal.timeout(295_000),
     });
   } catch (error) {
@@ -193,8 +207,9 @@ export async function generateAndReview(input: JobInput) {
     if (!current.ready || !current.downloadUrl) throw new Error('Sarvam has not finished the dubbing export within 12 hours.');
     logPhase('sarvam-dub-and-export');
     const dubbedBlobUrl = await saveDub(current.downloadUrl, input.userId);
+    const dubbedSubtitleSrt = await downloadSubtitle('subtitleDownloadUrl' in current ? current.subtitleDownloadUrl || null : null);
     logPhase('store-dub-video');
-    const result = await runQa(input, dubbedBlobUrl);
+    const result = await runQa(input, dubbedBlobUrl, dubbedSubtitleSrt);
     logPhase('qa-and-report-storage');
     console.info(`[dubbing-workflow] job=${input.dbJobId} totalDurationMs=${Date.now() - workflowStartedAt}`);
     if ('jobError' in result && typeof result.jobError === 'string') {

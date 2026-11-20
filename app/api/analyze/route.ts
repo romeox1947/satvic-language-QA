@@ -14,15 +14,15 @@ export const runtime = 'nodejs';
 export const maxDuration = 300;
 
 const SARVAM = 'https://api.sarvam.ai';
-const LANGUAGES: Record<string, { whisper: string; sarvam: string }> = {
-  English: { whisper: 'en', sarvam: 'en-IN' }, Hindi: { whisper: 'hi', sarvam: 'hi-IN' },
-  Tamil: { whisper: 'ta', sarvam: 'ta-IN' }, Telugu: { whisper: 'te', sarvam: 'te-IN' },
-  Gujarati: { whisper: 'gu', sarvam: 'gu-IN' }, Kannada: { whisper: 'kn', sarvam: 'kn-IN' },
-  Bengali: { whisper: 'bn', sarvam: 'bn-IN' }, Marathi: { whisper: 'mr', sarvam: 'mr-IN' },
-  Punjabi: { whisper: 'pa', sarvam: 'pa-IN' }, Malayalam: { whisper: 'ml', sarvam: 'ml-IN' },
-  Odia: { whisper: 'or', sarvam: 'od-IN' }, Assamese: { whisper: 'as', sarvam: 'as-IN' },
-  Urdu: { whisper: 'ur', sarvam: 'ur-IN' }, Sanskrit: { whisper: 'sa', sarvam: 'sa-IN' },
-  Nepali: { whisper: 'ne', sarvam: 'ne-IN' },
+const LANGUAGES: Record<string, { sarvam: string }> = {
+  English: { sarvam: 'en-IN' }, Hindi: { sarvam: 'hi-IN' },
+  Tamil: { sarvam: 'ta-IN' }, Telugu: { sarvam: 'te-IN' },
+  Gujarati: { sarvam: 'gu-IN' }, Kannada: { sarvam: 'kn-IN' },
+  Bengali: { sarvam: 'bn-IN' }, Marathi: { sarvam: 'mr-IN' },
+  Punjabi: { sarvam: 'pa-IN' }, Malayalam: { sarvam: 'ml-IN' },
+  Odia: { sarvam: 'od-IN' }, Assamese: { sarvam: 'as-IN' },
+  Urdu: { sarvam: 'ur-IN' }, Sanskrit: { sarvam: 'sa-IN' },
+  Nepali: { sarvam: 'ne-IN' },
 };
 const TARGET_LANGUAGE_REVIEW_NOTES: Record<string, string> = {
   Punjabi: 'Punjabi reference note: A Start in Punjabi (Academy of the Punjab in North America), lesson 15, teaches rīn/rinn as “cook” and rīdda as “cooked,” including the example of cooked dal. Do not interpret a Punjabi cooking form applied to dal as rajma or an added ingredient without clear evidence in the actual phrase.',
@@ -184,20 +184,24 @@ async function transcribeWithSarvam(file: File, languageCode: string, key: strin
   return { transcript, segments, detectedLanguage: data.language_code || languageCode, engine: 'Sarvam Saaras v4' };
 }
 
-async function transcribeWithWhisper(file: File, language: string, languageCode: string, key: string): Promise<Transcript> {
-  const workerUrl = process.env.WHISPER_WORKER_URL || 'http://127.0.0.1:8001';
-  const form = new FormData();
-  form.set('file', file, file.name);
-  form.set('language', language);
-  let response: Response;
-  try {
-    response = await fetch(`${workerUrl}/transcribe`, { method: 'POST', body: form, signal: AbortSignal.timeout(25 * 60 * 1000) });
-  } catch {
-    return transcribeWithSarvam(file, languageCode, key);
+function parseSarvamSrt(srt: string, language: string): Transcript | null {
+  const time = (value: string) => {
+    const match = value.trim().match(/^(\d{2,}):(\d{2}):(\d{2})[,.](\d{3})$/);
+    return match ? Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(match[4]) / 1000 : NaN;
+  };
+  const segments: Segment[] = [];
+  for (const block of srt.replace(/^\uFEFF/, '').split(/\r?\n\s*\r?\n/)) {
+    const lines = block.trim().split(/\r?\n/);
+    const timingIndex = lines.findIndex(line => line.includes('-->'));
+    if (timingIndex < 0) continue;
+    const [startText, endText] = lines[timingIndex].split('-->').map(value => value.trim().split(/\s+/)[0]);
+    const start = time(startText || '');
+    const end = time(endText || '');
+    const text = lines.slice(timingIndex + 1).join(' ').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+    if (text && Number.isFinite(start) && Number.isFinite(end) && end >= start) segments.push({ start, end, text });
   }
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`Whisper returned ${response.status}: ${providerError(body)}`);
-  return body as Transcript;
+  if (!segments.length) return null;
+  return { transcript: segments.map(segment => segment.text).join(' '), segments, detectedLanguage: language, engine: 'Sarvam dubbing SRT export' };
 }
 
 async function sarvamJson(path: string, key: string, body: Json): Promise<Json> {
@@ -485,12 +489,15 @@ export async function POST(request: Request) {
       appUrl: new URL(request.url).origin,
     });
 
-    markStage('Transcribing original and dubbed media');
+    const dubbedSubtitleSrt = typeof json.dubbedSubtitleSrt === 'string' && json.dubbedSubtitleSrt.length <= 2_000_000 ? json.dubbedSubtitleSrt : '';
+    markStage(dubbedSubtitleSrt ? 'Transcribing source and loading Sarvam dub captions' : 'Transcribing source and dubbed media with Sarvam');
     updateAnalysisProgress(progressId, stage, 24);
-    const [originalResult, dubbedResult] = await Promise.all([
-      transcribeWithWhisper(original, source.whisper, source.sarvam, key),
-      transcribeWithWhisper(dubbed, target.whisper, target.sarvam, key),
+    const [originalResult, sarvamDubTranscript] = await Promise.all([
+      transcribeWithSarvam(original, source.sarvam, key),
+      dubbedSubtitleSrt ? Promise.resolve(null) : transcribeWithSarvam(dubbed, target.sarvam, key),
     ]);
+    const dubbedResult = (dubbedSubtitleSrt && parseSarvamSrt(dubbedSubtitleSrt, target.sarvam)) || sarvamDubTranscript;
+    if (!dubbedResult) throw new Error('Sarvam subtitle export did not contain readable timestamped captions, and dubbed-video transcription was unavailable.');
     markStage('Checking transcript and back-translation');
     updateAnalysisProgress(progressId, stage, 66);
     const backTranslation = await backTranslate(dubbedResult.transcript, source.sarvam, target.sarvam, key);
@@ -584,7 +591,7 @@ export async function POST(request: Request) {
     }
     updateAnalysisProgress(progressId, 'Analysis stopped', 100, 'error', message);
     console.error(`[api/analyze] ${stage} failed: ${message || 'Unknown analysis error.'}`);
-    const status = message.includes('Whisper worker') || /returned 503/.test(message) ? 503 : /returned 429/.test(message) ? 429 : 502;
+    const status = /returned 503/.test(message) ? 503 : /returned 429/.test(message) ? 429 : 502;
     return NextResponse.json({ error: `${stage}: ${message || 'Unknown analysis error.'}` }, { status });
   }
 }

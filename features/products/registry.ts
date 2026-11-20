@@ -17,7 +17,7 @@ export type ProductDefinition = {
 export const products: ProductDefinition[] = [
   {
     id: 'satvic-fluid',
-    name: 'Satvic Tools',
+    name: 'Satvic Studio',
     description: 'Language QA',
     href: '/dashboard/satvic-fluid',
     groups: [
