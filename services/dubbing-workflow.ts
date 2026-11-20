@@ -232,3 +232,25 @@ export async function generateAndReview(input: JobInput) {
     return { jobError };
   }
 }
+
+export async function retryQualityReview(input: JobInput & { dubbedBlobUrl: string }) {
+  'use workflow';
+  await updateHistory(input, { status: 'running', error_message: null });
+  try {
+    await sendJobEmail(input, 'started', 'QA is being retried using the saved Sarvam dub. The video will not be dubbed again.');
+    const result = await runQa(input, input.dubbedBlobUrl, null);
+    if ('jobError' in result && typeof result.jobError === 'string') {
+      await updateHistory(input, { dubbed_blob_url: input.dubbedBlobUrl, status: 'failed', error_message: result.jobError });
+      await sendJobEmail(input, 'failed', result.jobError);
+      return result;
+    }
+    await updateHistory(input, { dubbed_blob_url: input.dubbedBlobUrl, report_blob_url: result.reportBlobUrl, status: 'completed', issue_count: result.issueCount, error_message: null });
+    await sendJobEmail(input, 'completed', 'The QA report for your saved Sarvam dub is ready in Satvic Studio.');
+    return result;
+  } catch (error) {
+    const jobError = errorText(error);
+    await updateHistory(input, { dubbed_blob_url: input.dubbedBlobUrl, status: 'failed', error_message: jobError });
+    await sendJobEmail(input, 'failed', jobError);
+    return { jobError, dubbedBlobUrl: input.dubbedBlobUrl };
+  }
+}
