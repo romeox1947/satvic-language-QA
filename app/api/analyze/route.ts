@@ -9,6 +9,7 @@ import { updateAnalysisProgress } from './progress-store';
 import { put } from '@vercel/blob';
 import { createClient } from '../../../lib/supabase/server';
 import { sendGmailJobEmail } from '../../../lib/email/gmail';
+import { appUrl } from '../../../lib/app-url';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -486,7 +487,7 @@ export async function POST(request: Request) {
       sourceLanguage,
       targetLanguage,
       detail: 'Your video QA is starting. We will email you again when the report is ready or if the analysis fails.',
-      appUrl: new URL(request.url).origin,
+      appUrl: appUrl(),
     });
 
     const dubbedSubtitleSrt = typeof json.dubbedSubtitleSrt === 'string' && json.dubbedSubtitleSrt.length <= 2_000_000 ? json.dubbedSubtitleSrt : '';
@@ -570,7 +571,7 @@ export async function POST(request: Request) {
         sourceLanguage,
         targetLanguage,
         detail: 'Your dub QA report is ready in Satvic Studio.',
-        appUrl: new URL(request.url).origin,
+        appUrl: appUrl(),
       });
     }
     return NextResponse.json(report);
@@ -586,7 +587,7 @@ export async function POST(request: Request) {
         sourceLanguage: historySourceLanguage || 'Unknown',
         targetLanguage: historyTargetLanguage || 'Unknown',
         detail: `${stage}: ${message}`,
-        appUrl: new URL(request.url).origin,
+        appUrl: appUrl(),
       });
     }
     updateAnalysisProgress(progressId, 'Analysis stopped', 100, 'error', message);

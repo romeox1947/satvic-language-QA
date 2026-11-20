@@ -2,6 +2,7 @@ import { get, put } from '@vercel/blob';
 import { sleep } from 'workflow';
 import { createAdminClient } from '../lib/supabase/admin';
 import { sendGmailJobEmail } from '../lib/email/gmail';
+import { appUrl } from '../lib/app-url';
 
 type JobInput = {
   originalBlobUrl: string;
@@ -29,10 +30,7 @@ async function updateHistory(input: JobInput, values: Record<string, unknown>) {
 }
 
 function appBaseUrl(): string {
-  const configured = process.env.APP_BASE_URL?.trim();
-  const domain = configured || process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || '';
-  if (!domain) return '';
-  return (domain.startsWith('http://') || domain.startsWith('https://') ? domain : `https://${domain}`).replace(/\/+$/, '');
+  return appUrl();
 }
 
 function errorText(value: unknown): string {
