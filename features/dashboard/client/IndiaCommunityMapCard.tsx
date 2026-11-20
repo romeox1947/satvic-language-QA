@@ -88,7 +88,8 @@ export default function IndiaCommunityMapCard({ projects = [], compact = false, 
     if (!compact) return svg;
     return svg.replace(/<title>([^<]+)<\/title>/g, (_match, name: string) => {
       const status = statusForState(name, projects);
-      return `<title>${statusTitle(name, status)}</title>`;
+      const selected = name === activeState ? ' data-selected="true"' : '';
+      return `<title${selected}>${statusTitle(name, status)}</title>`;
     });
   }, [compact, projects, activeState]);
 
@@ -100,7 +101,7 @@ export default function IndiaCommunityMapCard({ projects = [], compact = false, 
       const matchedState = stateList.find(state => stateName?.startsWith(state.name));
       if (matchedState) selectState(matchedState.name);
     }} dangerouslySetInnerHTML={{ __html: mapSvg }}/>
-    {activeState && <div className="so-india-filter-note"><span>Showing {activeState} videos</span><button type="button" onClick={() => { if (selectedState === undefined) setLocalSelectedState(''); onStateSelect?.(null); }}>Clear filter</button></div>}
+    {activeState && <div className="so-india-filter-note"><span><i aria-hidden="true"/> {activeState} selected · showing matching videos</span><button type="button" onClick={() => { if (selectedState === undefined) setLocalSelectedState(''); onStateSelect?.(null); }}>Clear filter</button></div>}
   </article>;
 
   return <article className="so-card so-global-card so-india-card">
