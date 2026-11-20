@@ -1295,6 +1295,10 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell.product-satvic-fluid .failed-dub-available p{margin:4px 0 0;color:#747970;font:400 11px/1.45 "Matter"}
 .app-shell.product-satvic-fluid .failed-dub-available video{width:100%;max-height:330px;border-radius:9px;background:#171816}
 .app-shell.product-satvic-fluid .failed-dub-available .secondary-btn{width:max-content;min-height:36px;padding:0 12px;border-color:#d9e2d9;background:#fff;color:#465d49}
+.app-shell.product-satvic-fluid .failed-video-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.app-shell.product-satvic-fluid .failed-video-grid>section{display:grid;min-width:0;align-content:start;gap:8px}
+.app-shell.product-satvic-fluid .failed-video-grid>section>b{color:#4b554c;font:500 12px/1.35 "Matter"}
+@media(max-width:620px){.app-shell.product-satvic-fluid .failed-video-grid{grid-template-columns:1fr}}
 .app-shell.product-satvic-fluid .spin{animation:qa-retry-spin .9s linear infinite}
 @keyframes qa-retry-spin{to{transform:rotate(360deg)}}
 .app-shell.product-satvic-fluid .job-failure > div { min-width: 0; }

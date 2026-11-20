@@ -97,6 +97,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
         status: 'failed',
         error: job.error_message || 'This job failed.',
         stage: 'Job failed',
+        originalVideoUrl: job.original_b2_key
+          ? `/api/jobs/${encodeURIComponent(runId)}/b2/media?track=source`
+          : job.original_blob_url ? `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(job.original_blob_url)}` : null,
         dubbedVideoUrl: job.dubbed_b2_key
           ? `/api/jobs/${encodeURIComponent(runId)}/b2/media?track=dub`
           : dubbedBlobUrl ? `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(dubbedBlobUrl)}` : null,
