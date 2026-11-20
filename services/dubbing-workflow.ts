@@ -212,6 +212,7 @@ export async function generateAndReview(input: JobInput) {
       downloadSubtitle('subtitleDownloadUrl' in current ? current.subtitleDownloadUrl || null : null),
     ]);
     savedDubbedBlobUrl = dubbedBlobUrl;
+    await updateHistory(input, { dubbed_blob_url: dubbedBlobUrl, status: 'running', error_message: null });
     logPhase('store-dub-video');
     const result = await runQa(input, dubbedBlobUrl, dubbedSubtitleSrt);
     logPhase('qa-and-report-storage');

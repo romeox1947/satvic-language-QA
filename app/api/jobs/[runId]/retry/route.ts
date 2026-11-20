@@ -1,4 +1,4 @@
-import { start } from 'workflow/api';
+import { getRun, start } from 'workflow/api';
 import { createClient } from '../../../../../lib/supabase/server';
 import { retryQualityReview } from '../../../../../services/dubbing-workflow';
 
@@ -20,7 +20,22 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ru
     const { data: job, error: lookupError } = byId ? await lookup.eq('id', runId).maybeSingle() : await lookup.eq('run_id', runId).maybeSingle();
     if (lookupError) throw lookupError;
     if (!job) return Response.json({ error: 'This project was not found in your account.' }, { status: 404 });
-    if (job.status !== 'failed' || !job.dubbed_blob_url) return Response.json({ error: 'This project has no saved dubbed video available for a QA-only retry.' }, { status: 409 });
+    if (job.status !== 'failed') return Response.json({ error: 'Only failed projects can retry QA.' }, { status: 409 });
+    let dubbedBlobUrl = job.dubbed_blob_url as string | null;
+    if (!dubbedBlobUrl && job.run_id) {
+      try {
+        const previousRun = getRun(job.run_id);
+        if (await previousRun.exists && await previousRun.status === 'completed') {
+          const result = await previousRun.returnValue as Record<string, any>;
+          const returnedUrl = typeof result?.dubbedBlobUrl === 'string' ? result.dubbedBlobUrl : null;
+          if (returnedUrl && /^https:\/\/.+\.blob\.vercel-storage\.com\//.test(returnedUrl)) {
+            dubbedBlobUrl = returnedUrl;
+            await supabase.from('qa_jobs').update({ dubbed_blob_url: returnedUrl }).eq('id', job.id).eq('user_id', user.id);
+          }
+        }
+      } catch { /* Return a clear response if the previous workflow output has expired. */ }
+    }
+    if (!dubbedBlobUrl) return Response.json({ error: 'The saved dub could not be recovered for this older job. No new Sarvam dub was started.' }, { status: 409 });
     if (!job.original_blob_url) return Response.json({ error: 'The original video is no longer available for QA.' }, { status: 409 });
 
     const claim = supabase.from('qa_jobs').update({ status: 'queued', error_message: null }).eq('id', job.id).eq('user_id', user.id).eq('status', 'failed').not('dubbed_blob_url', 'is', null).select('id').maybeSingle();
@@ -30,7 +45,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ru
 
     const input = {
       originalBlobUrl: job.original_blob_url,
-      dubbedBlobUrl: job.dubbed_blob_url,
+      dubbedBlobUrl,
       originalName: job.original_name || `${job.project_name}.mp4`,
       sourceLanguage: job.source_language,
       targetLanguage: job.target_language,

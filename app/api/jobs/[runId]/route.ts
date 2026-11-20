@@ -66,15 +66,33 @@ export async function GET(_request: Request, { params }: { params: Promise<{ run
     if (job.status === 'completed') {
       return await completedResponse(job, runId);
     }
-    if (job.status === 'failed') return Response.json({
-      runId,
-      status: 'failed',
-      error: job.error_message || 'This job failed.',
-      stage: 'Job failed',
-      dubbedVideoUrl: job.dubbed_b2_key
-        ? `/api/jobs/${encodeURIComponent(runId)}/b2/media?track=dub`
-        : job.dubbed_blob_url ? `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(job.dubbed_blob_url)}` : null,
-    }, { headers: { 'cache-control': 'no-store' } });
+    if (job.status === 'failed') {
+      let dubbedBlobUrl = job.dubbed_blob_url as string | null;
+      // Older workflow versions only returned the saved dub URL and did not
+      // persist it when QA failed. Recover it from that completed workflow run.
+      if (!dubbedBlobUrl && job.run_id) {
+        try {
+          const failedRun = getRun(job.run_id);
+          if (await failedRun.exists && await failedRun.status === 'completed') {
+            const result = await failedRun.returnValue as Record<string, any>;
+            const returnedUrl = typeof result?.dubbedBlobUrl === 'string' ? result.dubbedBlobUrl : null;
+            if (returnedUrl && /^https:\/\/.+\.blob\.vercel-storage\.com\//.test(returnedUrl)) {
+              dubbedBlobUrl = returnedUrl;
+              await supabase.from('qa_jobs').update({ dubbed_blob_url: returnedUrl }).eq('id', job.id).eq('user_id', user.id);
+            }
+          }
+        } catch { /* Keep the failure details available if workflow output has expired. */ }
+      }
+      return Response.json({
+        runId,
+        status: 'failed',
+        error: job.error_message || 'This job failed.',
+        stage: 'Job failed',
+        dubbedVideoUrl: job.dubbed_b2_key
+          ? `/api/jobs/${encodeURIComponent(runId)}/b2/media?track=dub`
+          : dubbedBlobUrl ? `/api/jobs/media?runId=${encodeURIComponent(runId)}&url=${encodeURIComponent(dubbedBlobUrl)}` : null,
+      }, { headers: { 'cache-control': 'no-store' } });
+    }
     if (!job.run_id) {
       return Response.json({ runId, status: job.status, stage: 'AI is reviewing both audio tracks' }, { headers: { 'cache-control': 'no-store' } });
     }
