@@ -44,6 +44,7 @@ type QaCheckpoint = {
   dubbedTranscriptionJobId?: string;
   audioReviewChunks?: Record<string, AudioFinding[]>;
   audioReviewChunkCount?: number;
+  audioReviewModels?: string[];
   backTranslation?: string;
   sourceAudio?: { data: string; mime_type: string };
   dubAudio?: { data: string; mime_type: string };
@@ -448,7 +449,7 @@ function segmentRange(segments: Segment[], startIndex: unknown, endIndex: unknow
 }
 async function geminiTranscriptReview(source: Transcript, dub: Transcript, sourceLanguage: string, targetLanguage: string, modelsUsed: Set<string>): Promise<AudioFinding[]> {
   const key = process.env.GEMINI_API_KEY?.trim();
-  if (!key) return [];
+  if (!key) throw new Error('GEMINI_API_KEY is missing for transcript review.');
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
   const sourceText = formatSegments(source.segments) || source.transcript.slice(0, 14000);
   const dubText = formatSegments(dub.segments) || dub.transcript.slice(0, 14000);
@@ -500,10 +501,10 @@ ${dubText}`;
 }
 async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudio: { data: string; mime_type: string }, dubAudio: { data: string; mime_type: string }, sourceLanguage: string, targetLanguage: string, modelsUsed: Set<string>, clipStart: number, clipEnd: number): Promise<AudioFinding[]> {
   const key = process.env.GEMINI_API_KEY?.trim();
-  if (!key) return [] as AudioFinding[];
+  if (!key) throw new Error('GEMINI_API_KEY is missing for audio review.');
   const model = process.env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
   const [sourceClip, dubClip] = await Promise.all([sliceCompactAudio(sourceAudio, clipStart, clipEnd - clipStart), sliceCompactAudio(dubAudio, clipStart, clipEnd - clipStart)]);
-  if (!sourceClip || !dubClip) return [];
+  if (!sourceClip || !dubClip) throw new Error(`Could not create both Gemini audio-review clips for ${clipStart.toFixed(1)}–${clipEnd.toFixed(1)} seconds.`);
   const body = {
     model,
     input: [
@@ -526,7 +527,7 @@ async function geminiAudioReview(source: Transcript, dub: Transcript, sourceAudi
   } catch {
     throw new Error('Gemini audio review returned incomplete or invalid JSON.');
   }
-  if (!Array.isArray(parsed.findings)) return [];
+  if (!Array.isArray(parsed.findings)) throw new Error('Gemini audio review returned invalid findings.');
   return parsed.findings.filter((item: Json) => item?.title && item?.detail && ['critical', 'review', 'info'].includes(item.severity)).map((item: Json): AudioFinding => {
     const sourceRange = Number.isInteger(item.sourceStartSegment)
       ? segmentRange(source.segments, item.sourceStartSegment, item.sourceEndSegment, undefined, undefined)
@@ -716,7 +717,7 @@ export async function POST(request: Request) {
     updateAnalysisProgress(progressId, stage, 82);
     let textFindings: AudioFinding[] = checkpoint.textFindings || [];
     const transcriptModelsUsed = new Set<string>();
-    const audioModelsUsed = new Set<string>();
+    const audioModelsUsed = new Set<string>(checkpoint.audioReviewModels || []);
     let transcriptCrossCheckAvailable = checkpoint.textReviewComplete === true;
     let transcriptCrossCheckError: string | null = checkpoint.transcriptCrossCheckError || null;
     const reviewCoverageWarnings: string[] = [];
@@ -743,6 +744,11 @@ export async function POST(request: Request) {
         checkpoint.transcriptCrossCheckError = transcriptCrossCheckError;
         await persistCheckpoint();
       });
+    if (checkpoint.audioReviewComplete && !checkpoint.audioReviewModels?.length) {
+      checkpoint.audioReviewComplete = false;
+      checkpoint.audioReviewChunks = {};
+      checkpoint.audioReviewChunkCount = undefined;
+    }
     const audioReview = checkpoint.audioReviewComplete ? Promise.resolve(checkpoint.audioFindings || []) : (async () => {
       const chunkSeconds = 30;
       const duration = Math.max(
@@ -763,6 +769,7 @@ export async function POST(request: Request) {
         updateAnalysisProgress(progressId, stage, Math.min(95, 82 + Math.floor((index / chunkCount) * 12)));
         const findings = await geminiAudioReview(originalResult, dubbedResult, sourceAudio, dubAudio, sourceLanguage, targetLanguage, audioModelsUsed, start, end);
         checkpoint.audioReviewChunks[chunkKey] = findings;
+        checkpoint.audioReviewModels = [...audioModelsUsed];
         checkpoint.audioFindings = Object.values(checkpoint.audioReviewChunks).flat();
         await persistCheckpoint();
       }
@@ -772,6 +779,7 @@ export async function POST(request: Request) {
       return checkpoint.audioFindings;
     })();
     const [, aiFindings] = await Promise.all([transcriptReview, audioReview]);
+    if (!audioModelsUsed.size) throw new Error('Gemini did not confirm any audio-review model response; the QA report cannot be marked complete.');
     const audioFindings = aiFindings.map(item => ({
       ...item,
       evidenceStatus: textFindings.some(check => phrasesSupportSameFinding(item, check)) ? 'cross-checked' as const : 'audio-only' as const,
@@ -795,8 +803,9 @@ export async function POST(request: Request) {
       transcriptCrossCheckAvailable,
       transcriptCrossCheckError,
       audioReviewCompleted: true,
-      audioReviewEngine: [...audioModelsUsed].join(', ') || process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+      audioReviewEngine: [...audioModelsUsed].join(', '),
       audioReviewFindingCount: aiFindings.length,
+      audioReviewChunkCount: checkpoint.audioReviewChunkCount || 0,
       reviewCoverageWarnings,
       reviewComplete: transcriptCrossCheckAvailable && reviewCoverageWarnings.length === 0,
       originalSegments: originalResult.segments, dubbedSegments: dubbedResult.segments,
