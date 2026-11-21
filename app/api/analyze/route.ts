@@ -104,10 +104,34 @@ function sarvamSegments(data: Json): Segment[] {
   })).filter((segment: Segment) => segment.text && Number.isFinite(segment.start) && Number.isFinite(segment.end) && segment.end >= segment.start);
 }
 
-function providerError(value: Json): string {
-  const candidate = value?.message ?? value?.detail ?? value?.error?.message ?? value?.error ?? value;
-  if (typeof candidate === 'string') return candidate;
-  try { return JSON.stringify(candidate); } catch { return 'Unrecognized provider error response.'; }
+function providerError(value: unknown): string {
+  if (typeof value === 'string') return value.trim() || 'No provider error detail was returned.';
+  if (value instanceof Error) return value.message;
+  if (!value || typeof value !== 'object') return 'Unrecognized provider error response.';
+
+  const item = value as Json;
+  const candidates = [
+    item.message,
+    item.detail,
+    item.error_description,
+    item.error?.message,
+    item.error?.detail,
+    item.error,
+    item.error_message,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    if (candidate && typeof candidate === 'object') {
+      const nested = providerError(candidate);
+      if (nested && nested !== 'Unrecognized provider error response.') return nested;
+    }
+  }
+
+  try {
+    const serialized = JSON.stringify(item);
+    if (serialized && serialized !== '{}') return serialized;
+  } catch { /* use fallback below */ }
+  return 'Unrecognized provider error response.';
 }
 
 function interactionOutputText(payload: Json): string {
@@ -224,7 +248,8 @@ async function transcribeWithSarvam(
     if (status.job_state === 'Completed' || status.job_state === 'PartiallyCompleted') break;
     if (status.job_state === 'Failed') {
       await onJobFailed?.();
-      throw new Error(providerError(status.error_message ?? status) || 'Sarvam transcription failed.');
+      const detail = providerError(status.error_message ?? status);
+      throw new Error(`Sarvam transcription job ${jobId} failed (job_state=Failed). Exact provider error: ${detail}`);
     }
   }
   if (!['Completed', 'PartiallyCompleted'].includes(status.job_state)) throw new Error('Sarvam transcription is still processing. Its job ID is saved; QA will resume polling the same job without creating another transcription.');
@@ -616,8 +641,9 @@ export async function POST(request: Request) {
           await persistCheckpoint();
         },
         onJobFailed: async () => {
-          if (track === 'original') delete checkpoint.originalTranscriptionJobId;
-          else delete checkpoint.dubbedTranscriptionJobId;
+          // Keep the terminal transcription job ID in the checkpoint. QA retries
+          // will poll this failed job once and return its exact provider error,
+          // rather than silently creating and billing for a new transcription.
           await persistCheckpoint();
         },
       });
