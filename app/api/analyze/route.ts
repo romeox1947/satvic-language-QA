@@ -627,20 +627,18 @@ export async function POST(request: Request) {
       const originalBlobUrl = String(json.originalBlobUrl || '');
       const dubbedBlobUrl = String(json.dubbedBlobUrl || '');
       if (!originalBlobUrl.startsWith('https://') || !dubbedBlobUrl.startsWith('https://')) return NextResponse.json({ error: 'Both uploaded Blob URLs are required.' }, { status: 400 });
-      const canReuseAllMediaEvidence = Boolean(checkpoint.originalResult && checkpoint.dubbedResult && checkpoint.sourceAudio && checkpoint.dubAudio);
-      if (canReuseAllMediaEvidence) {
-        original = new File([''], String(json.originalName || 'source.mp4'), { type: 'video/mp4' });
-        dubbed = new File([''], 'dub.mp4', { type: 'video/mp4' });
-      } else {
-        const [originalBlob, dubbedBlob] = await Promise.all([getBlob(originalBlobUrl, { access: 'private' }), getBlob(dubbedBlobUrl, { access: 'private' })]);
-        if (!originalBlob || !dubbedBlob) return NextResponse.json({ error: 'One of the uploaded private videos is missing.' }, { status: 404 });
-        const [originalBytes, dubbedBytes] = await Promise.all([
-          readBlobStream(originalBlob.statusCode === 200 ? originalBlob.stream : null),
-          readBlobStream(dubbedBlob.statusCode === 200 ? dubbedBlob.stream : null),
-        ]);
-        original = new File([originalBytes], String(json.originalName || 'source.mp4'), { type: originalBlob.blob.contentType || 'video/mp4' });
-        dubbed = new File([dubbedBytes], 'dub.mp4', { type: dubbedBlob.blob.contentType || 'video/mp4' });
-      }
+      const [originalBlob, dubbedBlob] = await Promise.all([
+        getBlob(originalBlobUrl, { access: 'private', useCache: false }),
+        getBlob(dubbedBlobUrl, { access: 'private', useCache: false }),
+      ]);
+      if (!originalBlob || originalBlob.statusCode !== 200) return NextResponse.json({ error: 'The original uploaded video could not be downloaded from Blob storage.' }, { status: 404 });
+      if (!dubbedBlob || dubbedBlob.statusCode !== 200) return NextResponse.json({ error: 'The saved dubbed video could not be downloaded from Blob storage.' }, { status: 404 });
+      const [originalBytes, dubbedBytes] = await Promise.all([
+        readBlobStream(originalBlob.stream),
+        readBlobStream(dubbedBlob.stream),
+      ]);
+      original = new File([originalBytes], String(json.originalName || 'source.mp4'), { type: originalBlob.blob.contentType || 'video/mp4' });
+      dubbed = new File([dubbedBytes], 'dub.mp4', { type: dubbedBlob.blob.contentType || 'video/mp4' });
     }
     const sourceLanguage = String(form?.get('sourceLanguage') || json.sourceLanguage || 'Hindi');
     const targetLanguage = String(form?.get('targetLanguage') || json.targetLanguage || 'Tamil');
@@ -649,7 +647,11 @@ export async function POST(request: Request) {
     historyTargetLanguage = targetLanguage;
     if (!(original instanceof File) || !(dubbed instanceof File)) return NextResponse.json({ error: 'Choose both the original and dubbed media.' }, { status: 400 });
     if (!historyProjectName) historyProjectName = original.name.replace(/\.[^.]+$/, '');
-    if ((!original.size || !dubbed.size) && !(checkpoint.sourceAudio && checkpoint.dubAudio && checkpoint.originalResult && checkpoint.dubbedResult)) return NextResponse.json({ error: 'One of the selected files is empty.' }, { status: 400 });
+    if (!original.size || !dubbed.size) {
+      return NextResponse.json({
+        error: `One of the selected files is empty. Original=${original.size} bytes, dubbed=${dubbed.size} bytes.`,
+      }, { status: 400 });
+    }
     if (original.size > 450 * 1024 * 1024 || dubbed.size > 450 * 1024 * 1024) return NextResponse.json({ error: 'Each media file must be smaller than 450 MB for this local server.' }, { status: 413 });
     const source = LANGUAGES[sourceLanguage]; const target = LANGUAGES[targetLanguage];
     if (!source || !target) return NextResponse.json({ error: 'That language pair is not enabled yet.' }, { status: 400 });
