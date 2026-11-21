@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type DragEvent, type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { uploadPresigned } from '@vercel/blob/client';
@@ -148,6 +148,9 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
   const [folderSaving, setFolderSaving] = useState(false);
   const [folderTypeAssignmentId, setFolderTypeAssignmentId] = useState<string | null>(null);
   const [folderTypeAssignmentSaving, setFolderTypeAssignmentSaving] = useState(false);
+  const [movingFolderId, setMovingFolderId] = useState<string | null>(null);
+  const [draggedFolderId, setDraggedFolderId] = useState<string | null>(null);
+  const [dragOverVideoType, setDragOverVideoType] = useState<VideoFormType | null>(null);
   const [folderError, setFolderError] = useState('');
   const [folderDeleteConfirmOpen, setFolderDeleteConfirmOpen] = useState(false);
   const [deletingFolderId, setDeletingFolderId] = useState<string | null>(null);
@@ -281,11 +284,6 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     setWorkflowProjectName('');
     setWorkflowProjectCreating(false);
     if (activeFolderId) {
-      const activeFolder = folders.find(folder => folder.id === activeFolderId);
-      if (activeFolder && !activeFolder.video_type) {
-        setFolderTypeAssignmentId(activeFolder.id);
-        return;
-      }
       continueWorkflowInProject(activeFolderId);
       return;
     }
@@ -362,7 +360,8 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       .then(({ response, body }) => {
         if (!active) return;
         if (!response.ok) throw new Error(body.error || 'Could not load folders.');
-        setFolders(Array.isArray(body.folders) ? body.folders : []);
+        const loadedFolders = Array.isArray(body.folders) ? body.folders as ProjectFolder[] : [];
+        setFolders(loadedFolders.map(folder => ({ ...folder, video_type: folder.video_type ?? 'short' })));
       })
       .catch(error => { if (active) setNotice(error instanceof Error ? error.message : 'Could not load folders.'); })
       .finally(() => { if (active) setFoldersLoading(false); });
@@ -804,11 +803,8 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     const requestedFolder = requestedFolderId ? folders.find(folder => folder.id === requestedFolderId && !folder.video_type) : null;
     if (requestedFolder) {
       setFolderTypeAssignmentId(requestedFolder.id);
-      return;
     }
-    const activeFolder = activeFolderId ? folders.find(folder => folder.id === activeFolderId && !folder.video_type) : null;
-    if (activeFolder) setFolderTypeAssignmentId(activeFolder.id);
-  }, [activeFolderId, folders]);
+  }, [folders]);
 
   async function runAnalysis(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -968,6 +964,48 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     } finally {
       setFolderTypeAssignmentSaving(false);
     }
+  }
+
+  async function moveFolderToVideoType(folderId: string, videoType: VideoFormType) {
+    const folder = folders.find(item => item.id === folderId);
+    if (!folder || folder.video_type === videoType || movingFolderId) return;
+    setMovingFolderId(folderId);
+    try {
+      const response = await fetch('/api/folders', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ folderId, videoType }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not move this folder.');
+      const updated = body.folder as ProjectFolder;
+      setFolders(current => current.map(item => item.id === updated.id ? updated : item));
+      setNotice(`${updated.name} moved to ${videoType === 'short' ? 'Short-form (Shorts)' : 'Long-form'}.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not move this folder.');
+    } finally {
+      setMovingFolderId(null);
+    }
+  }
+
+  function startFolderDrag(event: DragEvent<HTMLButtonElement>, folderId: string) {
+    event.dataTransfer.setData('text/plain', folderId);
+    event.dataTransfer.effectAllowed = 'move';
+    setDraggedFolderId(folderId);
+  }
+
+  function allowFolderDrop(event: DragEvent<HTMLElement>, videoType: VideoFormType) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setDragOverVideoType(videoType);
+  }
+
+  function dropFolder(event: DragEvent<HTMLElement>, videoType: VideoFormType) {
+    event.preventDefault();
+    const folderId = event.dataTransfer.getData('text/plain') || draggedFolderId;
+    setDraggedFolderId(null);
+    setDragOverVideoType(null);
+    if (folderId) void moveFolderToVideoType(folderId, videoType);
   }
 
   async function renameActiveFolder(event: FormEvent<HTMLFormElement>) {
@@ -1283,7 +1321,34 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
 
           {!costEstimatePage && !activeFolderId && <section className="folder-library panel" aria-label="Project folders">
             <div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>Project folders <span className="heading-count">{folders.length}</span></h3></div><div className="project-tools"><button ref={searchTriggerRef} type="button" className="search-box search-trigger" onClick={()=>{setQuery("");openSpotlight()}} aria-haspopup="dialog" aria-expanded={searchOpen}><Search size={15}/><span>Search projects</span><kbd>⌘ K</kbd></button><button type="button" className="text-action" onClick={()=>{setFolderError("");setFolderName("");setFolderVideoType(null);setFolderDialogOpen(true)}}><FolderPlus size={14}/> New folder</button></div></div>
-            {foldersLoading ? <div className="folder-library-empty">Loading project folders…</div> : <div className="folder-library-grid"><section className="folder-type-column"><header><div><b>Short form</b><small>Shorts and Reels</small></div><span>{folders.filter(folder=>folder.video_type==='short').length}</span></header>{folders.filter(folder=>folder.video_type==='short').map(folder=><button type="button" className="folder-library-card" key={folder.id} onClick={()=>{setActiveFolderId(folder.id);setActiveTab("All projects")}}><Folder size={19}/><span><b>{folder.name}</b><small>{projects.filter(project=>project.folderId===folder.id&&!project.isExample).length} videos</small></span><ArrowRight size={16}/></button>)}{!folders.some(folder=>folder.video_type==='short')&&<div className="folder-type-empty">Short-form project folders will appear here.</div>}</section><section className="folder-type-column"><header><div><b>Long form</b><small>Full-length videos</small></div><span>{folders.filter(folder=>folder.video_type==='long').length}</span></header>{folders.filter(folder=>folder.video_type==='long').map(folder=><button type="button" className="folder-library-card" key={folder.id} onClick={()=>{setActiveFolderId(folder.id);setActiveTab("All projects")}}><Folder size={19}/><span><b>{folder.name}</b><small>{projects.filter(project=>project.folderId===folder.id&&!project.isExample).length} videos</small></span><ArrowRight size={16}/></button>)}{!folders.some(folder=>folder.video_type==='long')&&<div className="folder-type-empty">Long-form project folders will appear here.</div>}</section></div>}
+            {foldersLoading ? <div className="folder-library-empty">Loading project folders…</div> : <div className="folder-library-grid">
+              {([
+                { type: 'short' as const, title: 'Short form', subtitle: 'Shorts and Reels', empty: 'Short-form project folders will appear here.' },
+                { type: 'long' as const, title: 'Long form', subtitle: 'Full-length videos', empty: 'Long-form project folders will appear here.' },
+              ]).map(section => {
+                const sectionFolders = folders.filter(folder => (folder.video_type ?? 'short') === section.type);
+                return <section
+                  key={section.type}
+                  className={cx('folder-type-column', dragOverVideoType === section.type && 'drag-over', Boolean(draggedFolderId) && 'folder-drop-active')}
+                  onDragOver={event => allowFolderDrop(event, section.type)}
+                  onDragLeave={event => { if (event.currentTarget === event.target) setDragOverVideoType(null); }}
+                  onDrop={event => dropFolder(event, section.type)}
+                >
+                  <header><div><b>{section.title}</b><small>{section.subtitle}</small></div><span>{sectionFolders.length}</span></header>
+                  {sectionFolders.map(folder => <button
+                    type="button"
+                    className={cx('folder-library-card', draggedFolderId === folder.id && 'dragging')}
+                    key={folder.id}
+                    draggable
+                    onDragStart={event => startFolderDrag(event, folder.id)}
+                    onDragEnd={() => { setDraggedFolderId(null); setDragOverVideoType(null); }}
+                    onClick={() => { setActiveFolderId(folder.id); setActiveTab('All projects'); }}
+                    aria-label={`${folder.name}, ${section.title}. Drag to move to the other format, or open folder.`}
+                  ><Folder size={19}/><span><b>{folder.name}</b><small>{projects.filter(project => project.folderId === folder.id && !project.isExample).length} videos · Drag to move</small></span><ArrowRight size={16}/></button>)}
+                  {!sectionFolders.length && <div className="folder-type-empty">{draggedFolderId ? 'Drop folder here to move it.' : section.empty}</div>}
+                </section>;
+              })}
+            </div>}
           </section>}
 
           {!costEstimatePage && activeFolderId && <section className="work-grid folder-work-grid"><div className="projects-panel panel"><div className="panel-heading"><div><div className="section-kicker">YOUR WORKSPACE</div><h3>{activeFolderId ? folders.find(folder=>folder.id===activeFolderId)?.name : "Recent projects"} <span className="heading-count">{visibleProjects.length}</span></h3></div><button ref={searchTriggerRef} type="button" className="search-box search-trigger folder-project-search" onClick={()=>{setQuery("");openSpotlight()}} aria-haspopup="dialog" aria-expanded={searchOpen}><Search size={15}/><span>Search projects</span><kbd>⌘ K</kbd></button></div>{!activeFolderId && <section className="workspace-folders" aria-label="Project folders"><div className="workspace-folders-heading"><span>FOLDERS</span><button type="button" onClick={()=>{setFolderError("");setFolderName("");setFolderDialogOpen(true)}}><FolderPlus size={14}/> New folder</button></div><div className="workspace-folder-list"><button type="button" className={"workspace-folder"+(activeFolderId===null?" active":"")} onClick={()=>{setActiveFolderId(null);setActiveTab("All projects")}}><FolderOpen size={16}/><span>All videos</span><small>{projects.filter(project=>!project.isExample).length}</small></button>{folders.map(folder=><button type="button" key={folder.id} className={"workspace-folder"+(activeFolderId===folder.id?" active":"")} onClick={()=>{setActiveFolderId(folder.id);setActiveTab("All projects")}}><Folder size={16}/><span>{folder.name}</span><small>{projects.filter(project=>project.folderId===folder.id&&!project.isExample).length}</small></button>)}{foldersLoading&&<span className="workspace-folders-loading">Loading folders…</span>}</div></section>}<div className="project-table-wrap"><table className="project-table"><thead><tr><th scope="col">Name</th><th scope="col">Target language</th><th scope="col">Estimated time</th><th scope="col">Status</th><th scope="col">Download</th><th scope="col" aria-label="Actions"/></tr></thead><tbody>{visibleProjects.length ? visibleProjects.map((p)=><tr className={cx('project-table-row',p.isExample&&'example-project-row')} key={p.isExample?'shared-example':`${p.jobId || p.title}`} onClick={()=>{if(p.isExample){setNotice('This is a shared sample project. No video or QA report is attached.');return;}setProjectMenuId(null);setReport(null);setDetails(p)}}><td data-label="Name"><div className="project-table-name"><div className={`project-thumb ${p.color}`}><span>{p.initials}</span><div className="thumb-play"><Play size={10} fill="currentColor"/></div></div><span><button type="button" className="project-open" onClick={event=>{event.stopPropagation();if(p.isExample){setNotice('This is a shared sample project. No video or QA report is attached.');return;}setProjectMenuId(null);setReport(null);setDetails(p)}}><b>{p.title}</b>{p.isExample&&<span className="example-project-badge">Example</span>}</button><small>{p.source}{p.date ? <> · {p.date}</> : null}</small></span></div></td><td data-label="Target language"><span className="project-language-chip">{p.target}</span></td><td data-label="Estimated time" className="project-created-cell" title={p.completedSeconds ? `Actual processing time: ${formatDuration(p.completedSeconds)}` : undefined}>{p.completedSeconds ? formatDuration(p.completedSeconds) : ((costDurations[p.jobId || p.title] || (p.sourceDurationSeconds ? (p.sourceDurationSeconds / 60).toFixed(2) : "")) ? `~${estimateWorkflowTime(Number(costDurations[p.jobId || p.title] || (p.sourceDurationSeconds || 0) / 60))}` : "—")}</td><td data-label="Status"><span className={cx('status-pill',p.status.toLowerCase().replace(' ','-'))}><i/>{p.status}</span></td><td data-label="Download"><button type="button" className="project-download-button" disabled={!p.dubbedAvailable||p.status==='In progress'||p.isExample||downloadingProjectId===p.jobId} onClick={event=>{event.stopPropagation();void downloadProjectDub(p)}}>{downloadingProjectId===p.jobId?<LoaderCircle size={15} className="spin"/>:<ArrowDownToLine size={15}/>} {downloadingProjectId===p.jobId?'Preparing?':'Download'}</button></td><td data-label="Actions">{!p.isExample&&<div className="project-actions" onClick={event=>event.stopPropagation()}><button type="button" className="row-more" aria-label={`Actions for ${p.title}`} aria-expanded={projectMenuId===p.jobId} onClick={event=>toggleProjectMenu(event,p.jobId??'')}><MoreHorizontal size={18}/></button>{projectMenuId===p.jobId && projectMenuPosition && createPortal(<div className="project-actions-menu" style={{ position: "fixed", top: projectMenuPosition.top, left: projectMenuPosition.left, right: "auto", zIndex: 2000 }}>{deleteConfirmId===p.jobId ? <><p>Delete this project and its stored files?</p><button type="button" className="project-delete-confirm" disabled={deletingProjectId===p.jobId} onClick={()=>void deleteProject(p)}>{deletingProjectId===p.jobId?'Deleting...':'Confirm delete'}</button><button type="button" onClick={()=>{setDeleteConfirmId(null);setProjectMenuId(null)}}>Cancel</button></> : <><button type="button" className="project-view-option" onClick={()=>{setProjectMenuId(null);setReport(null);setDetails(p);setReportDeleteConfirmOpen(false);setReportPage(true)}}><FileText size={14}/>View report</button><label className="project-folder-select"><Folder size={14}/><select aria-label={`Move ${p.title} to folder`} title="Move to folder" value="" disabled={movingProjectId===p.jobId} onChange={event=>void moveProjectToFolder(p,event.target.value==="__all_videos__"?"":event.target.value)}><option value="" disabled>{movingProjectId===p.jobId?"Moving?":"Move to folder"}</option>{folders.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}{p.folderId&&<option value="__all_videos__">All videos</option>}</select></label><button type="button" className="project-delete-option" onClick={()=>setDeleteConfirmId(p.jobId??null)}><Trash2 size={14}/>Delete project</button></>}</div>,document.body)}</div>}</td></tr>) : <tr><td colSpan={6}><div className="empty-state"><Search size={19}/><b>{activeFolderId ? "No videos in this folder yet" : "No matching projects"}</b><span>{activeFolderId ? "Move a project here or start a new dub in this folder." : "Try another search."}</span></div></td></tr>}</tbody></table></div><button className="list-footer" onClick={()=>setNotice('You’re viewing the latest projects in this workspace.')}>Showing {visibleProjects.length} of {folderProjects.length} projects <ArrowDown size={13}/></button></div>

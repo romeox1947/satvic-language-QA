@@ -61,7 +61,8 @@ create table if not exists public.qa_folders (
   unique (id, user_id)
 );
 alter table public.qa_folders add column if not exists video_type text check (video_type in ('short', 'long'));
-  alter table public.qa_folders add column if not exists feedback_form_url text;
+update public.qa_folders set video_type = 'short' where video_type is null;
+alter table public.qa_folders add column if not exists feedback_form_url text;
 alter table public.qa_folders add column if not exists feedback_sheet_url text;
 
 create unique index if not exists qa_folders_user_name_idx on public.qa_folders (user_id, lower(name));

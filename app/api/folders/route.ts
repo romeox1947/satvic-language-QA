@@ -59,10 +59,9 @@ export async function PATCH(request: Request) {
     if (body?.videoType !== undefined) {
       if (body.videoType !== 'short' && body.videoType !== 'long') return Response.json({ error: 'Choose Short-form or Long-form for this folder.' }, { status: 400 });
       const { data, error } = await supabase.from('qa_folders').update({ video_type: body.videoType }).eq('id', folderId).eq('user_id', user.id)
-        .is('video_type', null)
         .select('id, name, created_at, video_type, feedback_form_url, feedback_sheet_url').maybeSingle();
       if (error) throw error;
-      if (!data) return Response.json({ error: 'This folder already has a video format or is unavailable.' }, { status: 409 });
+      if (!data) return Response.json({ error: 'This folder was not found in your account.' }, { status: 404 });
       return Response.json({ folder: data }, { headers: { 'cache-control': 'no-store' } });
     }
     const formValue = body?.feedbackFormUrl;
