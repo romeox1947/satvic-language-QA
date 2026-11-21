@@ -75,12 +75,14 @@ export async function GET() {
 
   try {
     const { bucket } = getB2Config();
-    const [{ data: jobs, error }, workspace, record] = await Promise.all([
+    const [{ data: jobs, error }, { data: folders, error: folderError }, workspace, record] = await Promise.all([
       supabase.from('qa_jobs').select('id,run_id,project_name,status,issue_count,error_message,created_at,updated_at').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(100),
+      supabase.from('qa_folders').select('id,name,video_type,created_at').eq('user_id', user.id).is('video_type', null).order('created_at', { ascending: true }),
       readFounderWorkspace(bucket, user.id),
       readRecord(bucket, user.id),
     ]);
     if (error) throw error;
+    if (folderError) throw folderError;
 
     const qaNotices: Notice[] = (jobs || []).flatMap(job => {
       if (job.status !== 'completed' && job.status !== 'failed') return [];
@@ -95,8 +97,16 @@ export async function GET() {
         href: `/dashboard/satvic-fluid?qaRunId=${encodeURIComponent(runId)}`,
       }];
     });
+    const folderTypeNotices: Notice[] = (folders || []).map(folder => ({
+      id: `folder-type:${folder.id}`,
+      title: `Choose a video format for ${folder.name}`,
+      description: 'Assign this existing folder to Short-form (Shorts) or Long-form videos. You only need to do this once.',
+      kind: 'Satvic Studio',
+      createdAt: folder.created_at,
+      href: `/dashboard/satvic-fluid?assignFolderId=${encodeURIComponent(folder.id)}`,
+    }));
     const dismissed = new Set(record.dismissed);
-    const notifications = [...qaNotices, ...founderNotices(workspace?.jobs)].filter(item => !dismissed.has(item.id)).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 100);
+    const notifications = [...qaNotices, ...folderTypeNotices, ...founderNotices(workspace?.jobs)].filter(item => !dismissed.has(item.id)).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 100);
     return Response.json({ notifications }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     console.error('[notifications] Could not load notifications:', error instanceof Error ? error.message : 'Unknown error');

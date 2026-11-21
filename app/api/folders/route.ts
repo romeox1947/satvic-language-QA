@@ -7,7 +7,7 @@ export async function GET() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in to view your folders.' }, { status: 401 });
-    const { data, error } = await supabase.from('qa_folders').select('id, name, created_at, feedback_form_url, feedback_sheet_url').eq('user_id', user.id).order('created_at', { ascending: true });
+    const { data, error } = await supabase.from('qa_folders').select('id, name, created_at, video_type, feedback_form_url, feedback_sheet_url').eq('user_id', user.id).order('created_at', { ascending: true });
     if (error) throw error;
     return Response.json({ folders: data || [] }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
@@ -20,11 +20,13 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in before creating a folder.' }, { status: 401 });
-    const body = await request.json().catch(() => null) as { name?: unknown } | null;
+    const body = await request.json().catch(() => null) as { name?: unknown; videoType?: unknown } | null;
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
+    const videoType = body?.videoType;
     if (!name) return Response.json({ error: 'Enter a folder name.' }, { status: 400 });
     if (name.length > 80) return Response.json({ error: 'Folder names must be 80 characters or fewer.' }, { status: 400 });
-    const { data, error } = await supabase.from('qa_folders').insert({ user_id: user.id, name }).select('id, name, created_at, feedback_form_url, feedback_sheet_url').single();
+    if (videoType !== 'short' && videoType !== 'long') return Response.json({ error: 'Choose Short-form or Long-form for this folder.' }, { status: 400 });
+    const { data, error } = await supabase.from('qa_folders').insert({ user_id: user.id, name, video_type: videoType }).select('id, name, created_at, video_type, feedback_form_url, feedback_sheet_url').single();
     if (error?.code === '23505') return Response.json({ error: 'You already have a folder with that name.' }, { status: 409 });
     if (error || !data) throw error || new Error('Could not create this folder.');
     return Response.json({ folder: data }, { status: 201, headers: { 'cache-control': 'no-store' } });
@@ -38,7 +40,7 @@ export async function PATCH(request: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in before updating a folder.' }, { status: 401 });
-    const body = await request.json().catch(() => null) as { folderId?: unknown; name?: unknown; feedbackFormUrl?: unknown; feedbackSheetUrl?: unknown } | null;
+    const body = await request.json().catch(() => null) as { folderId?: unknown; name?: unknown; videoType?: unknown; feedbackFormUrl?: unknown; feedbackSheetUrl?: unknown } | null;
     const folderId = typeof body?.folderId === 'string' ? body.folderId : '';
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(folderId)) {
       return Response.json({ error: 'Choose a valid project folder.' }, { status: 400 });
@@ -48,10 +50,19 @@ export async function PATCH(request: Request) {
       if (!name) return Response.json({ error: 'Enter a folder name.' }, { status: 400 });
       if (name.length > 80) return Response.json({ error: 'Folder names must be 80 characters or fewer.' }, { status: 400 });
       const { data, error } = await supabase.from('qa_folders').update({ name }).eq('id', folderId).eq('user_id', user.id)
-        .select('id, name, created_at, feedback_form_url, feedback_sheet_url').maybeSingle();
+        .select('id, name, created_at, video_type, feedback_form_url, feedback_sheet_url').maybeSingle();
       if (error?.code === '23505') return Response.json({ error: 'You already have a folder with that name.' }, { status: 409 });
       if (error) throw error;
       if (!data) return Response.json({ error: 'This folder was not found in your account.' }, { status: 404 });
+      return Response.json({ folder: data }, { headers: { 'cache-control': 'no-store' } });
+    }
+    if (body?.videoType !== undefined) {
+      if (body.videoType !== 'short' && body.videoType !== 'long') return Response.json({ error: 'Choose Short-form or Long-form for this folder.' }, { status: 400 });
+      const { data, error } = await supabase.from('qa_folders').update({ video_type: body.videoType }).eq('id', folderId).eq('user_id', user.id)
+        .is('video_type', null)
+        .select('id, name, created_at, video_type, feedback_form_url, feedback_sheet_url').maybeSingle();
+      if (error) throw error;
+      if (!data) return Response.json({ error: 'This folder already has a video format or is unavailable.' }, { status: 409 });
       return Response.json({ folder: data }, { headers: { 'cache-control': 'no-store' } });
     }
     const formValue = body?.feedbackFormUrl;
@@ -79,7 +90,7 @@ export async function PATCH(request: Request) {
       return Response.json({ error: error instanceof Error ? error.message : 'Enter valid Google links.' }, { status: 400 });
     }
     const { data, error } = await supabase.from('qa_folders').update({ feedback_form_url: feedbackFormUrl, feedback_sheet_url: feedbackSheetUrl })
-      .eq('id', folderId).eq('user_id', user.id).select('id, name, created_at, feedback_form_url, feedback_sheet_url').maybeSingle();
+      .eq('id', folderId).eq('user_id', user.id).select('id, name, created_at, video_type, feedback_form_url, feedback_sheet_url').maybeSingle();
     if (error) throw error;
     if (!data) return Response.json({ error: 'This folder was not found in your account.' }, { status: 404 });
     return Response.json({ folder: data }, { headers: { 'cache-control': 'no-store' } });

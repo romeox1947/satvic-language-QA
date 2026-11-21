@@ -56,9 +56,11 @@ create table if not exists public.qa_folders (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null check (char_length(name) between 1 and 80),
+  video_type text check (video_type in ('short', 'long')),
   created_at timestamptz not null default now(),
   unique (id, user_id)
 );
+alter table public.qa_folders add column if not exists video_type text check (video_type in ('short', 'long'));
   alter table public.qa_folders add column if not exists feedback_form_url text;
 alter table public.qa_folders add column if not exists feedback_sheet_url text;
 

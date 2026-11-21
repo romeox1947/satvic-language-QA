@@ -1568,11 +1568,18 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .folder-delete-confirm{border:1px solid #b96158;background:#b96158;color:#fff}
 .app-shell .folder-delete-actions button:disabled{opacity:.65;cursor:wait}
 @media(max-width:700px){.app-shell .welcome-actions{gap:6px;flex-wrap:wrap}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn{width:40px;height:40px;min-height:40px;padding:0;overflow:hidden;font-size:0}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark-wrap{width:24px;height:24px}.app-shell.product-satvic-fluid .welcome-actions > .primary-btn .sarvam-mark{width:18px;height:18px}.app-shell .folder-back-button,.app-shell .folder-rename-trigger,.app-shell .folder-delete-trigger,.app-shell .folder-cost-estimate-trigger{min-height:36px;padding:0 8px;font-size:9px}.app-shell .folder-delete-modal{padding:23px 19px}}
-.app-shell .folder-library{min-height:260px;margin-top:15px}
+.app-shell .folder-library{display:flex;min-height:calc(100vh - 265px);flex-direction:column;margin-top:15px}
 .app-shell .folder-library .panel-heading{gap:14px}
 .app-shell .folder-library .project-tools{position:static;width:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0}
 .app-shell .folder-library .search-box{width:150px;min-width:150px;flex:none}
-.app-shell .folder-library-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:11px;padding:4px 20px 20px}
+.app-shell .folder-library-grid{display:grid;flex:1;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:4px 20px 20px}
+.app-shell .folder-type-column{display:flex;min-width:0;flex-direction:column;gap:9px;padding:14px;border:1px solid #e8ece6;border-radius:12px;background:#fbfcfa}
+.app-shell .folder-type-column>header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 2px 8px;border-bottom:1px solid #e9ece7}
+.app-shell .folder-type-column>header>div{display:grid;gap:3px}
+.app-shell .folder-type-column>header b{color:#343b33;font:500 13px "Matter"}
+.app-shell .folder-type-column>header small{color:#8d948b;font:400 9px "Matter"}
+.app-shell .folder-type-column>header>span{display:grid;min-width:24px;height:24px;place-items:center;border-radius:8px;background:#eef2ed;color:#607460;font:500 10px "Matter"}
+.app-shell .folder-type-empty{display:grid;min-height:120px;flex:1;place-items:center;padding:20px;color:#969c93;font:400 10px/1.5 "Matter";text-align:center}
 .app-shell .folder-library-card{display:flex;min-width:0;min-height:78px;align-items:center;gap:12px;padding:13px;border:1px solid #e7ebe5;border-radius:11px;background:#fff;color:#66806a;text-align:left;cursor:pointer;transition:background .16s,border-color .16s,transform .16s}
 .app-shell .folder-library-card:hover{transform:translateY(-1px);border-color:#c8d7c7;background:#f8faf7}
 .app-shell .folder-library-card>span{display:grid;min-width:0;flex:1;gap:5px}
@@ -1583,6 +1590,23 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .folder-library-empty>b{color:#414a40;font:500 13px "Matter"}
 .app-shell .folder-library-empty>span{max-width:300px;color:#8c9389;font-size:10px;line-height:1.5}
 @media(max-width:560px){.app-shell .folder-library .panel-heading{align-items:flex-start;flex-direction:column}.app-shell .folder-library .project-tools{width:100%;justify-content:flex-start}.app-shell .folder-library .search-box{flex:1;width:auto;min-width:0}.app-shell .folder-library .search-trigger>span{font-size:10px}}
+.app-shell .folder-video-type-choice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:0 0 15px}
+.app-shell .folder-video-type-option{display:grid;min-height:68px;align-content:center;gap:5px;padding:11px 13px;border:1px solid #e5e9e2;border-radius:10px;background:#fff;color:#333b32;text-align:left;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+.app-shell .folder-video-type-option b{font:500 11px "Matter"}
+.app-shell .folder-video-type-option small{color:#858d83;font:400 9px "Matter"}
+.app-shell .folder-video-type-option:hover,.app-shell .folder-video-type-option.selected{border-color:#739274;background:#f2f7f1;box-shadow:0 0 0 2px #73927418}
+.app-shell .folder-video-type-option:disabled{opacity:.65;cursor:wait}
+.app-shell .folder-type-later{display:block;margin:13px auto 0;border:0;background:transparent;color:#838b81;font:400 10px "Matter";text-decoration:underline;cursor:pointer}
+.app-shell .folder-type-later:disabled{opacity:.6;cursor:wait}
+.app-shell .video-format-options{display:grid;gap:9px}
+.app-shell .video-format-option{display:flex;min-height:72px;align-items:center;gap:12px;padding:12px;border:1px solid #e7ebe5;border-radius:11px;background:#fff;color:#657264;text-align:left;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.app-shell .video-format-option:hover{transform:translateY(-1px);border-color:#b8cbb7;background:#f7faf6}
+.app-shell .video-format-icon{display:grid;width:35px;height:35px;flex:none;place-items:center;border-radius:10px;background:#eef4ed;color:#56775a;font:500 13px "Matter"}
+.app-shell .video-format-option>span:nth-child(2){display:grid;flex:1;gap:4px}
+.app-shell .video-format-option b{color:#333b33;font:500 12px "Matter"}
+.app-shell .video-format-option small{color:#858d83;font:400 9px "Matter"}
+.app-shell .workflow-format-back{display:flex;align-items:center;gap:5px;margin:0 0 9px;padding:4px 0;border:0;background:transparent;color:#71816e;font:400 10px "Matter";cursor:pointer}
+@media(max-width:700px){.app-shell .folder-library{min-height:0}.app-shell .folder-library-grid{grid-template-columns:1fr;padding-right:12px;padding-left:12px}.app-shell .folder-type-column{min-height:180px}}
 
 .app-shell.product-satvic-fluid .project-table-wrap{width:100%;overflow:visible;border-top:1px solid #eceeea}
 .app-shell.product-satvic-fluid .projects-panel{min-height:480px;overflow:visible}
