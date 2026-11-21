@@ -134,6 +134,33 @@ function providerError(value: unknown): string {
   return 'Unrecognized provider error response.';
 }
 
+async function readBlobStream(stream: ReadableStream<Uint8Array> | null): Promise<ArrayBuffer> {
+  if (!stream) throw new Error('Vercel Blob returned no readable media stream.');
+  if (stream.locked) throw new Error('Vercel Blob media stream is already locked. The blob must be fetched once and read before any other operation.');
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value?.byteLength) {
+        chunks.push(value);
+        length += value.byteLength;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes.buffer.slice(0) as ArrayBuffer;
+}
+
 function interactionOutputText(payload: Json): string {
   if (typeof payload.output_text === 'string' && payload.output_text.trim()) return payload.output_text;
   return payload.steps?.flatMap((step: Json) => step.content || [])
@@ -580,7 +607,8 @@ export async function POST(request: Request) {
         try {
           const cached = await getBlob(checkpointUrl, { access: 'private' });
           if (cached) {
-            const parsed = JSON.parse(await new Response(cached.stream).text()) as QaCheckpoint;
+            const cachedBytes = await readBlobStream(cached.stream);
+            const parsed = JSON.parse(new TextDecoder('utf-8').decode(cachedBytes)) as QaCheckpoint;
             if (parsed.kind === 'qa-checkpoint') checkpoint = parsed;
             else checkpointUrl = '';
           }
@@ -606,7 +634,10 @@ export async function POST(request: Request) {
       } else {
         const [originalBlob, dubbedBlob] = await Promise.all([getBlob(originalBlobUrl, { access: 'private' }), getBlob(dubbedBlobUrl, { access: 'private' })]);
         if (!originalBlob || !dubbedBlob) return NextResponse.json({ error: 'One of the uploaded private videos is missing.' }, { status: 404 });
-        const [originalBytes, dubbedBytes] = await Promise.all([new Response(originalBlob.stream).arrayBuffer(), new Response(dubbedBlob.stream).arrayBuffer()]);
+        const [originalBytes, dubbedBytes] = await Promise.all([
+          readBlobStream(originalBlob.statusCode === 200 ? originalBlob.stream : null),
+          readBlobStream(dubbedBlob.statusCode === 200 ? dubbedBlob.stream : null),
+        ]);
         original = new File([originalBytes], String(json.originalName || 'source.mp4'), { type: originalBlob.blob.contentType || 'video/mp4' });
         dubbed = new File([dubbedBytes], 'dub.mp4', { type: dubbedBlob.blob.contentType || 'video/mp4' });
       }

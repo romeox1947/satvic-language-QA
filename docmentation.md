@@ -1,0 +1,1 @@
+lastly application is dubbing the video on sarvam and again sending that dub media to sarve to convert speech to text and using the api and costing again but the thing is we already get the transcipt with the dubbing video 
