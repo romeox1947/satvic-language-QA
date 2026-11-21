@@ -252,7 +252,12 @@ async function transcribeWithSarvam(
       throw new Error(`Sarvam transcription job ${jobId} failed (job_state=Failed). Exact provider error: ${detail}`);
     }
   }
-  if (!['Completed', 'PartiallyCompleted'].includes(status.job_state)) throw new Error('Sarvam transcription is still processing. Its job ID is saved; QA will resume polling the same job without creating another transcription.');
+  if (!['Completed', 'PartiallyCompleted'].includes(status.job_state)) {
+    const providerState = typeof status.job_state === 'string' && status.job_state.trim()
+      ? status.job_state.trim()
+      : 'unknown';
+    throw new Error(`Sarvam transcription job ${jobId} is still processing (job_state=${providerState}). Its job ID is saved; QA will resume polling the same job without creating another transcription.`);
+  }
   const outputNames = (status.job_details || []).flatMap((detail: Json) => detail.outputs || []).map((output: Json) => output.file_name).filter(Boolean);
   if (!outputNames.length) throw new Error('Sarvam completed without returning a transcript file.');
   const downloadInfo = await sarvamJson('/speech-to-text/job/v1/download-files', key, { job_id: jobId, files: outputNames });
@@ -786,7 +791,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.info(`[api/analyze] stage=${stage} failedAfterMs=${Date.now() - stageStartedAt}`);
     const message = error instanceof Error ? error.message : providerError(error as Json);
-    const resumableProviderIssue = /timeout|timed out|deadline|rate.?limit|returned 429/i.test(message);
+    const resumableProviderIssue = /timeout|timed out|deadline|rate.?limit|returned 429|still processing|job_state=/i.test(message);
     if (historyJobId && historySupabase) {
       await historySupabase.from('qa_jobs').update({ status: resumableProviderIssue ? 'running' : 'failed', error_message: message.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
       if (!historyManagedByWorkflow) await sendGmailJobEmail({
