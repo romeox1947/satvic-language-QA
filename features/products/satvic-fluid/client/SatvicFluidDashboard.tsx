@@ -10,7 +10,7 @@ import FeedbackCalendarCard from '@/features/dashboard/client/FeedbackCalendarCa
 import {
   Activity, AlertCircle, ArrowDown, ArrowDownToLine, ArrowLeft, ArrowRight, Calculator, Check, CheckCheck,
   Clock3, FileAudio, FileText, ExternalLink, Folder, FolderPlus, FolderOpen, Headphones, Languages,
-  LoaderCircle, MoreHorizontal, Pause, Pencil, Play, Plus, Search, ShieldCheck, Trash2,
+  LoaderCircle, MoreHorizontal, Pause, Pencil, Play, Plus, RefreshCw, Search, ShieldCheck, Trash2,
   Upload, X, Zap,
 } from 'lucide-react';
 
@@ -110,6 +110,30 @@ function readMediaDuration(file: File): Promise<number> {
   });
 }
 
+function readRemoteMediaDuration(url: string): Promise<number> {
+  return new Promise(resolve => {
+    const media = document.createElement('video');
+    let completed = false;
+    let timer = 0;
+    const finish = (duration: number) => {
+      if (completed) return;
+      completed = true;
+      window.clearTimeout(timer);
+      media.onloadedmetadata = null;
+      media.onerror = null;
+      media.removeAttribute('src');
+      media.load();
+      resolve(Number.isFinite(duration) ? duration : 0);
+    };
+    timer = window.setTimeout(() => finish(0), 15000);
+    media.preload = 'metadata';
+    media.onloadedmetadata = () => finish(media.duration);
+    media.onerror = () => finish(0);
+    media.src = url;
+    media.load();
+  });
+}
+
 export default function SatvicFluidDashboard({ initialAccountEmail = '', initialAccountAvatar = 'sage', initialAccountUserId }: { initialAccountEmail?: string; initialAccountAvatar?: string; initialAccountUserId: string }) {
   const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
@@ -174,6 +198,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
   const [renameProjectValue, setRenameProjectValue] = useState('');
   const [renameProjectBusy, setRenameProjectBusy] = useState(false);
   const [costEstimateOpen, setCostEstimateOpen] = useState(false);
+  const [costRefreshBusy, setCostRefreshBusy] = useState(false);
   const [costEstimateClosing, setCostEstimateClosing] = useState(false);
   const [costEstimatePage, setCostEstimatePage] = useState(false);
   const [usdInrRate, setUsdInrRate] = useState<number | null>(null);
@@ -294,7 +319,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
         if (!response.ok) throw new Error(body.error || 'Could not load account history.');
         if (!active) return;
         setAccountEmail(body.userEmail || '');
-        const jobs = (body.jobs || []) as Array<{ id: string; run_id: string | null; project_name: string; source_language: string; target_language: string; folder_id?: string | null; dubbed_available?: boolean; created_at: string; updated_at?: string; status: string; issue_count?: number; error_message?: string | null }>;
+        const jobs = (body.jobs || []) as Array<{ id: string; run_id: string | null; project_name: string; source_language: string; target_language: string; folder_id?: string | null; original_video_url?: string | null; dubbed_available?: boolean; created_at: string; updated_at?: string; status: string; issue_count?: number; error_message?: string | null }>;
         const updates = await Promise.all(jobs.filter(job => ['running', 'queued'].includes(job.status)).map(async job => {
           const response = await fetch(`/api/jobs/${encodeURIComponent(job.run_id || job.id)}`, { cache: 'no-store' });
           const body = await response.json().catch(() => ({}));
@@ -309,7 +334,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
         setProjects([exampleProject, ...merged.map((job) => {
           const completionMs = job.updated_at ? Date.parse(job.updated_at) - Date.parse(job.created_at) : NaN;
           const status: Project['status'] = job.status === 'completed' ? (job.issue_count ? 'Needs review' : 'Ready') : job.status === 'failed' ? 'Failed' : 'In progress';
-          return { title: job.project_name, source: job.source_language, target: job.target_language, status, issues: job.issue_count || 0, date: new Date(job.created_at).toLocaleDateString(), createdAt: job.created_at, color: 'lilac', initials: job.project_name.slice(0, 2).toUpperCase(), jobId: job.run_id || job.id, folderId: job.folder_id || undefined, workflowMode: job.run_id ? 'sarvam' as const : 'review' as const, dubbedAvailable: Boolean(job.dubbed_available), completedSeconds: (job.status === 'completed' || job.status === 'failed') && Number.isFinite(completionMs) && completionMs >= 0 ? Math.round(completionMs / 1000) : undefined, errorMessage: job.error_message || undefined };
+          return { title: job.project_name, source: job.source_language, target: job.target_language, status, issues: job.issue_count || 0, date: new Date(job.created_at).toLocaleDateString(), createdAt: job.created_at, color: 'lilac', initials: job.project_name.slice(0, 2).toUpperCase(), jobId: job.run_id || job.id, folderId: job.folder_id || undefined, workflowMode: job.run_id ? 'sarvam' as const : 'review' as const, originalVideoUrl: job.original_video_url || null, dubbedAvailable: Boolean(job.dubbed_available), completedSeconds: (job.status === 'completed' || job.status === 'failed') && Number.isFinite(completionMs) && completionMs >= 0 ? Math.round(completionMs / 1000) : undefined, errorMessage: job.error_message || undefined };
         })]);
       } catch { /* Keep the current dashboard visible if history is temporarily unavailable. */ }
     };
@@ -628,6 +653,57 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
       try { localStorage.setItem('satvic-cost-estimate:all-projects', JSON.stringify(next)); } catch { /* Estimates remain usable for this session. */ }
       return next;
     });
+  }
+
+  async function refreshCostEstimateDurations() {
+    if (costRefreshBusy) return;
+    setCostRefreshBusy(true);
+    try {
+      const response = await fetch('/api/jobs', { cache: 'no-store' });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not refresh project details.');
+      const jobs = (body.jobs || []) as Array<{ id: string; run_id: string | null; original_video_url?: string | null }>;
+      const jobsById = new Map(jobs.map(job => [job.run_id || job.id, job]));
+      const sources = costEstimateDockRows.map(row => row.project).map(project => {
+        const key = project.jobId || project.title;
+        const job = jobsById.get(key);
+        return { project, key, url: job?.original_video_url || project.originalVideoUrl || null };
+      });
+      setProjects(current => current.map(project => {
+        const fresh = jobsById.get(project.jobId || '');
+        return fresh ? { ...project, originalVideoUrl: fresh.original_video_url || null } : project;
+      }));
+
+      const durations: Record<string, string> = {};
+      let nextSource = 0;
+      let refreshedCount = 0;
+      const worker = async () => {
+        while (nextSource < sources.length) {
+          const source = sources[nextSource++];
+          const seconds = source.url ? await readRemoteMediaDuration(source.url) : 0;
+          const discoveredDuration = seconds > 0 ? seconds : source.project.sourceDurationSeconds || 0;
+          if (discoveredDuration > 0) {
+            durations[source.key] = (discoveredDuration / 60).toFixed(2);
+            refreshedCount += 1;
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(3, sources.length) }, () => worker()));
+      setCostDurations(current => {
+        const next = { ...current, ...durations };
+        try { localStorage.setItem('satvic-cost-estimate:all-projects', JSON.stringify(next)); } catch { /* Keep refreshed values available for this session. */ }
+        return next;
+      });
+      setProjects(current => current.map(project => {
+        const minutes = durations[project.jobId || project.title];
+        return minutes ? { ...project, sourceDurationSeconds: Number(minutes) * 60 } : project;
+      }));
+      setNotice(`Refreshed video duration for ${refreshedCount} of ${sources.length} projects.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Could not refresh project details.');
+    } finally {
+      setCostRefreshBusy(false);
+    }
   }
 
   function toggleProjectMenu(event: React.MouseEvent<HTMLButtonElement>, projectId: string) {
@@ -1172,7 +1248,7 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
 
 
 
-      {costEstimateOpen && <div className={`cost-estimate-backdrop${costEstimateClosing?' closing':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)closeCostEstimator()}}><section className="cost-estimate-panel" role="dialog" aria-modal="true" aria-labelledby="cost-estimate-title" style={{transformOrigin:`${costDockOrigin.x}px ${costDockOrigin.y}px`}}><header className="cost-estimate-header"><div><div className="section-kicker">PROJECT COST ESTIMATE</div><h2 id="cost-estimate-title">{costEstimateSelectedFolderId ? folders.find(folder=>folder.id===costEstimateSelectedFolderId)?.name || 'Project estimate' : 'All project videos'}</h2><p>{costEstimateDockRows.length} videos{costEstimateSelectedFolderId ? ' in this project' : ' across your project folders'} · adjust the workflow or duration for each video below.</p></div><button type="button" className="icon-btn" onClick={closeCostEstimator} aria-label="Close cost estimator"><X size={18}/></button></header>
+      {costEstimateOpen && <div className={`cost-estimate-backdrop${costEstimateClosing?' closing':''}`} onMouseDown={event=>{if(event.target===event.currentTarget)closeCostEstimator()}}><section className="cost-estimate-panel" role="dialog" aria-modal="true" aria-labelledby="cost-estimate-title" style={{transformOrigin:`${costDockOrigin.x}px ${costDockOrigin.y}px`}}><header className="cost-estimate-header"><div><div className="section-kicker">PROJECT COST ESTIMATE</div><h2 id="cost-estimate-title">{costEstimateSelectedFolderId ? folders.find(folder=>folder.id===costEstimateSelectedFolderId)?.name || 'Project estimate' : 'All project videos'}</h2><p>{costEstimateDockRows.length} videos{costEstimateSelectedFolderId ? ' in this project' : ' across your project folders'} · adjust the workflow or duration for each video below.</p></div><div className="cost-estimate-header-actions"><button type="button" className="cost-refresh-button" onClick={()=>void refreshCostEstimateDurations()} disabled={costRefreshBusy} aria-label="Refresh video durations" title="Fetch video durations and update the estimates">{costRefreshBusy?<LoaderCircle size={16} className="spin"/>:<RefreshCw size={16}/>}<span>{costRefreshBusy?'Refreshing':'Refresh'}</span></button><button type="button" className="icon-btn" onClick={closeCostEstimator} aria-label="Close cost estimator"><X size={18}/></button></div></header>
         <div className="cost-estimate-folder-detail"><div className="cost-estimate-summary"><article><span>Estimated Sarvam</span><b>{formatEstimate(costEstimateDockTotals.sarvamInr,'INR')}</b><small>Dubbing, transcription and translation</small></article><article><span>Estimated Gemini</span><b>{usdInrRate === null ? '₹—' : formatEstimate(costEstimateDockTotals.geminiUsd * usdInrRate,'INR')}<small className="cost-inline-usd">{formatEstimate(costEstimateDockTotals.geminiUsd,'USD')}</small></b><small>Transcript and audio review</small></article><article className="cost-total-card"><span>{costEstimateSelectedFolderId ? 'Total project cost' : 'Total workspace cost'}</span><b>{usdInrRate === null ? '₹—' : formatEstimate(costEstimateDockTotals.sarvamInr + costEstimateDockTotals.geminiUsd * usdInrRate,'INR')}</b><small>Sarvam + Gemini estimate</small></article></div><div className="cost-estimate-table-wrap"><table className="cost-estimate-table"><thead><tr><th>Video</th><th>Workflow</th><th>Length</th><th>Sarvam</th><th>Gemini</th></tr></thead><tbody>{costEstimateDockRows.length?costEstimateDockRows.map(row=><tr key={row.key}><td><b>{row.project.title}</b><small>{folders.find(folder=>folder.id===row.project.folderId)?.name} · {row.project.source} → {row.project.target} · {row.project.status}</small></td><td><select aria-label={`Workflow for ${row.project.title}`} value={row.mode} onChange={event=>setCostWorkflowModes(current=>({...current,[row.key]:event.target.value as 'sarvam'|'review'}))}><option value="sarvam">Sarvam dub + QA</option><option value="review">Existing dub QA</option></select></td><td><label className="cost-duration-field"><input aria-label={`Video length in minutes for ${row.project.title}`} type="number" min="0.01" step="0.1" value={costDurations[row.key]||''} placeholder="Minutes" onChange={event=>updateCostDuration(row.key,event.target.value)}/><span>min</span></label></td><td>{row.sarvamInr===null?'—':formatEstimate(row.sarvamInr,'INR')}</td><td>{row.geminiUsd===null?'—':<>{usdInrRate === null ? '₹—' : formatEstimate(row.geminiUsd * usdInrRate,'INR')}<small className="cost-inline-usd">{formatEstimate(row.geminiUsd,'USD')}</small></>}</td></tr>):<tr><td colSpan={5} className="cost-empty">No videos are saved in this project folder yet.</td></tr>}</tbody></table></div></div>
         <details className="cost-rate-details" open={!costEstimateSelectedFolderId}><summary><Calculator size={14}/> Technologies and estimate assumptions</summary><div className="cost-rate-grid"><label><span>Sarvam dubbing · ₹/min</span><input type="number" min="0" step="0.1" value={costRates.dubbingPerMinute} onChange={event=>setCostRates(current=>({...current,dubbingPerMinute:Number(event.target.value)}))}/></label><label><span>Saaras v4 · ₹/track min</span><input type="number" min="0" step="0.01" value={costRates.speechToTextPerMinute} onChange={event=>setCostRates(current=>({...current,speechToTextPerMinute:Number(event.target.value)}))}/></label><label><span>Translate · ₹/1,000 chars</span><input type="number" min="0" step="0.1" value={costRates.translatePerThousandCharacters} onChange={event=>setCostRates(current=>({...current,translatePerThousandCharacters:Number(event.target.value)}))}/></label><label><span>Estimated chars per minute</span><input type="number" min="0" step="100" value={costRates.charactersPerMinute} onChange={event=>setCostRates(current=>({...current,charactersPerMinute:Number(event.target.value)}))}/></label><label><span>Gemini input · $/1M tokens</span><input type="number" min="0" step="0.01" value={costRates.geminiInputUsdPerMillion} onChange={event=>setCostRates(current=>({...current,geminiInputUsdPerMillion:Number(event.target.value)}))}/></label><label><span>Gemini output · $/1M tokens</span><input type="number" min="0" step="0.01" value={costRates.geminiOutputUsdPerMillion} onChange={event=>setCostRates(current=>({...current,geminiOutputUsdPerMillion:Number(event.target.value)}))}/></label></div><div className="cost-tech-list"><span><b>Sarvam Dubbing API</b> · dubbing jobs, source duration billed; `editor_flow: false`.</span><span><b>Sarvam Saaras v4</b> · timestamped transcription. Generated dubs reuse the Sarvam subtitle transcript; existing-dub reviews transcribe both tracks.</span><span><b>Sarvam Translate v1</b> · dub back-translation, estimated from characters per minute.</span><span><b>Gemini {preflight?.geminiModel || '3.8 Flash'}</b> · transcript comparison and audio listening, estimated from input/output tokens per minute.</span><span><b>FFmpeg, Vercel Workflows, Blob, and Supabase</b> · hosting, processing, transfer, and storage charges are not included.</span></div><p className="cost-rate-note">Rates are estimates and may differ from your provider plan. Sarvam is shown in INR, Gemini in USD. Actual token and character usage varies. Excludes GST.</p><div className="cost-source-links"><a href="https://docs.sarvam.ai/api/getting-started/pricing" target="_blank" rel="noreferrer">Sarvam pricing</a><a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noreferrer">Gemini pricing</a></div></details><footer className="cost-estimate-footer"><span>Video estimates are saved in this browser for each project folder.</span><button type="button" onClick={closeCostEstimator}>Done</button></footer></section></div>}
       {notice && <div className="toast"><Check size={16}/><span>{notice}</span><button onClick={()=>setNotice('')} aria-label="Dismiss"><X size={15}/></button></div>}

@@ -7,9 +7,15 @@ export async function GET() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: 'Sign in to view your project history.' }, { status: 401 });
-    const { data, error } = await supabase.from('qa_jobs').select('id, run_id, project_name, original_name, source_language, target_language, status, issue_count, error_message, folder_id, dubbed_blob_url, created_at, updated_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100);
+    const { data, error } = await supabase.from('qa_jobs').select('id, run_id, project_name, original_name, source_language, target_language, status, issue_count, error_message, folder_id, original_blob_url, original_b2_key, dubbed_blob_url, created_at, updated_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100);
     if (error) throw error;
-    return Response.json({ jobs: (data || []).map(({ dubbed_blob_url, ...job }) => ({ ...job, dubbed_available: Boolean(dubbed_blob_url) })), userEmail: user.email || '' }, { headers: { 'cache-control': 'no-store' } });
+    return Response.json({ jobs: (data || []).map(({ original_blob_url, original_b2_key, dubbed_blob_url, ...job }) => ({
+      ...job,
+      original_video_url: original_b2_key
+        ? `/api/jobs/${encodeURIComponent(job.run_id || job.id)}/b2/media?track=source`
+        : original_blob_url ? `/api/jobs/media?runId=${encodeURIComponent(job.run_id || job.id)}&url=${encodeURIComponent(original_blob_url)}` : null,
+      dubbed_available: Boolean(dubbed_blob_url),
+    })), userEmail: user.email || '' }, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not load project history.';
     return Response.json({ error: message }, { status: 500 });
