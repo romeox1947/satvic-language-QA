@@ -115,8 +115,10 @@ async function checkSarvam(jobId: string) {
   const exports = exportBody.data?.exports || [];
   const video = exports.find((item: Json) => item.export_type === 'video' && item.status === 'completed' && !item.is_stale);
   const subtitles = exports.find((item: Json) => item.export_type === 'srt' && item.status === 'completed' && !item.is_stale);
-  const failed = exports.find((item: Json) => item.export_type === 'video' && item.status === 'failed');
-  if (failed) throw new Error(failed.error_message || 'Sarvam could not render the dubbed video.');
+  const failedVideo = exports.find((item: Json) => item.export_type === 'video' && item.status === 'failed');
+  if (failedVideo) throw new Error(`Sarvam could not render the dubbed video: ${failedVideo.error_message || 'No export error detail was returned.'}`);
+  const failedSrt = exports.find((item: Json) => item.export_type === 'srt' && item.status === 'failed');
+  if (failedSrt) throw new Error(`Sarvam could not generate the dubbed SRT transcript: ${failedSrt.error_message || 'No export error detail was returned.'}`);
   return video?.download_url ? { ready: true, downloadUrl: video.download_url, subtitleDownloadUrl: subtitles?.download_url || null, progress: 100, step: 'Dub is ready; starting QA' } : { ready: false, progress: 90, step: 'Sarvam is rendering the dubbed video export' };
 }
 
