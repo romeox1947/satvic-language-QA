@@ -119,7 +119,18 @@ async function checkSarvam(jobId: string) {
   if (failedVideo) throw new Error(`Sarvam could not render the dubbed video: ${failedVideo.error_message || 'No export error detail was returned.'}`);
   const failedSrt = exports.find((item: Json) => item.export_type === 'srt' && item.status === 'failed');
   if (failedSrt) throw new Error(`Sarvam could not generate the dubbed SRT transcript: ${failedSrt.error_message || 'No export error detail was returned.'}`);
-  return video?.download_url ? { ready: true, downloadUrl: video.download_url, subtitleDownloadUrl: subtitles?.download_url || null, progress: 100, step: 'Dub is ready; starting QA' } : { ready: false, progress: 90, step: 'Sarvam is rendering the dubbed video export' };
+  const srtPending = exports.find((item: Json) => item.export_type === 'srt' && ['in_progress', 'queued', 'pending'].includes(String(item.status)));
+  if (!subtitles) {
+    if (!srtPending) {
+      await fetch(`${SARVAM}/jobs/${encodeURIComponent(jobId)}/export`, {
+        method: 'POST',
+        headers: { 'api-subscription-key': key, 'content-type': 'application/json' },
+        body: JSON.stringify({ export_type: 'srt' }),
+      }).catch(() => null);
+    }
+    return { ready: false, progress: 92, step: 'Sarvam is preparing the dubbed SRT transcript export' };
+  }
+  return video?.download_url ? { ready: true, downloadUrl: video.download_url, subtitleDownloadUrl: subtitles.download_url, progress: 100, step: 'Dub and SRT transcript are ready; starting QA' } : { ready: false, progress: 90, step: 'Sarvam is rendering the dubbed video export' };
 }
 
 async function downloadSubtitle(downloadUrl: string | null) {
@@ -127,10 +138,12 @@ async function downloadSubtitle(downloadUrl: string | null) {
   if (!downloadUrl) return null;
   try {
     const response = await fetch(downloadUrl, { cache: 'no-store', signal: AbortSignal.timeout(60_000) });
-    if (!response.ok) return null;
+    if (!response.ok) throw new Error(`SRT download returned HTTP ${response.status}.`);
     const text = await response.text();
-    return text.length <= 2_000_000 ? text : null;
-  } catch {
+    if (!text.includes('-->') || text.length > 2_000_000) throw new Error('The downloaded dubbed SRT is empty or invalid.');
+    return text;
+  } catch (error) {
+    console.error('[dubbing-workflow] Could not download a usable Sarvam SRT export.', error);
     return null;
   }
 }

@@ -636,6 +636,9 @@ export async function POST(request: Request) {
     const dubbedSubtitleSrt = typeof json.dubbedSubtitleSrt === 'string' && json.dubbedSubtitleSrt.length <= 2_000_000 ? json.dubbedSubtitleSrt : '';
     let originalResult = checkpoint.originalResult;
     let dubbedResult = checkpoint.dubbedResult || (dubbedSubtitleSrt && parseSarvamSrt(dubbedSubtitleSrt, target.sarvam)) || undefined;
+    if (!dubbedResult) {
+      throw new Error('The dubbed SRT transcript is unavailable or could not be parsed. QA stopped before any Sarvam transcription jobs were created, so no additional STT credits should be charged.');
+    }
     if (!originalResult || !dubbedResult) {
       markStage(dubbedResult ? 'Transcribing source with Sarvam' : 'Transcribing source and dubbed media with Sarvam');
       updateAnalysisProgress(progressId, stage, 24);
@@ -791,22 +794,26 @@ export async function POST(request: Request) {
   } catch (error) {
     console.info(`[api/analyze] stage=${stage} failedAfterMs=${Date.now() - stageStartedAt}`);
     const message = error instanceof Error ? error.message : providerError(error as Json);
-    const resumableProviderIssue = /timeout|timed out|deadline|rate.?limit|returned 429|still processing|job_state=/i.test(message);
+    const noSarvamCredits = /returned 402|No credits available|credits available|insufficient credits/i.test(message);
+    const resumableProviderIssue = !noSarvamCredits && /timeout|timed out|deadline|rate.?limit|returned 429|still processing|job_state=/i.test(message);
+    const visibleMessage = noSarvamCredits
+      ? `Sarvam transcription could not start because the Sarvam account has no available credits (HTTP 402). Your saved dub is safe. Add credits in the Sarvam dashboard, then retry QA; no dubbing job will be started again.`
+      : message;
     if (historyJobId && historySupabase) {
-      await historySupabase.from('qa_jobs').update({ status: resumableProviderIssue ? 'running' : 'failed', error_message: message.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
+      await historySupabase.from('qa_jobs').update({ status: resumableProviderIssue ? 'running' : 'failed', error_message: visibleMessage.slice(0, 2000), updated_at: new Date().toISOString() }).eq('id', historyJobId);
       if (!historyManagedByWorkflow) await sendGmailJobEmail({
         to: historyNotificationEmail,
         outcome: 'failed',
         projectName: historyProjectName || 'Video QA',
         sourceLanguage: historySourceLanguage || 'Unknown',
         targetLanguage: historyTargetLanguage || 'Unknown',
-        detail: `${stage}: ${message}`,
+        detail: `${stage}: ${visibleMessage}`,
         appUrl: appUrl(),
       });
     }
-    updateAnalysisProgress(progressId, 'Analysis stopped', 100, 'error', message);
-    console.error(`[api/analyze] ${stage} failed: ${message || 'Unknown analysis error.'}`);
-    const status = /rate.?limit|returned 429/i.test(message) ? 429 : resumableProviderIssue ? 504 : /returned 503/.test(message) ? 503 : 502;
-    return NextResponse.json({ error: `${resumableProviderIssue ? 'QA checkpoint retry: ' : ''}${stage}: ${message || 'Unknown analysis error.'}` }, { status });
+    updateAnalysisProgress(progressId, 'Analysis stopped', 100, 'error', visibleMessage);
+    console.error(`[api/analyze] ${stage} failed: ${visibleMessage || 'Unknown analysis error.'}`);
+    const status = noSarvamCredits ? 402 : /rate.?limit|returned 429/i.test(message) ? 429 : resumableProviderIssue ? 504 : /returned 503/.test(message) ? 503 : 502;
+    return NextResponse.json({ error: `${resumableProviderIssue ? 'QA checkpoint retry: ' : ''}${stage}: ${visibleMessage || 'Unknown analysis error.'}` }, { status });
   }
 }
