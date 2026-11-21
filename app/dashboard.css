@@ -1224,6 +1224,8 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 
 /* Keep the QA report neutral and leave a visible thumb without a scrollbar track. */
 .app-shell.product-satvic-fluid .detail-modal { border-color: #e5e5e2; background: #fff; }
+.app-shell.product-satvic-fluid .create-modal{overflow-y:auto;scrollbar-width:none}
+.app-shell.product-satvic-fluid .create-modal::-webkit-scrollbar{display:none;width:0;height:0}
 .app-shell.product-satvic-fluid .detail-modal > h2,
 .app-shell.product-satvic-fluid .detail-issue b,
 .app-shell.product-satvic-fluid .detail-section-title { color: #252622; }
@@ -1337,8 +1339,10 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .app-shell .search-trigger{justify-content:flex-start;cursor:pointer;text-align:left;color:#888b82;background:#fff}
 .app-shell .search-trigger>span{flex:1;color:#999b94;font-size:9px}
 .app-shell .search-trigger kbd,.spotlight-footer kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:19px;padding:0 5px;border:1px solid #e5e7e2;border-radius:5px;background:#f8f9f7;color:#888b82;font:600 9px "Matter",sans-serif}
-.spotlight-backdrop{position:fixed;z-index:100;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:clamp(70px,15vh,150px) 18px 24px;background:rgba(26,29,25,.28);backdrop-filter:blur(7px);animation:spotlight-fade-in .14s ease-out}
-.spotlight-panel{width:min(650px,100%);max-height:min(650px,75vh);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.88);border-radius:17px;background:rgba(255,255,255,.97);box-shadow:0 24px 80px rgba(25,35,24,.22),0 2px 8px rgba(25,35,24,.08);animation:spotlight-panel-in .17s ease-out}
+.spotlight-backdrop{position:fixed;z-index:100;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:clamp(70px,15vh,150px) 18px 24px;background:rgba(26,29,25,.28);backdrop-filter:blur(7px);animation:spotlight-fade-in .18s ease-out both}
+.spotlight-panel{width:min(650px,100%);max-height:min(650px,75vh);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(255,255,255,.88);border-radius:17px;background:rgba(255,255,255,.97);box-shadow:0 24px 80px rgba(25,35,24,.22),0 2px 8px rgba(25,35,24,.08);animation:spotlight-panel-in .24s cubic-bezier(.2,.8,.2,1) both}
+.spotlight-backdrop.closing{animation:spotlight-fade-out .19s ease-in both}
+.spotlight-backdrop.closing .spotlight-panel{animation:spotlight-panel-out .19s cubic-bezier(.4,0,.8,.2) both}
 .spotlight-input-row{min-height:70px;display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid #eeefeb;color:#7b957c}
 .spotlight-input-row>input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#2e342e;font:500 17px "Matter",sans-serif}
 .spotlight-input-row>input::placeholder{color:#a4a69f}
@@ -1367,7 +1371,10 @@ body:has(.app-shell) { overflow: hidden; background: #f2f3f1; }
 .spotlight-footer>span{display:flex;align-items:center;gap:5px}
 .spotlight-footer kbd{height:17px;min-width:19px;font-size:8px}
 @keyframes spotlight-fade-in{from{opacity:0}to{opacity:1}}
-@keyframes spotlight-panel-in{from{opacity:0;transform:translateY(-5px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes spotlight-fade-out{from{opacity:1}to{opacity:0}}
+@keyframes spotlight-panel-in{from{opacity:0;transform:scale(.06)}to{opacity:1;transform:scale(1)}}
+@keyframes spotlight-panel-out{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(.06)}}
+@media(prefers-reduced-motion:reduce){.spotlight-backdrop,.spotlight-panel{animation-duration:.01ms!important}}
 @media(max-width:600px){.spotlight-backdrop{padding:68px 10px 16px}.spotlight-panel{max-height:78vh;border-radius:13px}.spotlight-input-row{min-height:58px;padding:0 14px;gap:10px}.spotlight-input-row>input{font-size:14px}.spotlight-footer{justify-content:center;gap:10px}.spotlight-status{display:none}}
 .app-shell .project-view-option{display:flex;align-items:center;gap:8px;width:100%;padding:8px 9px;border:0;border-radius:6px;background:transparent;color:#62665e;text-align:left;font:500 10px "Matter";cursor:pointer}
 .app-shell .project-view-option:hover{background:#f1f4ef;color:#3f6347}
