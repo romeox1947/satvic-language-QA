@@ -223,6 +223,10 @@ export default function SatvicFluidDashboard({ initialAccountEmail = '', initial
     setWorkflowProjectError('');
     setWorkflowProjectName('');
     setWorkflowProjectCreating(false);
+    if (activeFolderId) {
+      continueWorkflowInProject(activeFolderId);
+      return;
+    }
     setWorkflowProjectOpen(true);
   };
 
